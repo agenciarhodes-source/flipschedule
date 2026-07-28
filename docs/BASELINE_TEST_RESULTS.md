@@ -63,3 +63,25 @@ Não foi encontrado `.env` versionado. Nenhuma credencial foi criada ou inferida
 ## Interpretação
 
 Esta baseline não demonstra sucesso nem falha funcional do produto; demonstra que o checkout não é reproduzível neste ambiente sem acesso aos registros e serviços/variáveis externos. O relatório histórico existente não foi tratado como uma nova execução. Nenhuma migration foi executada e nenhum banco foi criado ou alterado.
+
+## Revalidação dos gates da Fase 1 — 2026-07-28
+
+| Comando exato | Resultado |
+|---|---|
+| `node --version` | Aprovado: `v24.15.0` (satisfaz `>=20.9.0`; o CI declara Node 22). |
+| `corepack --version` | Aprovado: `0.34.6`. |
+| `pnpm --version` | Aprovado: `10.28.1`, igual ao `packageManager` e ao workflow. |
+| `pnpm config get registry` | `https://registry.npmjs.org/`; warning do npm sobre `npm_config_http_proxy`. |
+| `npm config get registry` | `https://registry.npmjs.org/`; mesmo warning. |
+| `corepack enable` | Aprovado. |
+| `pnpm install` | Bloqueado: `ERR_PNPM_FETCH_403` ao obter `@testing-library/react`; nenhuma autorização foi enviada. |
+| `curl https://registry.npmjs.org/@testing-library%2Freact` | Pelo proxy obrigatório, o túnel CONNECT retornou HTTP 403; sem proxy, o host não pôde ser resolvido. Isso isola a causa no acesso de rede/proxy, não no registry configurado no repositório. |
+| `pnpm install --frozen-lockfile` | Falhou corretamente com `ERR_PNPM_NO_LOCKFILE`; nenhum lockfile sintético foi criado. |
+| `pnpm lint` | Não validado: dependência local `@eslint/eslintrc` ausente após a instalação bloqueada. |
+| `pnpm typecheck` | Não validado: tipos e módulos locais ausentes após a instalação bloqueada. |
+| `pnpm test` | Não executou: `vitest: not found`. |
+| `pnpm build` | Não executou: `next: not found`. |
+| `pnpm check` | Não validado: interrompeu no lint pela ausência das dependências. |
+| `pnpm dev` | Não executável pela ausência do pacote `next`; browser verification não realizada. |
+
+O workflow permanece coerente: pnpm 10.28.1, Node 22, cache pnpm dependente do lockfile, instalação com `--frozen-lockfile`, lint, typecheck, testes e build, sem secrets e sem deploy. Não existe remote Git configurado neste checkout, portanto não houve push nem execução observável do GitHub Actions e **CI não é declarada verde**. `frontend/` e `backend/` não foram alterados; seus testes não foram repetidos.
