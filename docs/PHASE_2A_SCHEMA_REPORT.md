@@ -12,7 +12,13 @@ Declaradas: Prisma CLI/Client/adapter Neon 7.2.0, `@neondatabase/serverless` 1.0
 
 São 30 modelos: identidade/tenancy (`User`, `Tenant`, `Clinic`, `Membership`, `AccessEntitlement`); operação (`Professional`, `ProfessionalClinic`, `Resource`, `Procedure`, `WorkingHours`, `ScheduleBlock`); LGPD (`Patient`, `Consent`); CRM (`Pipeline`, `PipelineStage`, `Lead`, históricos e atribuição); agenda; planos; comunicação; integrações, cobrança, webhook e auditoria. Enums cobrem status, roles, consentimento, canais, providers e outcomes descritos no requisito.
 
-Entidades tenant-scoped possuem `tenantId`, identidade composta alternativa e FKs compostas. Appointment e WorkingHours referenciam `ProfessionalClinic`; relações de paciente, clínica, profissional, procedimento, recurso, lead, planos, conversas e histories carregam o mesmo tenant.
+Entidades tenant-scoped mantêm `tenantId` obrigatório, `@@unique([id, tenantId])` quando aplicável e índices iniciados pelo tenant. Appointment e WorkingHours continuam referenciando `ProfessionalClinic`; relações de paciente, clínica, profissional, procedimento, recurso, lead, planos, conversas e históricos preservam seus IDs específicos e o tenant explícito.
+
+## Correção de validação do Prisma
+
+A validação inicial reportou **81 erros**. A causa dominante era a reutilização de `tenantId` como relation scalar em várias relações compostas no mesmo modelo, o que produziu relações sobrepostas e, em relações opcionais, combinações inválidas. Também havia relações múltiplas que exigiam nomes/opostos explícitos. Não foram encontrados erros reais de enum, sintaxe, tipo monetário ou chave composta depois da normalização.
+
+O schema corrigido usa o ID específico de cada entidade nas relações Prisma, nomes idênticos nos dois lados das relações ambíguas e campos opostos completos. `tenantId` não foi removido nem duplicado: continua como fronteira explícita e relação direta com `Tenant`. Como o Prisma não consegue expressar todas as foreign keys compostas adicionais sem reutilizar o mesmo relation scalar de forma conflitante, a igualdade de tenant entre entidades relacionadas será reforçada por SQL versionado na migration da etapa 2C.
 
 ## Decisões e riscos
 
@@ -20,7 +26,7 @@ Pipeline é configurável; Patient pertence ao tenant; entitlement comercial é 
 
 ## Invariantes deferidas para 2C
 
-Checks: `endsAt > startsAt`; money não negativo; duração e quantidade positivas; desconto e consistência financeira de plano/item; limites de WorkingHours; alvo de ScheduleBlock; ator de AuditLog. Também: exclusion constraints para Professional/Resource, `btree_gist`, índices adicionais, possível `citext`, busca por nome e política de deleção/anonimização.
+Checks: `endsAt > startsAt`; money não negativo; duração e quantidade positivas; desconto e consistência financeira de plano/item; limites de WorkingHours; alvo de ScheduleBlock; ator de AuditLog. Também: foreign keys compostas adicionais para igualdade de tenant em todas as relações tenant-scoped, com testes de integração negativos cross-tenant; exclusion constraints para Professional/Resource, `btree_gist`, índices adicionais, possível `citext`, busca por nome e política de deleção/anonimização.
 
 ## Próximos passos
 
@@ -28,4 +34,4 @@ Checks: `endsAt > startsAt`; money não negativo; duração e quantidade positiv
 
 ## Comandos e resultados
 
-Os comandos de quality gate estão registrados no relatório final do PR. Nesta cópia, a consulta web oficial e o download do registry retornaram 401/403; nenhuma conexão de banco foi tentada.
+Os comandos de quality gate estão registrados no relatório final do PR. A correção do schema não criou banco nem migration e não executou migration, `prisma db push`, deploy ou configuração externa.
