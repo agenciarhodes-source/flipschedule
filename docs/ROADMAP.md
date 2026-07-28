@@ -2,6 +2,8 @@
 
 Cada fase só termina com evidências dos critérios. Datas e responsáveis são pendentes de planejamento.
 
+**Estado atual:** Fase 1 em andamento. A Fase 1.1 inicia a fundação técnica; a fase permanece aberta até que todos os seus critérios de conclusão sejam atendidos.
+
 | Fase | Objetivo | Pré-requisitos | Entregáveis | Dependências | Riscos | Critérios de conclusão | Não pertence à fase |
 |---|---|---|---|---|---|---|---|
 | 0 — Preparação | Tornar requisitos e decisões explícitos | Auditoria e PRD histórico | Fundação documental, ADRs, riscos e pendências | Stakeholders técnicos/produto | Contradições ou escopo inventado | Documentos revisados; baseline preservada; nenhuma mudança funcional | Instalar Next.js, criar banco/deploy |
