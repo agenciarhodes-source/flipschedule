@@ -1,8 +1,2 @@
-import { FoundationPage } from "@/components/foundation/foundation-page";
-
-interface PublicPlanPageProps { params: Promise<{ token: string }>; }
-
-export default async function PublicPlanPage({ params }: PublicPlanPageProps) {
-  const { token } = await params;
-  return <FoundationPage title="Plano público" context={`Token de demonstração: ${token}`} />;
-}
+import { DemoPublicPlan } from "@/components/public-plan/demo-public-plan";
+export default async function PublicPlanPage({params}:{params:Promise<{token:string}>}){const {token}=await params;return <DemoPublicPlan token={token}/>}

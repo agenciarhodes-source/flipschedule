@@ -1,7 +1,2 @@
-import { MessageSquare } from "lucide-react";
-
-import { ModulePlaceholder } from "@/components/foundation/module-placeholder";
-
-export default function InboxPage() {
-  return <ModulePlaceholder eyebrow="Atendimento" title="Inbox" description="Centralize conversas e acompanhe cada contato." icon={MessageSquare} />;
-}
+import { InboxView } from "@/components/modules/inbox/inbox-view";
+export default function InboxPage(){return <InboxView/>}

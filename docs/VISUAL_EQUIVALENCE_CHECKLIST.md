@@ -70,3 +70,16 @@ Use o protótipo em `frontend/` somente como referência, lado a lado com a apli
 - [ ] `/clinica-vitalita/orcamentos`
 - [ ] `/clinica-vitalita/pacientes`
 - [ ] `/clinica-vitalita/configuracoes`
+
+## Evidência da migração estática
+
+- [ ] Dashboard: KPIs, receita, gráfico, procedimentos, funil e alertas comparados lado a lado.
+- [ ] Agenda: toolbar, filtros, semana, cards e estados comparados lado a lado.
+- [ ] Inbox: lista, thread, painel e composer comparados lado a lado.
+- [ ] CRM: colunas, cards, contadores e filtros comparados lado a lado.
+- [ ] Orçamentos: KPIs, tabela, valores e status comparados lado a lado.
+- [ ] Pacientes: busca, tabela, tags, LTV e vazio comparados lado a lado.
+- [ ] Configurações: tabs e conteúdo demonstrativo comparados lado a lado.
+- [ ] Plano público: itens, total, aviso de demonstração e estados locais comparados lado a lado.
+
+A implementação está disponível para inspeção, mas os itens permanecem desmarcados porque o servidor não pôde ser iniciado neste ambiente.

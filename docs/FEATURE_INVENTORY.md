@@ -36,3 +36,8 @@ Legenda: “real” significa código/persistência efetivamente implementados n
 - **Persistência:** coleções Mongo sem schema/index/migration versionados.
 - **Tenancy:** filtro lógico por `tenant_id`, escolhido a partir de slug público.
 - **Dados:** a maioria das telas usa dados persistidos, mas originados do seed sintético; canais e respostas da Inbox são explicitamente simulados.
+
+
+## Migração Next.js — Fase 1 (proposta não validada)
+
+A raiz contém representações visuais estáticas da landing, login, dashboard, agenda, inbox, CRM, pacientes, orçamentos, configurações e plano público. Todos os dados são mocks tipados e fictícios; busca, tabs, composer e resposta ao plano usam somente estado local. Isso não substitui as implementações do protótipo nem indica backend, persistência, autenticação ou integração. Os quality gates e a equivalência em navegador ainda não foram validados devido ao bloqueio HTTP 403 do registry npm.

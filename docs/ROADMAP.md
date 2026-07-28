@@ -17,7 +17,7 @@ Cada fase só termina com evidências dos critérios. Datas e responsáveis são
 
 ## Progresso registrado
 
-- **Fase 1 — fundação técnica iniciada:** estrutura App Router, configuração TypeScript/Tailwind/shadcn, rotas mínimas, testes e workflow de qualidade foram propostos. A instalação e os gates permanecem bloqueados por HTTP 403 do registry; o lockfile, a validação executável e a equivalência visual continuam pendentes. A fase não está concluída.
+- **Fase 1 — migração visual estática implementada, validação pendente:** fundação App Router, design system, shell, landing, login, plano público e sete módulos com dados fictícios tipados estão no código. Instalação, lockfile, quality gates, CI e comparação visual executável permanecem bloqueados por HTTP 403 do registry. A fase não está concluída sem essas evidências.
 
 ## Gates transversais
 

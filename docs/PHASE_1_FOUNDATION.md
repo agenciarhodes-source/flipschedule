@@ -88,3 +88,13 @@ Diferenças deliberadas: o drawer mobile substitui a sidebar permanente em telas
 Foram criados testes para todos os itens de navegação, item ativo com `aria-current`, tenant fictício, região `main`, labels acessíveis, abertura/fechamento do menu e fechamento por Escape com retorno de foco.
 
 A inspeção executável de `/clinica-vitalita/dashboard`, `/agenda`, `/inbox`, `/crm`, `/orcamentos`, `/pacientes` e `/configuracoes`, em desktop e mobile, continua bloqueada porque o registry npm respondeu HTTP 403 e as dependências não puderam ser instaladas. Nenhuma tela foi marcada como visualmente aprovada sem essa verificação.
+
+## Migração estática das telas do produto
+
+A landing, o login demonstrativo, a página pública de plano e as sete rotas da plataforma receberam estruturas visuais adaptadas do protótipo. Dashboard, agenda, inbox, CRM, orçamentos, pacientes e configurações consomem módulos tipados em `domains/demo/`, sem importar ou chamar o frontend/backend legados.
+
+Os mocks usam datas ISO fixas, valores monetários em centavos e identidades brasileiras explicitamente fictícias. Esses tipos existem somente para apresentação e testes da Fase 1; não definem nem antecipam o schema Prisma definitivo.
+
+Interações de inbox, busca de pacientes, tabs e resposta ao plano público são estado local descartável. Não existe sessão simulada, cookie, localStorage, aceite, consentimento, geração de link, persistência ou integração externa.
+
+Foram adicionados testes proporcionais para landing, login, plano público e os sete módulos, além de utilitários determinísticos de moeda, data, telefone e tempo relativo. Os quality gates e a inspeção no navegador continuam não executáveis enquanto o ambiente bloquear o registry npm com HTTP 403. Por isso, apesar do escopo de código estar presente, a Fase 1 não é marcada como concluída.
