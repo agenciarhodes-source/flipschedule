@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #12181e;
+  --background-alt: #171f26;
+  --background-elevated: #1e2830;
+  --foreground: #f0ebdf;
+  --foreground-muted: #a9aeb1;
+  --foreground-dim: #6e767c;
+  --border: #2a3540;
+  --border-strong: #3a4854;
+  --accent: #95e4a5;
+  --accent-muted: #6bb27c;
+  --warning: #e4b47a;
+  --danger: #e67c6e;
+  --info: #7ab8e4;
+}
+
+* { box-sizing: border-box; }
+html { color-scheme: dark; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans), sans-serif; }
+button, input, textarea, select { font: inherit; }

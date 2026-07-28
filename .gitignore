@@ -86,3 +86,6 @@ android-sdk/
 credentials.json
 *.key
 .credentials
+
+# Next.js TypeScript declaration is part of the application foundation.
+!/next-env.d.ts
