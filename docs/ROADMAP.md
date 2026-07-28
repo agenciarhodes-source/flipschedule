@@ -15,6 +15,10 @@ Cada fase só termina com evidências dos critérios. Datas e responsáveis são
 | 8 — Meta/atribuição | Unificar canais e origem de leads | Fase 7 estável; definições de atribuição | Instagram, Messenger, Lead Ads e métricas | Permissões/review Meta | Atribuição incorreta; mudanças da API | Webhooks e reconciliação por tenant aprovados | Novos canais, IA, criativos |
 | 9 — Piloto/lançamento | Validar segurança, operação e produto | Todas as fases aplicáveis | Hardening, pentest, LGPD, piloto, go-live checklist | Clínica piloto, jurídico e suporte | Incidente de dados ou indisponibilidade | Aceites explícitos, SLO/alertas/suporte ativos e pendências P0 fechadas | Expansões P1/P2 sem novo planejamento |
 
+## Progresso registrado
+
+- **Fase 1 — migração visual estática implementada, validação pendente:** fundação App Router, design system, shell, landing, login, plano público e sete módulos com dados fictícios tipados estão no código. Instalação, lockfile, quality gates, CI e comparação visual executável permanecem bloqueados por HTTP 403 do registry. A fase não está concluída sem essas evidências.
+
 ## Gates transversais
 
 Toda fase exige escopo e critérios antes do código, testes automatizados proporcionais, documentação atualizada, revisão de secrets/PII, evidência de isolamento tenant e plano operacional. Um PR, deploy ou migration isolado não conclui fase.
