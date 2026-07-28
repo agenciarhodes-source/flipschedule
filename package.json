@@ -2,27 +2,41 @@
   "name": "flipschedule",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.28.1",
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "pnpm db:generate && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "db:format": "prisma format",
+    "db:validate": "prisma validate",
+    "db:generate": "prisma generate",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:create": "prisma migrate dev --create-only",
+    "db:migrate:status": "prisma migrate status",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate",
+    "check": "pnpm db:validate && pnpm db:generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
+    "@neondatabase/serverless": "1.0.2",
+    "@prisma/adapter-neon": "7.2.0",
+    "@prisma/client": "7.2.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "0.468.0",
     "next": "15.5.7",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "server-only": "0.0.1",
     "tailwind-merge": "2.6.0",
     "zod": "3.24.1"
   },
@@ -40,6 +54,9 @@
     "jsdom": "25.0.1",
     "postcss": "8.4.49",
     "tailwindcss": "3.4.17",
+    "dotenv": "17.2.3",
+    "prisma": "7.2.0",
+    "tsx": "4.21.0",
     "typescript": "5.7.2",
     "vitest": "2.1.8"
   }

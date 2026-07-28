@@ -22,3 +22,8 @@ Cada fase só termina com evidências dos critérios. Datas e responsáveis são
 ## Gates transversais
 
 Toda fase exige escopo e critérios antes do código, testes automatizados proporcionais, documentação atualizada, revisão de secrets/PII, evidência de isolamento tenant e plano operacional. Um PR, deploy ou migration isolado não conclui fase.
+
+### Estado detalhado da Fase 2
+
+- **Passo 2A:** implementado no código e aguardando revisão (schema/client/testes/documentação; sem banco ou migration).
+- **Passos 2B e 2C:** pendentes; respectivamente provisionamento controlado e migration/constraints revisáveis.

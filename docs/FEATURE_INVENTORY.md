@@ -41,3 +41,7 @@ Legenda: “real” significa código/persistência efetivamente implementados n
 ## Migração Next.js — Fase 1 (proposta não validada)
 
 A raiz contém representações visuais estáticas da landing, login, dashboard, agenda, inbox, CRM, pacientes, orçamentos, configurações e plano público. Todos os dados são mocks tipados e fictícios; busca, tabs, composer e resposta ao plano usam somente estado local. Isso não substitui as implementações do protótipo nem indica backend, persistência, autenticação ou integração. Os quality gates e a equivalência em navegador ainda não foram validados devido ao bloqueio HTTP 403 do registry npm.
+
+## Reconstrução — estado do modelo
+
+O Passo 2A agora representa os módulos confirmados em um schema relacional Prisma, incluindo pipeline configurável, vínculo profissional-clínica, consentimentos, históricos, comunicação, billing e governança. A implementação é somente estrutural e aguarda revisão; nenhuma feature está conectada ao banco.

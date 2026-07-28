@@ -1,0 +1,644 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db { provider = "postgresql" }
+
+enum UserStatus { ACTIVE SUSPENDED DISABLED }
+enum TenantStatus { ACTIVE SUSPENDED ARCHIVED }
+enum ClinicStatus { ACTIVE INACTIVE }
+enum MembershipRole { OWNER MANAGER RECEPTIONIST PROFESSIONAL AGENCY_LEAD AGENCY_OPS AGENCY_READONLY }
+enum MembershipStatus { INVITED ACTIVE SUSPENDED REVOKED }
+enum EntitlementType { TRIAL PAID COURTESY INTERNAL }
+enum EntitlementStatus { ACTIVE EXPIRED REVOKED }
+enum ProfessionalStatus { ACTIVE INACTIVE }
+enum ResourceType { CHAIR ROOM EQUIPMENT OTHER }
+enum ConsentPurpose { SERVICE APPOINTMENT_REMINDER MARKETING DATA_PROCESSING PUBLIC_TREATMENT_PLAN }
+enum LegalBasis { CONSENT CONTRACT LEGAL_OBLIGATION LEGITIMATE_INTEREST HEALTH_PROTECTION }
+enum PipelineStageType { OPEN WON LOST }
+enum AppointmentStatus { SCHEDULED CONFIRMED ARRIVED ATTENDED NO_SHOW CANCELLED RESCHEDULED }
+enum TreatmentPlanStatus { DRAFT SENT VIEWED ACCEPTED REJECTED EXPIRED CANCELLED }
+enum ConversationChannel { WHATSAPP INSTAGRAM MESSENGER EMAIL INTERNAL }
+enum ConversationStatus { OPEN PENDING CLOSED ARCHIVED }
+enum MessageDirection { INBOUND OUTBOUND INTERNAL }
+enum MessageStatus { PENDING SENT DELIVERED READ FAILED RECEIVED }
+enum IntegrationProvider { WHATSAPP INSTAGRAM MESSENGER FACEBOOK_LEADS ASAAS EMAIL }
+enum IntegrationStatus { DISCONNECTED PENDING CONNECTED ERROR REVOKED }
+enum BillingProvider { ASAAS MANUAL }
+enum SubscriptionStatus { PENDING ACTIVE PAST_DUE SUSPENDED CANCELLED EXPIRED }
+enum PaymentStatus { PENDING CONFIRMED RECEIVED OVERDUE REFUNDED CANCELLED FAILED }
+enum WebhookStatus { RECEIVED PROCESSING PROCESSED FAILED }
+enum AuditOutcome { SUCCESS DENIED FAILED }
+
+model User {
+ id String @id @default(uuid()) @db.Uuid
+ emailNormalized String @unique
+ displayName String
+ status UserStatus @default(ACTIVE)
+ emailVerifiedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ memberships Membership[]
+ entitlementsGranted AccessEntitlement[]
+ auditLogs AuditLog[]
+}
+model Tenant {
+ id String @id @default(uuid()) @db.Uuid
+ name String
+ slug String @unique
+ status TenantStatus @default(ACTIVE)
+ timezone String
+ locale String @default("pt-BR")
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ clinics Clinic[]
+ memberships Membership[]
+ entitlements AccessEntitlement[]
+ professionals Professional[]
+ resources Resource[]
+ procedures Procedure[]
+ workingHours WorkingHours[]
+ scheduleBlocks ScheduleBlock[]
+ patients Patient[]
+ consents Consent[]
+ pipelines Pipeline[]
+ pipelineStages PipelineStage[]
+ leads Lead[]
+ leadStageHistories LeadStageHistory[]
+ patientAttributions PatientAttribution[]
+ appointments Appointment[]
+ appointmentStatusHistories AppointmentStatusHistory[]
+ treatmentPlans TreatmentPlan[]
+ treatmentPlanItems TreatmentPlanItem[]
+ treatmentPlanStatusHistories TreatmentPlanStatusHistory[]
+ conversations Conversation[]
+ messages Message[]
+ integrations Integration[]
+ subscriptions Subscription[]
+ payments Payment[]
+ webhookEvents WebhookEvent[]
+ auditLogs AuditLog[]
+}
+model Clinic {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ name String
+ slug String
+ timezoneOverride String?
+ status ClinicStatus @default(ACTIVE)
+ addressMetadata Json?
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ professionalClinics ProfessionalClinic[]
+ resources Resource[]
+ scheduleBlocks ScheduleBlock[]
+ leads Lead[]
+ appointments Appointment[]
+ treatmentPlans TreatmentPlan[]
+ @@unique([id, tenantId])
+ @@unique([tenantId, slug])
+ @@index([tenantId, status])
+}
+model Membership {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ userId String @db.Uuid
+ role MembershipRole
+ status MembershipStatus @default(INVITED)
+ invitedAt DateTime @default(now()) @db.Timestamptz(3)
+ acceptedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ user User @relation(fields:[userId], references:[id])
+ professionals Professional[]
+ blocksCreated ScheduleBlock[]
+ leadsAssigned Lead[]
+ leadChanges LeadStageHistory[]
+ appointmentsCreated Appointment[]
+ appointmentChanges AppointmentStatusHistory[]
+ treatmentPlansCreated TreatmentPlan[]
+ treatmentPlanChanges TreatmentPlanStatusHistory[]
+ auditLogs AuditLog[]
+ @@unique([tenantId, userId])
+ @@unique([id, tenantId])
+ @@index([userId, status])
+}
+model AccessEntitlement {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ type EntitlementType
+ status EntitlementStatus
+ startsAt DateTime @db.Timestamptz(3)
+ endsAt DateTime? @db.Timestamptz(3)
+ reason String?
+ grantedByUserId String? @db.Uuid
+ revokedAt DateTime? @db.Timestamptz(3)
+ metadata Json?
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ grantedBy User? @relation(fields:[grantedByUserId], references:[id])
+ @@unique([id, tenantId])
+ @@index([tenantId, status, startsAt])
+}
+model Professional {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ membershipId String? @db.Uuid
+ name String
+ specialty String
+ registrationNumber String?
+ registrationRegion String?
+ status ProfessionalStatus @default(ACTIVE)
+ color String?
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ membership Membership? @relation(fields:[membershipId,tenantId], references:[id,tenantId])
+ clinics ProfessionalClinic[]
+ scheduleBlocks ScheduleBlock[]
+ treatmentPlans TreatmentPlan[]
+ @@unique([id, tenantId])
+ @@index([membershipId, tenantId])
+}
+model ProfessionalClinic {
+ tenantId String @db.Uuid
+ professionalId String @db.Uuid
+ clinicId String @db.Uuid
+ active Boolean @default(true)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ professional Professional @relation(fields:[professionalId,tenantId], references:[id,tenantId])
+ clinic Clinic @relation(fields:[clinicId,tenantId], references:[id,tenantId])
+ workingHours WorkingHours[]
+ appointments Appointment[]
+ @@id([tenantId, professionalId, clinicId])
+}
+model Resource {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ clinicId String @db.Uuid
+ name String
+ type ResourceType
+ active Boolean @default(true)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ clinic Clinic @relation(fields:[clinicId,tenantId], references:[id,tenantId])
+ scheduleBlocks ScheduleBlock[]
+ appointments Appointment[]
+ @@unique([id, tenantId])
+ @@index([clinicId, tenantId, active])
+}
+model Procedure {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ name String
+ category String?
+ durationMinutes Int
+ defaultPriceCents Int
+ active Boolean @default(true)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ appointments Appointment[]
+ treatmentPlanItems TreatmentPlanItem[]
+ @@unique([id, tenantId])
+ @@index([tenantId, active])
+}
+model WorkingHours {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ professionalId String @db.Uuid
+ clinicId String @db.Uuid
+ weekday Int
+ startMinute Int
+ endMinute Int
+ validFrom DateTime? @db.Date
+ validUntil DateTime? @db.Date
+ active Boolean @default(true)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ professionalClinic ProfessionalClinic @relation(fields:[tenantId,professionalId,clinicId], references:[tenantId,professionalId,clinicId])
+ @@unique([id, tenantId])
+ @@index([tenantId, professionalId, clinicId, weekday])
+}
+model ScheduleBlock {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ clinicId String? @db.Uuid
+ professionalId String? @db.Uuid
+ resourceId String? @db.Uuid
+ startsAt DateTime @db.Timestamptz(3)
+ endsAt DateTime @db.Timestamptz(3)
+ reason String?
+ createdByMembershipId String? @db.Uuid
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ clinic Clinic? @relation(fields:[clinicId,tenantId], references:[id,tenantId])
+ professional Professional? @relation(fields:[professionalId,tenantId], references:[id,tenantId])
+ resource Resource? @relation(fields:[resourceId,tenantId], references:[id,tenantId])
+ createdBy Membership? @relation(fields:[createdByMembershipId,tenantId], references:[id,tenantId])
+ @@unique([id, tenantId])
+ @@index([tenantId, startsAt, endsAt])
+}
+model Patient {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ name String
+ phoneE164 String?
+ emailNormalized String?
+ birthDate DateTime? @db.Date
+ cpfCiphertext String?
+ cpfHash String?
+ notesCiphertext String?
+ archivedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ consents Consent[]
+ leads Lead[]
+ attributions PatientAttribution[]
+ appointments Appointment[]
+ treatmentPlans TreatmentPlan[]
+ conversations Conversation[]
+ @@unique([id, tenantId])
+ @@unique([tenantId, phoneE164])
+ @@index([tenantId, emailNormalized])
+}
+model Consent {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ patientId String @db.Uuid
+ purpose ConsentPurpose
+ legalBasis LegalBasis
+ policyVersion String
+ policyHash String
+ granted Boolean
+ grantedAt DateTime @db.Timestamptz(3)
+ revokedAt DateTime? @db.Timestamptz(3)
+ evidence Json?
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ patient Patient @relation(fields:[patientId,tenantId], references:[id,tenantId])
+ @@unique([id, tenantId])
+ @@index([tenantId, patientId, purpose])
+}
+model Pipeline {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ name String
+ active Boolean @default(true)
+ isDefault Boolean @default(false)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ stages PipelineStage[]
+ leads Lead[]
+ @@unique([id, tenantId])
+ @@index([tenantId, active])
+}
+model PipelineStage {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ pipelineId String @db.Uuid
+ name String
+ position Int
+ type PipelineStageType @default(OPEN)
+ active Boolean @default(true)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ pipeline Pipeline @relation(fields:[pipelineId,tenantId], references:[id,tenantId])
+ currentLeads Lead[]
+ historyFrom LeadStageHistory[] @relation("HistoryFromStage")
+ historyTo LeadStageHistory[] @relation("HistoryToStage")
+ @@unique([id, tenantId])
+ @@unique([pipelineId, tenantId, position])
+}
+model Lead {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ clinicId String? @db.Uuid
+ patientId String? @db.Uuid
+ pipelineId String @db.Uuid
+ stageId String @db.Uuid
+ assignedMembershipId String? @db.Uuid
+ name String
+ phoneE164 String?
+ emailNormalized String?
+ estimatedValueCents Int @default(0)
+ source String?
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ wonAt DateTime? @db.Timestamptz(3)
+ lostAt DateTime? @db.Timestamptz(3)
+ archivedAt DateTime? @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ clinic Clinic? @relation(fields:[clinicId,tenantId], references:[id,tenantId])
+ patient Patient? @relation(fields:[patientId,tenantId], references:[id,tenantId])
+ pipeline Pipeline @relation(fields:[pipelineId,tenantId], references:[id,tenantId])
+ stage PipelineStage @relation(fields:[stageId,tenantId], references:[id,tenantId])
+ assignedMembership Membership? @relation(fields:[assignedMembershipId,tenantId], references:[id,tenantId])
+ stageHistory LeadStageHistory[]
+ attributions PatientAttribution[]
+ appointments Appointment[]
+ treatmentPlans TreatmentPlan[]
+ conversations Conversation[]
+ @@unique([id, tenantId])
+ @@index([tenantId, pipelineId, stageId])
+}
+model LeadStageHistory {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ leadId String @db.Uuid
+ fromStageId String? @db.Uuid
+ toStageId String @db.Uuid
+ changedByMembershipId String? @db.Uuid
+ changedAt DateTime @default(now()) @db.Timestamptz(3)
+ reason String?
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ lead Lead @relation(fields:[leadId,tenantId], references:[id,tenantId])
+ fromStage PipelineStage? @relation("HistoryFromStage", fields:[fromStageId,tenantId], references:[id,tenantId])
+ toStage PipelineStage @relation("HistoryToStage", fields:[toStageId,tenantId], references:[id,tenantId])
+ changedBy Membership? @relation(fields:[changedByMembershipId,tenantId], references:[id,tenantId])
+ @@unique([id, tenantId])
+ @@index([tenantId, leadId, changedAt])
+}
+model PatientAttribution {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ patientId String @db.Uuid
+ leadId String? @db.Uuid
+ source String?
+ medium String?
+ campaign String?
+ content String?
+ term String?
+ platform String?
+ externalClickIdHash String?
+ attributedAt DateTime @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ patient Patient @relation(fields:[patientId,tenantId], references:[id,tenantId])
+ lead Lead? @relation(fields:[leadId,tenantId], references:[id,tenantId])
+ @@unique([id, tenantId])
+ @@index([tenantId, patientId, attributedAt])
+}
+model Appointment {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ clinicId String @db.Uuid
+ patientId String @db.Uuid
+ professionalId String @db.Uuid
+ procedureId String? @db.Uuid
+ resourceId String? @db.Uuid
+ leadId String? @db.Uuid
+ createdByMembershipId String? @db.Uuid
+ startsAt DateTime @db.Timestamptz(3)
+ endsAt DateTime @db.Timestamptz(3)
+ status AppointmentStatus @default(SCHEDULED)
+ priceCents Int @default(0)
+ notesCiphertext String?
+ cancellationReason String?
+ source String?
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ professionalClinic ProfessionalClinic @relation(fields:[tenantId,professionalId,clinicId], references:[tenantId,professionalId,clinicId])
+ clinic Clinic @relation(fields:[clinicId,tenantId], references:[id,tenantId])
+ patient Patient @relation(fields:[patientId,tenantId], references:[id,tenantId])
+ procedure Procedure? @relation(fields:[procedureId,tenantId], references:[id,tenantId])
+ resource Resource? @relation(fields:[resourceId,tenantId], references:[id,tenantId])
+ lead Lead? @relation(fields:[leadId,tenantId], references:[id,tenantId])
+ createdBy Membership? @relation(fields:[createdByMembershipId,tenantId], references:[id,tenantId])
+ statusHistory AppointmentStatusHistory[]
+ @@unique([id, tenantId])
+ @@index([tenantId, clinicId, startsAt])
+ @@index([tenantId, professionalId, startsAt])
+}
+model AppointmentStatusHistory {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ appointmentId String @db.Uuid
+ fromStatus AppointmentStatus?
+ toStatus AppointmentStatus
+ changedByMembershipId String? @db.Uuid
+ changedAt DateTime @default(now()) @db.Timestamptz(3)
+ reason String?
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ appointment Appointment @relation(fields:[appointmentId,tenantId], references:[id,tenantId])
+ changedBy Membership? @relation(fields:[changedByMembershipId,tenantId], references:[id,tenantId])
+ @@unique([id, tenantId])
+ @@index([tenantId, appointmentId, changedAt])
+}
+model TreatmentPlan {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ clinicId String? @db.Uuid
+ patientId String @db.Uuid
+ professionalId String? @db.Uuid
+ leadId String? @db.Uuid
+ createdByMembershipId String? @db.Uuid
+ title String
+ status TreatmentPlanStatus @default(DRAFT)
+ subtotalCents Int
+ discountCents Int @default(0)
+ totalCents Int
+ publicTokenHash String? @unique
+ publicTokenExpiresAt DateTime? @db.Timestamptz(3)
+ sentAt DateTime? @db.Timestamptz(3)
+ acceptedAt DateTime? @db.Timestamptz(3)
+ rejectedAt DateTime? @db.Timestamptz(3)
+ expiresAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ clinic Clinic? @relation(fields:[clinicId,tenantId], references:[id,tenantId])
+ patient Patient @relation(fields:[patientId,tenantId], references:[id,tenantId])
+ professional Professional? @relation(fields:[professionalId,tenantId], references:[id,tenantId])
+ lead Lead? @relation(fields:[leadId,tenantId], references:[id,tenantId])
+ createdBy Membership? @relation(fields:[createdByMembershipId,tenantId], references:[id,tenantId])
+ items TreatmentPlanItem[]
+ statusHistory TreatmentPlanStatusHistory[]
+ @@unique([id, tenantId])
+ @@index([tenantId, patientId, status])
+}
+model TreatmentPlanItem {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ treatmentPlanId String @db.Uuid
+ procedureId String? @db.Uuid
+ description String
+ quantity Int
+ unitPriceCents Int
+ discountCents Int @default(0)
+ totalCents Int
+ position Int
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ treatmentPlan TreatmentPlan @relation(fields:[treatmentPlanId,tenantId], references:[id,tenantId])
+ procedure Procedure? @relation(fields:[procedureId,tenantId], references:[id,tenantId])
+ @@unique([id, tenantId])
+ @@unique([treatmentPlanId, tenantId, position])
+}
+model TreatmentPlanStatusHistory {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ treatmentPlanId String @db.Uuid
+ fromStatus TreatmentPlanStatus?
+ toStatus TreatmentPlanStatus
+ changedByMembershipId String? @db.Uuid
+ changedAt DateTime @default(now()) @db.Timestamptz(3)
+ reason String?
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ treatmentPlan TreatmentPlan @relation(fields:[treatmentPlanId,tenantId], references:[id,tenantId])
+ changedBy Membership? @relation(fields:[changedByMembershipId,tenantId], references:[id,tenantId])
+ @@unique([id, tenantId])
+ @@index([tenantId, treatmentPlanId, changedAt])
+}
+model Conversation {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ patientId String? @db.Uuid
+ leadId String? @db.Uuid
+ integrationId String? @db.Uuid
+ channel ConversationChannel
+ status ConversationStatus @default(OPEN)
+ externalConversationId String?
+ lastMessageAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ patient Patient? @relation(fields:[patientId,tenantId], references:[id,tenantId])
+ lead Lead? @relation(fields:[leadId,tenantId], references:[id,tenantId])
+ integration Integration? @relation(fields:[integrationId,tenantId], references:[id,tenantId])
+ messages Message[]
+ @@unique([id, tenantId])
+ @@unique([tenantId, integrationId, externalConversationId])
+ @@index([tenantId, status, lastMessageAt])
+}
+model Message {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ conversationId String @db.Uuid
+ direction MessageDirection
+ status MessageStatus
+ externalMessageId String?
+ contentType String
+ bodyCiphertext String?
+ bodyPreviewRedacted String?
+ metadata Json?
+ sentAt DateTime? @db.Timestamptz(3)
+ deliveredAt DateTime? @db.Timestamptz(3)
+ readAt DateTime? @db.Timestamptz(3)
+ failedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ conversation Conversation @relation(fields:[conversationId,tenantId], references:[id,tenantId])
+ @@unique([id, tenantId])
+ @@unique([tenantId, conversationId, externalMessageId])
+ @@index([tenantId, conversationId, createdAt])
+}
+model Integration {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ provider IntegrationProvider
+ status IntegrationStatus @default(DISCONNECTED)
+ externalAccountId String?
+ credentialReference String?
+ configuration Json?
+ connectedAt DateTime? @db.Timestamptz(3)
+ disconnectedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ conversations Conversation[]
+ @@unique([id, tenantId])
+ @@unique([tenantId, provider, externalAccountId])
+}
+model Subscription {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ provider BillingProvider
+ externalCustomerId String?
+ externalSubscriptionId String?
+ planCode String
+ status SubscriptionStatus
+ currentPeriodStart DateTime? @db.Timestamptz(3)
+ currentPeriodEnd DateTime? @db.Timestamptz(3)
+ cancelAtPeriodEnd Boolean @default(false)
+ cancelledAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ payments Payment[]
+ @@unique([id, tenantId])
+ @@unique([provider, externalSubscriptionId])
+ @@index([tenantId, status])
+}
+model Payment {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @db.Uuid
+ subscriptionId String? @db.Uuid
+ provider BillingProvider
+ externalPaymentId String?
+ status PaymentStatus
+ amountCents Int
+ dueAt DateTime @db.Timestamptz(3)
+ paidAt DateTime? @db.Timestamptz(3)
+ failedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant @relation(fields:[tenantId], references:[id])
+ subscription Subscription? @relation(fields:[subscriptionId,tenantId], references:[id,tenantId])
+ @@unique([id, tenantId])
+ @@unique([provider, externalPaymentId])
+ @@index([tenantId, status, dueAt])
+}
+model WebhookEvent {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String? @db.Uuid
+ provider String
+ externalEventId String
+ status WebhookStatus @default(RECEIVED)
+ payloadHash String?
+ payloadCiphertext String?
+ receivedAt DateTime @db.Timestamptz(3)
+ processedAt DateTime? @db.Timestamptz(3)
+ nextAttemptAt DateTime? @db.Timestamptz(3)
+ attempts Int @default(0)
+ lastErrorCode String?
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ tenant Tenant? @relation(fields:[tenantId], references:[id])
+ @@unique([provider, externalEventId])
+ @@index([status, nextAttemptAt])
+ @@index([tenantId, receivedAt])
+}
+model AuditLog {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String? @db.Uuid
+ actorUserId String? @db.Uuid
+ actorMembershipId String? @db.Uuid
+ action String
+ resourceType String
+ resourceId String? @db.Uuid
+ outcome AuditOutcome
+ correlationId String?
+ metadata Json?
+ occurredAt DateTime @default(now()) @db.Timestamptz(3)
+ tenant Tenant? @relation(fields:[tenantId], references:[id])
+ actorUser User? @relation(fields:[actorUserId], references:[id])
+ actorMembership Membership? @relation(fields:[actorMembershipId,tenantId], references:[id,tenantId])
+ @@index([tenantId, occurredAt])
+ @@index([correlationId])
+ @@index([resourceType, resourceId])
+}

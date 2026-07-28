@@ -56,3 +56,7 @@ Itens de plano e histórico de estágio/status poderão exigir entidades própri
 ## Pendências antes do schema
 
 Provedor e modelo de sessão; catálogo exato de roles/permissões; cardinalidade Professional–Clinic; regras completas de conflito; deduplicação de Patient; versionamento de TreatmentPlan; retenção/criptografia de mensagens e CPF; estratégia de audit immutability; isolamento adicional no PostgreSQL; RPO/RTO e política de exclusão.
+
+## Estado do Passo 2A
+
+O modelo relacional inicial está implementado em `prisma/schema.prisma` e aguarda revisão. O ADR-0006 registra tenancy composta, pipeline configurável, `ProfessionalClinic`, proteção de dados e separação entre entitlement e cobrança. Isso não conclui a Fase 2 e nenhuma migration foi criada.
