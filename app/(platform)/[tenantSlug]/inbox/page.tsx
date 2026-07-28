@@ -1,8 +1,7 @@
-import { FoundationPage } from "@/components/foundation/foundation-page";
+import { MessageSquare } from "lucide-react";
 
-interface InboxPageProps { params: Promise<{ tenantSlug: string }>; }
+import { ModulePlaceholder } from "@/components/foundation/module-placeholder";
 
-export default async function InboxPage({ params }: InboxPageProps) {
-  const { tenantSlug } = await params;
-  return <FoundationPage title="Inbox" context={`Tenant: ${tenantSlug}`} />;
+export default function InboxPage() {
+  return <ModulePlaceholder eyebrow="Atendimento" title="Inbox" description="Centralize conversas e acompanhe cada contato." icon={MessageSquare} />;
 }

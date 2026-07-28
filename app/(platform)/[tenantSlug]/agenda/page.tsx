@@ -1,8 +1,7 @@
-import { FoundationPage } from "@/components/foundation/foundation-page";
+import { CalendarClock } from "lucide-react";
 
-interface AgendaPageProps { params: Promise<{ tenantSlug: string }>; }
+import { ModulePlaceholder } from "@/components/foundation/module-placeholder";
 
-export default async function AgendaPage({ params }: AgendaPageProps) {
-  const { tenantSlug } = await params;
-  return <FoundationPage title="Agenda" context={`Tenant: ${tenantSlug}`} />;
+export default function AgendaPage() {
+  return <ModulePlaceholder eyebrow="Operação" title="Agenda" description="Organize horários, profissionais e atendimentos da clínica." icon={CalendarClock} />;
 }

@@ -1,6 +1,19 @@
-import { FoundationPage } from "@/components/foundation/foundation-page";
+import { ArrowRight, ChevronRight } from "lucide-react";
+import Link from "next/link";
+
+import { Eyebrow } from "@/components/shared/eyebrow";
+import { MetricValue } from "@/components/shared/metric-value";
 import { PRODUCT_NAME } from "@/lib/constants/product";
 
+const metrics = [["Receita realizada", "R$ 187k", "+47%"], ["Fechamento", "58%", "+22pp"], ["Comparecimento", "91%", "+14pp"], ["Tempo de resposta", "1m48s", "-92%"], ["CAC", "R$ 174", "-38%"]] as const;
+const features = ["Agenda com drag & drop", "Inbox unificada", "CRM em Kanban", "Orçamento com aceite público", "Régua de recuperação", "Dashboard clínica"];
+
 export default function MarketingPage() {
-  return <FoundationPage title={PRODUCT_NAME} context="Página inicial da nova fundação." />;
+  return <div className="relative min-h-screen overflow-hidden bg-bg text-ink"><div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.04] [background-image:radial-gradient(hsl(var(--accent))_0.5px,transparent_0.5px)] [background-size:24px_24px]" />
+    <header className="relative z-10 flex items-center justify-between border-b border-line px-5 py-5 md:px-8"><div className="flex items-baseline gap-2"><span className="font-display text-2xl">Flip<em className="not-italic text-primary">Schedule</em></span><span className="hidden font-mono text-[10px] uppercase tracking-widest text-ink-dim sm:inline">· fundação · pt-BR</span></div><nav aria-label="Navegação de marketing" className="flex items-center gap-6 text-sm text-ink-muted"><a className="hidden hover:text-ink md:inline" href="#produto">O produto</a><Link className="font-medium text-primary hover:text-primary/80" href="/clinica-vitalita/dashboard">Acessar sistema →</Link></nav></header>
+    <main className="relative z-10"><section className="mx-auto max-w-6xl px-5 pb-20 pt-20 md:px-8 md:pt-24"><Eyebrow className="mb-6">FlipSchedule · Operação para clínicas</Eyebrow><h1 className="max-w-4xl font-display text-5xl leading-[1.05] md:text-6xl lg:text-7xl">Sua clínica <em className="not-italic text-primary">não precisa</em> de controles desconectados.<br />Precisa de uma <em className="not-italic text-primary">operação</em>.</h1><p className="mt-8 max-w-2xl text-lg leading-relaxed text-ink-muted">Agenda, atendimento, CRM, orçamentos e indicadores em uma experiência integrada para clínicas médicas e odontológicas.</p><div className="mt-10 flex flex-wrap items-center gap-4"><Link href="/clinica-vitalita/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-6 py-3 font-medium text-primary-foreground transition hover:bg-primary/90">Entrar na demonstração <ArrowRight aria-hidden="true" size={16} /></Link><span className="font-mono text-sm text-ink-dim">Dados exclusivamente fictícios</span></div>
+      <div className="card-surface mt-20 grid grid-cols-2 gap-6 p-6 md:grid-cols-5 md:gap-8 md:p-8">{metrics.map(([label,value,delta]) => <div key={label} className="border-l-2 border-line pl-4"><Eyebrow className="mb-1">{label}</Eyebrow><MetricValue>{value}</MetricValue><p className="mt-2 font-mono text-xs text-primary">Δ {delta}</p></div>)}</div></section>
+      <section id="produto" className="mx-auto max-w-6xl border-t border-line px-5 py-16 md:px-8"><Eyebrow className="mb-6">O que está incluído</Eyebrow><div className="grid gap-6 md:grid-cols-3">{features.map((title) => <article key={title} className="card-surface p-6 transition hover:border-line-strong"><h2 className="font-display text-2xl">{title}</h2><p className="mt-2 text-sm leading-relaxed text-ink-muted">A experiência completa será migrada de forma incremental, preservando o fluxo validado.</p><ChevronRight aria-hidden="true" className="mt-4 text-primary" size={16} /></article>)}</div></section>
+    </main><footer className="relative z-10 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6 border-t border-line px-5 py-12 text-sm text-ink-dim md:px-8"><span className="font-display text-xl text-ink">{PRODUCT_NAME}</span><span className="font-mono text-xs">Fundação Next.js · pt-BR</span></footer>
+  </div>;
 }

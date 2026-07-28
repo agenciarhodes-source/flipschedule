@@ -64,3 +64,27 @@ Não foram implementados banco, Prisma, migrations, autenticação, RBAC, resolu
 ## Próxima subtarefa
 
 Restabelecer acesso ao registry, instalar exatamente as dependências, versionar o `pnpm-lock.yaml`, executar todos os quality gates e smoke tests e, depois, iniciar a migração visual seletiva com comparação aprovada, sem remover o protótipo.
+
+## Migração visual do shell
+
+### Tokens migrados
+
+A paleta HSL do protótipo foi consolidada em `app/globals.css`: fundos `bg`, `bg-alt`, `bg-elev` e `bg-hover`; textos `ink`, `ink-muted` e `ink-dim`; bordas `line` e `line-strong`; accent, warning/warm, danger e info. Também foram incorporados radius de 8 px, sombra sutil, espaçamento fluido de página, focus visible, seleção de texto, scrollbar e redução de movimento. O Tailwind referencia as variáveis, evitando repetir hexadecimais nos componentes.
+
+### Componentes e shell
+
+Foram adicionados componentes compartilhados para eyebrow, cabeçalho de página, métrica, status e estados vazio/loading/erro. O shell usa sidebar fixa no desktop, topbar, área principal rolável e navegação mobile em drawer. A parte dependente de `usePathname` e o drawer são Client Components isolados; layouts e placeholders continuam server-first.
+
+O tenant `clinica-vitalita` vem do parâmetro da URL e é resolvido somente contra um mapa fictício em `domains/demo/demo-tenants.ts`. Esse comportamento é exclusivamente visual e não representa autenticação, autorização ou permissão.
+
+### Equivalência e diferenças conscientes
+
+Foram preservados paleta, estética dark, famílias tipográficas, largura de sidebar, altura da topbar, densidade, labels e hierarquia editorial do AppShell legado. A landing reproduz a estrutura de cabeçalho, hero, painel de métricas, cards e rodapé sem reutilizar chamadas inseguras da demo antiga.
+
+Diferenças deliberadas: o drawer mobile substitui a sidebar permanente em telas estreitas; áreas clicáveis têm no mínimo 44 px; foco fica contido no drawer e Escape o fecha; textos da landing não prometem integrações ainda inexistentes. Essas mudanças melhoram acessibilidade e precisão sem alterar a identidade visual.
+
+### Testes e telas verificadas
+
+Foram criados testes para todos os itens de navegação, item ativo com `aria-current`, tenant fictício, região `main`, labels acessíveis, abertura/fechamento do menu e fechamento por Escape com retorno de foco.
+
+A inspeção executável de `/clinica-vitalita/dashboard`, `/agenda`, `/inbox`, `/crm`, `/orcamentos`, `/pacientes` e `/configuracoes`, em desktop e mobile, continua bloqueada porque o registry npm respondeu HTTP 403 e as dependências não puderam ser instaladas. Nenhuma tela foi marcada como visualmente aprovada sem essa verificação.

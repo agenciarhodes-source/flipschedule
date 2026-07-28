@@ -1,8 +1,7 @@
-import { FoundationPage } from "@/components/foundation/foundation-page";
+import { UserRound } from "lucide-react";
 
-interface PacientesPageProps { params: Promise<{ tenantSlug: string }>; }
+import { ModulePlaceholder } from "@/components/foundation/module-placeholder";
 
-export default async function PacientesPage({ params }: PacientesPageProps) {
-  const { tenantSlug } = await params;
-  return <FoundationPage title="Pacientes" context={`Tenant: ${tenantSlug}`} />;
+export default function PacientesPage() {
+  return <ModulePlaceholder eyebrow="Cadastros" title="Pacientes" description="Consulte e organize os pacientes da clínica." icon={UserRound} />;
 }

@@ -1,8 +1,7 @@
-import { FoundationPage } from "@/components/foundation/foundation-page";
+import { Settings } from "lucide-react";
 
-interface ConfiguracoesPageProps { params: Promise<{ tenantSlug: string }>; }
+import { ModulePlaceholder } from "@/components/foundation/module-placeholder";
 
-export default async function ConfiguracoesPage({ params }: ConfiguracoesPageProps) {
-  const { tenantSlug } = await params;
-  return <FoundationPage title="Configuracoes" context={`Tenant: ${tenantSlug}`} />;
+export default function ConfiguracoesPage() {
+  return <ModulePlaceholder eyebrow="Administração" title="Configurações" description="Prepare profissionais, procedimentos, recursos e horários." icon={Settings} />;
 }

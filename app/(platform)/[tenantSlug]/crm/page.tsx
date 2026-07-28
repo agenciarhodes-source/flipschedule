@@ -1,8 +1,7 @@
-import { FoundationPage } from "@/components/foundation/foundation-page";
+import { Users } from "lucide-react";
 
-interface CrmPageProps { params: Promise<{ tenantSlug: string }>; }
+import { ModulePlaceholder } from "@/components/foundation/module-placeholder";
 
-export default async function CrmPage({ params }: CrmPageProps) {
-  const { tenantSlug } = await params;
-  return <FoundationPage title="Crm" context={`Tenant: ${tenantSlug}`} />;
+export default function CrmPage() {
+  return <ModulePlaceholder eyebrow="Relacionamento" title="CRM" description="Acompanhe leads e oportunidades ao longo do funil." icon={Users} />;
 }

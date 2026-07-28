@@ -1,8 +1,7 @@
-import { FoundationPage } from "@/components/foundation/foundation-page";
+import { FileText } from "lucide-react";
 
-interface OrcamentosPageProps { params: Promise<{ tenantSlug: string }>; }
+import { ModulePlaceholder } from "@/components/foundation/module-placeholder";
 
-export default async function OrcamentosPage({ params }: OrcamentosPageProps) {
-  const { tenantSlug } = await params;
-  return <FoundationPage title="Orcamentos" context={`Tenant: ${tenantSlug}`} />;
+export default function OrcamentosPage() {
+  return <ModulePlaceholder eyebrow="Comercial" title="Orçamentos" description="Gerencie propostas e planos de tratamento." icon={FileText} />;
 }

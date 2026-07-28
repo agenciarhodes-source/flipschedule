@@ -1,8 +1,7 @@
-import { FoundationPage } from "@/components/foundation/foundation-page";
+import { LayoutDashboard } from "lucide-react";
 
-interface DashboardPageProps { params: Promise<{ tenantSlug: string }>; }
+import { ModulePlaceholder } from "@/components/foundation/module-placeholder";
 
-export default async function DashboardPage({ params }: DashboardPageProps) {
-  const { tenantSlug } = await params;
-  return <FoundationPage title="Dashboard" context={`Tenant: ${tenantSlug}`} />;
+export default function DashboardPage() {
+  return <ModulePlaceholder eyebrow="Visão geral" title="Dashboard" description="Acompanhe os principais indicadores da operação." icon={LayoutDashboard} />;
 }
