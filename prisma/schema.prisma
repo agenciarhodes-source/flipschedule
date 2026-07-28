@@ -40,8 +40,8 @@ model User {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  memberships Membership[]
- entitlementsGranted AccessEntitlement[]
- auditLogs AuditLog[]
+ entitlementsGranted AccessEntitlement[] @relation("AccessEntitlementGrantedBy")
+ auditLogs AuditLog[] @relation("AuditLogActorUser")
 }
 model Tenant {
  id String @id @default(uuid()) @db.Uuid
@@ -113,15 +113,15 @@ model Membership {
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
  user User @relation(fields:[userId], references:[id])
- professionals Professional[]
- blocksCreated ScheduleBlock[]
- leadsAssigned Lead[]
- leadChanges LeadStageHistory[]
- appointmentsCreated Appointment[]
- appointmentChanges AppointmentStatusHistory[]
- treatmentPlansCreated TreatmentPlan[]
- treatmentPlanChanges TreatmentPlanStatusHistory[]
- auditLogs AuditLog[]
+ professionals Professional[] @relation("ProfessionalMembership")
+ blocksCreated ScheduleBlock[] @relation("ScheduleBlockCreatedBy")
+ leadsAssigned Lead[] @relation("LeadAssignedMembership")
+ leadChanges LeadStageHistory[] @relation("LeadStageHistoryChangedBy")
+ appointmentsCreated Appointment[] @relation("AppointmentCreatedBy")
+ appointmentChanges AppointmentStatusHistory[] @relation("AppointmentStatusHistoryChangedBy")
+ treatmentPlansCreated TreatmentPlan[] @relation("TreatmentPlanCreatedBy")
+ treatmentPlanChanges TreatmentPlanStatusHistory[] @relation("TreatmentPlanStatusHistoryChangedBy")
+ auditLogs AuditLog[] @relation("AuditLogActorMembership")
  @@unique([tenantId, userId])
  @@unique([id, tenantId])
  @@index([userId, status])
@@ -140,7 +140,7 @@ model AccessEntitlement {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- grantedBy User? @relation(fields:[grantedByUserId], references:[id])
+ grantedBy User? @relation("AccessEntitlementGrantedBy", fields:[grantedByUserId], references:[id])
  @@unique([id, tenantId])
  @@index([tenantId, status, startsAt])
 }
@@ -157,7 +157,7 @@ model Professional {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- membership Membership? @relation(fields:[membershipId,tenantId], references:[id,tenantId])
+ membership Membership? @relation("ProfessionalMembership", fields:[membershipId], references:[id])
  clinics ProfessionalClinic[]
  scheduleBlocks ScheduleBlock[]
  treatmentPlans TreatmentPlan[]
@@ -171,11 +171,12 @@ model ProfessionalClinic {
  active Boolean @default(true)
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
- professional Professional @relation(fields:[professionalId,tenantId], references:[id,tenantId])
- clinic Clinic @relation(fields:[clinicId,tenantId], references:[id,tenantId])
+ professional Professional @relation(fields:[professionalId], references:[id])
+ clinic Clinic @relation(fields:[clinicId], references:[id])
  workingHours WorkingHours[]
  appointments Appointment[]
  @@id([tenantId, professionalId, clinicId])
+ @@unique([professionalId, clinicId])
 }
 model Resource {
  id String @id @default(uuid()) @db.Uuid
@@ -187,7 +188,7 @@ model Resource {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- clinic Clinic @relation(fields:[clinicId,tenantId], references:[id,tenantId])
+ clinic Clinic @relation(fields:[clinicId], references:[id])
  scheduleBlocks ScheduleBlock[]
  appointments Appointment[]
  @@unique([id, tenantId])
@@ -223,7 +224,7 @@ model WorkingHours {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- professionalClinic ProfessionalClinic @relation(fields:[tenantId,professionalId,clinicId], references:[tenantId,professionalId,clinicId])
+ professionalClinic ProfessionalClinic @relation(fields:[professionalId,clinicId], references:[professionalId,clinicId])
  @@unique([id, tenantId])
  @@index([tenantId, professionalId, clinicId, weekday])
 }
@@ -240,10 +241,10 @@ model ScheduleBlock {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- clinic Clinic? @relation(fields:[clinicId,tenantId], references:[id,tenantId])
- professional Professional? @relation(fields:[professionalId,tenantId], references:[id,tenantId])
- resource Resource? @relation(fields:[resourceId,tenantId], references:[id,tenantId])
- createdBy Membership? @relation(fields:[createdByMembershipId,tenantId], references:[id,tenantId])
+ clinic Clinic? @relation(fields:[clinicId], references:[id])
+ professional Professional? @relation(fields:[professionalId], references:[id])
+ resource Resource? @relation(fields:[resourceId], references:[id])
+ createdBy Membership? @relation("ScheduleBlockCreatedBy", fields:[createdByMembershipId], references:[id])
  @@unique([id, tenantId])
  @@index([tenantId, startsAt, endsAt])
 }
@@ -285,7 +286,7 @@ model Consent {
  evidence Json?
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- patient Patient @relation(fields:[patientId,tenantId], references:[id,tenantId])
+ patient Patient @relation(fields:[patientId], references:[id])
  @@unique([id, tenantId])
  @@index([tenantId, patientId, purpose])
 }
@@ -314,7 +315,7 @@ model PipelineStage {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- pipeline Pipeline @relation(fields:[pipelineId,tenantId], references:[id,tenantId])
+ pipeline Pipeline @relation(fields:[pipelineId], references:[id])
  currentLeads Lead[]
  historyFrom LeadStageHistory[] @relation("HistoryFromStage")
  historyTo LeadStageHistory[] @relation("HistoryToStage")
@@ -340,11 +341,11 @@ model Lead {
  lostAt DateTime? @db.Timestamptz(3)
  archivedAt DateTime? @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- clinic Clinic? @relation(fields:[clinicId,tenantId], references:[id,tenantId])
- patient Patient? @relation(fields:[patientId,tenantId], references:[id,tenantId])
- pipeline Pipeline @relation(fields:[pipelineId,tenantId], references:[id,tenantId])
- stage PipelineStage @relation(fields:[stageId,tenantId], references:[id,tenantId])
- assignedMembership Membership? @relation(fields:[assignedMembershipId,tenantId], references:[id,tenantId])
+ clinic Clinic? @relation(fields:[clinicId], references:[id])
+ patient Patient? @relation(fields:[patientId], references:[id])
+ pipeline Pipeline @relation(fields:[pipelineId], references:[id])
+ stage PipelineStage @relation(fields:[stageId], references:[id])
+ assignedMembership Membership? @relation("LeadAssignedMembership", fields:[assignedMembershipId], references:[id])
  stageHistory LeadStageHistory[]
  attributions PatientAttribution[]
  appointments Appointment[]
@@ -363,10 +364,10 @@ model LeadStageHistory {
  changedAt DateTime @default(now()) @db.Timestamptz(3)
  reason String?
  tenant Tenant @relation(fields:[tenantId], references:[id])
- lead Lead @relation(fields:[leadId,tenantId], references:[id,tenantId])
- fromStage PipelineStage? @relation("HistoryFromStage", fields:[fromStageId,tenantId], references:[id,tenantId])
- toStage PipelineStage @relation("HistoryToStage", fields:[toStageId,tenantId], references:[id,tenantId])
- changedBy Membership? @relation(fields:[changedByMembershipId,tenantId], references:[id,tenantId])
+ lead Lead @relation(fields:[leadId], references:[id])
+ fromStage PipelineStage? @relation("HistoryFromStage", fields:[fromStageId], references:[id])
+ toStage PipelineStage @relation("HistoryToStage", fields:[toStageId], references:[id])
+ changedBy Membership? @relation("LeadStageHistoryChangedBy", fields:[changedByMembershipId], references:[id])
  @@unique([id, tenantId])
  @@index([tenantId, leadId, changedAt])
 }
@@ -385,8 +386,8 @@ model PatientAttribution {
  attributedAt DateTime @db.Timestamptz(3)
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- patient Patient @relation(fields:[patientId,tenantId], references:[id,tenantId])
- lead Lead? @relation(fields:[leadId,tenantId], references:[id,tenantId])
+ patient Patient @relation(fields:[patientId], references:[id])
+ lead Lead? @relation(fields:[leadId], references:[id])
  @@unique([id, tenantId])
  @@index([tenantId, patientId, attributedAt])
 }
@@ -410,13 +411,13 @@ model Appointment {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- professionalClinic ProfessionalClinic @relation(fields:[tenantId,professionalId,clinicId], references:[tenantId,professionalId,clinicId])
- clinic Clinic @relation(fields:[clinicId,tenantId], references:[id,tenantId])
- patient Patient @relation(fields:[patientId,tenantId], references:[id,tenantId])
- procedure Procedure? @relation(fields:[procedureId,tenantId], references:[id,tenantId])
- resource Resource? @relation(fields:[resourceId,tenantId], references:[id,tenantId])
- lead Lead? @relation(fields:[leadId,tenantId], references:[id,tenantId])
- createdBy Membership? @relation(fields:[createdByMembershipId,tenantId], references:[id,tenantId])
+ professionalClinic ProfessionalClinic @relation(fields:[professionalId,clinicId], references:[professionalId,clinicId])
+ clinic Clinic @relation(fields:[clinicId], references:[id])
+ patient Patient @relation(fields:[patientId], references:[id])
+ procedure Procedure? @relation(fields:[procedureId], references:[id])
+ resource Resource? @relation(fields:[resourceId], references:[id])
+ lead Lead? @relation(fields:[leadId], references:[id])
+ createdBy Membership? @relation("AppointmentCreatedBy", fields:[createdByMembershipId], references:[id])
  statusHistory AppointmentStatusHistory[]
  @@unique([id, tenantId])
  @@index([tenantId, clinicId, startsAt])
@@ -432,8 +433,8 @@ model AppointmentStatusHistory {
  changedAt DateTime @default(now()) @db.Timestamptz(3)
  reason String?
  tenant Tenant @relation(fields:[tenantId], references:[id])
- appointment Appointment @relation(fields:[appointmentId,tenantId], references:[id,tenantId])
- changedBy Membership? @relation(fields:[changedByMembershipId,tenantId], references:[id,tenantId])
+ appointment Appointment @relation(fields:[appointmentId], references:[id])
+ changedBy Membership? @relation("AppointmentStatusHistoryChangedBy", fields:[changedByMembershipId], references:[id])
  @@unique([id, tenantId])
  @@index([tenantId, appointmentId, changedAt])
 }
@@ -459,11 +460,11 @@ model TreatmentPlan {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- clinic Clinic? @relation(fields:[clinicId,tenantId], references:[id,tenantId])
- patient Patient @relation(fields:[patientId,tenantId], references:[id,tenantId])
- professional Professional? @relation(fields:[professionalId,tenantId], references:[id,tenantId])
- lead Lead? @relation(fields:[leadId,tenantId], references:[id,tenantId])
- createdBy Membership? @relation(fields:[createdByMembershipId,tenantId], references:[id,tenantId])
+ clinic Clinic? @relation(fields:[clinicId], references:[id])
+ patient Patient @relation(fields:[patientId], references:[id])
+ professional Professional? @relation(fields:[professionalId], references:[id])
+ lead Lead? @relation(fields:[leadId], references:[id])
+ createdBy Membership? @relation("TreatmentPlanCreatedBy", fields:[createdByMembershipId], references:[id])
  items TreatmentPlanItem[]
  statusHistory TreatmentPlanStatusHistory[]
  @@unique([id, tenantId])
@@ -483,8 +484,8 @@ model TreatmentPlanItem {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- treatmentPlan TreatmentPlan @relation(fields:[treatmentPlanId,tenantId], references:[id,tenantId])
- procedure Procedure? @relation(fields:[procedureId,tenantId], references:[id,tenantId])
+ treatmentPlan TreatmentPlan @relation(fields:[treatmentPlanId], references:[id])
+ procedure Procedure? @relation(fields:[procedureId], references:[id])
  @@unique([id, tenantId])
  @@unique([treatmentPlanId, tenantId, position])
 }
@@ -498,8 +499,8 @@ model TreatmentPlanStatusHistory {
  changedAt DateTime @default(now()) @db.Timestamptz(3)
  reason String?
  tenant Tenant @relation(fields:[tenantId], references:[id])
- treatmentPlan TreatmentPlan @relation(fields:[treatmentPlanId,tenantId], references:[id,tenantId])
- changedBy Membership? @relation(fields:[changedByMembershipId,tenantId], references:[id,tenantId])
+ treatmentPlan TreatmentPlan @relation(fields:[treatmentPlanId], references:[id])
+ changedBy Membership? @relation("TreatmentPlanStatusHistoryChangedBy", fields:[changedByMembershipId], references:[id])
  @@unique([id, tenantId])
  @@index([tenantId, treatmentPlanId, changedAt])
 }
@@ -516,9 +517,9 @@ model Conversation {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- patient Patient? @relation(fields:[patientId,tenantId], references:[id,tenantId])
- lead Lead? @relation(fields:[leadId,tenantId], references:[id,tenantId])
- integration Integration? @relation(fields:[integrationId,tenantId], references:[id,tenantId])
+ patient Patient? @relation(fields:[patientId], references:[id])
+ lead Lead? @relation(fields:[leadId], references:[id])
+ integration Integration? @relation(fields:[integrationId], references:[id])
  messages Message[]
  @@unique([id, tenantId])
  @@unique([tenantId, integrationId, externalConversationId])
@@ -542,7 +543,7 @@ model Message {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- conversation Conversation @relation(fields:[conversationId,tenantId], references:[id,tenantId])
+ conversation Conversation @relation(fields:[conversationId], references:[id])
  @@unique([id, tenantId])
  @@unique([tenantId, conversationId, externalMessageId])
  @@index([tenantId, conversationId, createdAt])
@@ -598,7 +599,7 @@ model Payment {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  updatedAt DateTime @updatedAt @db.Timestamptz(3)
  tenant Tenant @relation(fields:[tenantId], references:[id])
- subscription Subscription? @relation(fields:[subscriptionId,tenantId], references:[id,tenantId])
+ subscription Subscription? @relation(fields:[subscriptionId], references:[id])
  @@unique([id, tenantId])
  @@unique([provider, externalPaymentId])
  @@index([tenantId, status, dueAt])
@@ -636,8 +637,8 @@ model AuditLog {
  metadata Json?
  occurredAt DateTime @default(now()) @db.Timestamptz(3)
  tenant Tenant? @relation(fields:[tenantId], references:[id])
- actorUser User? @relation(fields:[actorUserId], references:[id])
- actorMembership Membership? @relation(fields:[actorMembershipId,tenantId], references:[id,tenantId])
+ actorUser User? @relation("AuditLogActorUser", fields:[actorUserId], references:[id])
+ actorMembership Membership? @relation("AuditLogActorMembership", fields:[actorMembershipId], references:[id])
  @@index([tenantId, occurredAt])
  @@index([correlationId])
  @@index([resourceType, resourceId])

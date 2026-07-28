@@ -10,7 +10,9 @@ CPF validado nunca é persistido em texto puro: somente ciphertext e hash produz
 
 ## Tenancy e integridade
 
-`Tenant` é a fronteira de isolamento. Entidades operacionais carregam `tenantId`; referências entre elas usam `@@unique([id, tenantId])` e foreign keys compostas com o mesmo `tenantId`. Slug não autoriza. Índices começam pelo tenant para acessos tenant-scoped. Relações muitos-para-muitos explícitas, como `ProfessionalClinic`, preservam a fronteira.
+`Tenant` é a fronteira de isolamento. Entidades operacionais carregam `tenantId` obrigatório, mantêm `@@unique([id, tenantId])` quando aplicável e usam índices iniciados pelo tenant. No schema Prisma, relações entre entidades usam o ID específico da entidade, sem reutilizar `tenantId` como relation scalar em relações sobrepostas; relações múltiplas têm nomes explícitos e campos opostos. Relações muitos-para-muitos explícitas, como `ProfessionalClinic`, preservam a fronteira.
+
+Essa representação é uma limitação deliberada do schema Prisma, não uma redução de segurança. Toda query futura receberá `TenantContext` derivado no servidor e todo repositório filtrará por tenant; o slug nunca autoriza. A migration SQL versionada da etapa 2C adicionará as foreign keys compostas extras que garantem igualdade de tenant, e testes de integração tentarão referências e acessos cross-tenant para comprovar a rejeição.
 
 ## Ciclo de vida
 
