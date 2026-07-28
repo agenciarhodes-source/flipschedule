@@ -1,0 +1,114 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        /* FlipSchedule dark palette (HSL) */
+        --bg: 208 25% 9%;              /* #12181E */
+        --bg-alt: 207 22% 12%;         /* #171F26 */
+        --bg-elev: 207 24% 15%;        /* #1E2830 */
+        --bg-hover: 209 23% 18%;       /* #232E38 */
+
+        --ink: 38 39% 91%;             /* #F0EBDF */
+        --ink-muted: 207 4% 68%;       /* #A9AEB1 */
+        --ink-dim: 207 5% 46%;         /* #6E767C */
+
+        --line: 210 20% 21%;           /* #2A3540 */
+        --line-strong: 210 18% 28%;    /* #3A4854 */
+
+        --accent: 129 61% 74%;         /* #95E4A5 */
+        --accent-dim: 137 33% 56%;
+        --warm: 32 66% 68%;            /* #E4B47A */
+        --danger: 6 71% 66%;           /* #E67C6E */
+        --info: 207 66% 69%;           /* #7AB8E4 */
+
+        /* shadcn tokens mapped to our palette */
+        --background: var(--bg);
+        --foreground: var(--ink);
+        --card: var(--bg-alt);
+        --card-foreground: var(--ink);
+        --popover: var(--bg-elev);
+        --popover-foreground: var(--ink);
+        --primary: var(--accent);
+        --primary-foreground: 208 25% 9%;
+        --secondary: var(--bg-elev);
+        --secondary-foreground: var(--ink);
+        --muted: var(--bg-elev);
+        --muted-foreground: var(--ink-muted);
+        --accent-foreground: 208 25% 9%;
+        --destructive: var(--danger);
+        --destructive-foreground: 0 0% 100%;
+        --border: var(--line);
+        --input: var(--line);
+        --ring: var(--accent);
+        --radius: 0.5rem;
+
+        --chart-1: var(--accent);
+        --chart-2: var(--info);
+        --chart-3: var(--warm);
+        --chart-4: var(--danger);
+        --chart-5: 280 40% 65%;
+    }
+
+    html {
+        color-scheme: dark;
+    }
+
+    * {
+        border-color: hsl(var(--border));
+    }
+
+    body {
+        margin: 0;
+        background-color: hsl(var(--bg));
+        color: hsl(var(--ink));
+        font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+        font-weight: 400;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+
+    ::selection {
+        background: hsl(var(--accent) / 0.35);
+        color: hsl(var(--ink));
+    }
+}
+
+@layer components {
+    .font-display {
+        font-family: "Instrument Serif", ui-serif, Georgia, serif;
+        font-weight: 400;
+        letter-spacing: -0.01em;
+    }
+    .font-mono-ui {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+    }
+    .eyebrow {
+        font-family: "IBM Plex Mono", monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        font-size: 11px;
+        color: hsl(var(--ink-dim));
+    }
+    .metric-num {
+        font-family: "Instrument Serif", serif;
+        font-feature-settings: "tnum";
+        letter-spacing: -0.02em;
+    }
+    .card-surface {
+        background: hsl(var(--bg-alt));
+        border: 1px solid hsl(var(--line));
+        border-radius: 8px;
+    }
+    .divider {
+        border-top: 1px solid hsl(var(--line));
+    }
+    .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--line)); border-radius: 4px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--line-strong)); }
+}

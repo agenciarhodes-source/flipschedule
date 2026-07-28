@@ -1,0 +1,33 @@
+{
+  "summary": "Backend-only regression suite for FlipSchedule executed against the public REACT_APP_BACKEND_URL. Wrote /app/backend/tests/test_flipschedule_api.py covering all 30 scenarios requested (health, tenants, dashboard, professionals/resources/procedures CRUD, patients + dedupe + search + detail, leads + stage timestamps, appointments create/conflict/update/delete + range filter, treatment plans + totals compute + send-generates-token, public plan view (sent->viewed), accept (LGPD required), reject, conversations + simulated inbound reply, seed idempotency, multi-tenant 404). All 27 tests passed on first execution (100%).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/tenants/{slug}/dashboard", "issue": "Dead code loop `for i in range(5,-1,-1)` (lines ~774-776) computes `m_start` but is unused; revenue_series is computed by the subsequent loop. Safe to remove."},
+      {"endpoint": "GET /api/tenants/{slug}/dashboard", "issue": "revenue_delta_pct uses rate() which returns 0 when previous month revenue is 0 — semantically hides infinite growth, minor UX-only concern."},
+      {"endpoint": "PATCH /api/tenants/{slug}/appointments/{aid}", "issue": "Sets attended_at/no_show_at/cancelled_at/confirmed_at fields but these aren't declared on the Appointment model — works because Mongo is schemaless, but Pydantic model is out of sync with persisted docs."},
+      {"endpoint": "POST /api/plans/public/{token}/accept", "issue": "cpf_hash is stored as last 4 digits of CPF, not an actual hash — misleading field name (privacy-adjacent)."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_flipschedule_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional cleanup: remove dead loop in dashboard() around lines 774-776.",
+    "Optional: add attended_at/no_show_at/cancelled_at/confirmed_at to Appointment model for schema consistency.",
+    "Optional: rename cpf_hash -> cpf_last4, or actually hash the CPF."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 1109 lines — approaching threshold; consider splitting into routers per resource (tenants, patients, appointments, plans, inbox, dashboard, seed) plus models.py.",
+    "Conflict-detection logic (has_conflict) is only per-professional; resource_id (chair) conflicts are not checked though the model supports it.",
+    "Seed uses random with fixed seed(42) — good for determinism, but appointment count is variable (may be <24) due to conflict skips; documented behavior.",
+    "No pagination on list endpoints (hard cap .to_list(500/2000)); acceptable for MVP but should be flagged for scale.",
+    "CORS allow_origins defaults to '*' with allow_credentials=True — browsers will reject credentials with wildcard; not a bug now (no auth) but will bite when auth is added.",
+    "Public plan endpoints do not check expires_at when serving/accepting — expired tokens still work."
+  ],
+  "updated_files": ["/app/backend/tests/test_flipschedule_api.py"],
+  "success_rate": {"backend": "100%", "frontend": "not tested"},
+  "seed_data_creation": "Called POST /api/seed at session start (idempotent purge+reseed of clinica-vitalita).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend fully validated (27/27). Frontend not tested per request. Reuse /app/backend/tests/test_flipschedule_api.py as regression suite; it re-seeds at start so is safe to rerun anytime. TEST_-prefixed data (professionals/procedures/resources/patients/plans) is created but only the CRUD ones are cleaned up; treatment plans and one dedupe patient remain but are reset on next seed."
+}
