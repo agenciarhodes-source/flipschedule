@@ -1,51 +1,56 @@
 # Relatório de conclusão — Fase 1
 
+**Data da revalidação:** 2026-07-28
+
+**Branch:** `chore/close-phase-1-quality-gates`
+
+**HEAD inicial:** `77f56a78ac5d142b2f95e448b3d62db5f298c184`
+
 ## Resultado objetivo
 
-**A Fase 1 não pode ser considerada concluída nesta execução.** O escopo estático foi implementado, mas instalação, lockfile, lint, typecheck, testes, build, CI e comparação visual em navegador não possuem evidência verde. O registry npm respondeu HTTP 403, impedindo a validação executável.
+**A Fase 1 permanece não concluída.** A tentativa confirmou a configuração correta do registry, mas o acesso de rede continuou bloqueado. Por isso não há lockfile real, instalação reproduzível, gates locais verdes, CI verde ou verificação visual em navegador. Nenhum critério foi marcado como aprovado sem execução.
 
-## Escopo realizado e rotas migradas
+## Registry, causa do HTTP 403 e versões
 
-- `/`: landing editorial, KPIs, benefícios, CTA para login e footer.
-- `/login`: acesso visual de demonstração, sem credenciais ou sessão.
-- `/plano/demo`: plano fictício e respostas visuais descartáveis.
-- `/clinica-vitalita/dashboard`: KPIs, receita, gráfico CSS, procedimentos, funil e alertas.
-- `/clinica-vitalita/agenda`: toolbar, filtros, semana e agendamentos.
-- `/clinica-vitalita/inbox`: conversas, thread, paciente e composer local.
-- `/clinica-vitalita/crm`: colunas, cards e contadores.
-- `/clinica-vitalita/orcamentos`: KPIs, tabela, valores e status.
-- `/clinica-vitalita/pacientes`: busca local, tabela, tags, LTV e vazio.
-- `/clinica-vitalita/configuracoes`: tabs e estados de cadastros/integrações.
+- Registry final do pnpm e npm: `https://registry.npmjs.org/`.
+- Node.js: `v24.15.0`; Corepack: `0.34.6`; pnpm: `10.28.1`.
+- O repositório e o usuário não possuem `.npmrc` com override ou token. Nenhuma credencial foi criada, exibida ou persistida.
+- O ambiente força tráfego HTTP/HTTPS por um proxy. Um `curl` pelo mesmo caminho recebeu HTTP 403 no túnel CONNECT; ao remover o proxy, a resolução DNS do registry falhou. O `pnpm install` retornou `ERR_PNPM_FETCH_403` para `@testing-library/react`, sem header de autorização. A evidência indica bloqueio da política de rede/proxy, e não URL de registry inválida.
 
-## Componentes reutilizados e reimplementados
+## Instalação, lockfile e quality gates
 
-Foram reutilizados shell, sidebar, topbar, navegação, tokens, `PageHeader`, `Eyebrow`, `StatusBadge`, `EmptyState`, `LoadingState`, `ErrorState`, `Button` e `Card`. As estruturas específicas foram reimplementadas como componentes pequenos por módulo, em TypeScript, sem copiar arquivos ou acessar o código legado em runtime.
+`corepack enable` passou. `pnpm install` não conseguiu baixar dependências e, corretamente, nenhum `pnpm-lock.yaml` parcial ou fabricado foi versionado. `pnpm install --frozen-lockfile` confirmou `ERR_PNPM_NO_LOCKFILE`.
 
-## Dados e formatação
+| Gate | Resultado real |
+|---|---|
+| Lint | Não validado; `@eslint/eslintrc` local ausente. |
+| Typecheck | Não validado; módulos/tipos locais ausentes. |
+| Testes | Não executados; `vitest` ausente. |
+| Build | Não executado; `next` ausente. |
+| `pnpm check` | Não validado; interrompeu no lint. |
 
-Os nove módulos em `domains/demo/` contêm somente registros fictícios tipados, datas ISO fixas e dinheiro em centavos. Esses tipos são projeções de visualização e **não são o schema definitivo do Prisma**. Utilitários próprios formatam BRL, datas pt-BR, telefones demo e tempo relativo determinístico.
+Esses resultados são consequência da instalação bloqueada e não foram tratados como defeitos funcionais nem ocultados.
 
-## Interações demonstrativas
+## CI
 
-Composer da inbox, busca de pacientes, tabs de configurações e aceite/recusa do plano alteram somente estado React local e descartável. Os botões de criação e filtros restantes são visuais. Não há drag and drop, conflito de agenda, geração de link, consentimento, envio de formulário, localStorage, cookie, sessão, chamada HTTP ou persistência.
+`.github/workflows/quality.yml` declara pnpm 10.28.1, Node 22, cache pnpm, `pnpm install --frozen-lockfile`, lint, typecheck, testes e build. O workflow não solicita secrets e não contém deploy. Entretanto, o checkout não possui remote Git configurado; não houve push nem execução acompanhável do GitHub Actions. **CI permanece sem resultado, não verde.**
 
-## Diferenças visuais conhecidas
+## Browser verification
 
-Gráficos foram representados em CSS, sem biblioteca interativa. Modais/drawers complexos de agenda, pacientes e orçamentos permanecem somente sugeridos pelos controles visuais. A inspeção lado a lado em desktop, tablet e mobile não ocorreu, portanto nenhuma equivalência final foi aprovada.
+As rotas previstas são `/`, `/login`, `/plano/demo` e as sete rotas sob `/clinica-vitalita/`: dashboard, agenda, inbox, CRM, orçamentos, pacientes e configurações. Como `pnpm dev` não pôde iniciar sem o pacote Next.js, nenhuma rota foi aprovada em desktop, tablet ou mobile. Console do navegador/servidor, hidratação, overflow horizontal, fontes, links, navegação ativa, menu mobile, teclado, foco, contraste e estados locais continuam sem evidência executável. Nenhuma screenshot foi produzida.
 
-## Testes e quality gates
+## Correções, diferenças e preservação
 
-Foram escritos testes focados em conteúdo, links, moeda, KPIs, alertas, semana, profissionais, status, inbox local, CRM, orçamentos, busca, tabs e plano público. Porém, o HTTP 403 impediu instalar Vitest/Testing Library e executar os testes. Lint, typecheck, build, `pnpm check`, CI e browser verification também permanecem pendentes.
+Não havia configuração de registry inválida a corrigir. A única mudança foi documental, para registrar a causa isolada, comandos e resultados sem alegar conclusão. As diferenças visuais conhecidas continuam sendo gráficos em CSS e modais/drawers complexos apenas sugeridos; não houve comparação lado a lado nova.
 
-## Débitos antes da Fase 2
+`frontend/` e `backend/` permaneceram intactos. Não houve mudança funcional, atualização/instalação concluída de dependências, Prisma, banco, Neon, migration, autenticação, integração, configuração externa, deploy ou secret.
 
-1. Restabelecer acesso ao registry e gerar `pnpm-lock.yaml` real.
-2. Corrigir qualquer problema revelado pelos quality gates.
-3. Executar CI verde.
-4. Verificar todas as rotas em desktop, tablet e mobile, incluindo teclado, console, overflow, fontes e contraste.
-5. Registrar screenshots temporárias e concluir a checklist de equivalência.
-6. Obter aceite visual explícito; somente então marcar a Fase 1 como concluída.
+## Evidências ainda necessárias
 
-## Preservação e limites
+1. Liberar no ambiente acesso HTTPS e DNS ao registry público sem introduzir token privado.
+2. Executar `pnpm install`, versionar o `pnpm-lock.yaml` real e confirmar `pnpm install --frozen-lockfile` em checkout limpo.
+3. Obter resultados verdes individuais para lint, typecheck, testes, build e `pnpm check`.
+4. Fazer push e confirmar o GitHub Actions verde.
+5. Executar e registrar a inspeção visual lado a lado de todas as rotas em desktop, tablet e mobile, incluindo acessibilidade e consoles.
 
-`frontend/` e `backend/` permaneceram intactos e são apenas referência. Não foram criados Prisma, Neon, banco, migration, autenticação, RBAC, APIs, integrações, deploy, configuração externa ou secrets.
+Somente após todas essas evidências a Fase 1 poderá ser marcada como concluída e a Fase 2 iniciada.

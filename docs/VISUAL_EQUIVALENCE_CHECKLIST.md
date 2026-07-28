@@ -82,4 +82,4 @@ Use o protótipo em `frontend/` somente como referência, lado a lado com a apli
 - [ ] Configurações: tabs e conteúdo demonstrativo comparados lado a lado.
 - [ ] Plano público: itens, total, aviso de demonstração e estados locais comparados lado a lado.
 
-A implementação está disponível para inspeção, mas os itens permanecem desmarcados porque o servidor não pôde ser iniciado neste ambiente.
+A implementação está disponível para inspeção, mas os itens permanecem desmarcados. Na tentativa de 2026-07-28, `pnpm dev` não pôde iniciar porque as dependências não foram instaladas: o proxy obrigatório recusou o acesso ao registry npm com HTTP 403. Portanto, desktop (1440 × 900), tablet, mobile (390 × 844), consoles, hidratação, overflow, fontes, links, navegação ativa, menu mobile, teclado, foco, contraste e estados locais **não foram aprovados nem inferidos por inspeção estática**. Não foram produzidas screenshots válidas.
