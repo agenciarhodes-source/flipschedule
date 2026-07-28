@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MobileNavigation } from "@/components/layout/mobile-navigation";
 import { NavigationItem } from "@/components/layout/navigation-item";
@@ -12,6 +12,10 @@ let pathname = "/clinica-vitalita/dashboard";
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 
 const tenant = { tenantName: "Clínica Vitalità", tenantSlug: "clinica-vitalita" };
+
+afterEach(() => {
+  cleanup();
+});
 
 describe("platform navigation", () => {
   beforeEach(() => { pathname = "/clinica-vitalita/dashboard"; });
