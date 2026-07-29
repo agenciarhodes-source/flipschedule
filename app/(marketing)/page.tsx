@@ -1,3 +1,5 @@
-import { MarketingLanding } from "@/components/marketing/marketing-landing";
+import { redirect } from "next/navigation";
 
-export default function MarketingPage() { return <MarketingLanding />; }
+export default function HomePage() {
+  redirect("/login");
+}

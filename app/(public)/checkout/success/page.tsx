@@ -1,0 +1,2 @@
+import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
+export default function CheckoutSuccessPage() { return <PreparatoryPage eyebrow="Retorno preparatório" title="Confirmação indisponível" description="Esta página não confirma pagamento, assinatura ou ativação. O checkout real ainda não foi implementado." nextStep="No fluxo futuro, o status será confirmado no servidor por evento verificado do provedor." />; }

@@ -1,0 +1,2 @@
+import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
+export default function CheckoutErrorPage() { return <PreparatoryPage eyebrow="Retorno preparatório" title="Checkout indisponível" description="Não houve tentativa de cobrança. Esta página apenas reserva o estado visual de erro para o fluxo futuro." nextStep="Quando habilitado, erros serão tratados sem expor dados sensíveis." />; }

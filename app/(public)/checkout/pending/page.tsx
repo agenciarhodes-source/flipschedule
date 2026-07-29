@@ -1,0 +1,2 @@
+import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
+export default function CheckoutPendingPage() { return <PreparatoryPage eyebrow="Retorno preparatório" title="Consulta de status indisponível" description="Nenhuma cobrança foi iniciada e não há pagamento em análise. Esta é somente uma página de estado visual." nextStep="O status futuro será consultado com segurança no servidor." />; }

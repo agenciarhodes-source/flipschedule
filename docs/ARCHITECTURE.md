@@ -12,6 +12,12 @@ O alvo é uma aplicação Next.js App Router em TypeScript, implantada na Vercel
 - Interface em pt-BR; rotas e nomes internos em inglês quando não afetarem URLs públicas aprovadas.
 - Dados sensíveis não entram em props/cache público. Estado de autorização é confirmado no servidor a cada operação.
 
+### Domínios e superfície pública
+
+O aplicativo deste repositório terá endereço canônico `app.flipschedule.com.br`; a landing comercial em `flipschedule.com.br` pertence a outro projeto. A raiz do aplicativo redireciona para `/login`, enquanto `/demo` preserva a experiência visual demonstrativa. Login, recovery, checkout e billing possuem apenas superfícies preparatórias nesta etapa, sem efeitos reais. O contrato detalhado está em `DOMAIN_AND_ROUTE_ARCHITECTURE.md`.
+
+Hostnames e URLs públicas não participam de autorização nem de resolução de tenant. O servidor continuará obrigado a derivar tenant de sessão verificada e Membership ativa quando a Fase 3 implementar identidade.
+
 ## Backend e limites de domínio
 
 Route Handlers e Server Actions chamam serviços de domínio server-only. UI, transporte, domínio e persistência ficam separados. Módulos iniciais: identity/access, tenancy/clinics, scheduling, patients/consents, CRM, treatment plans, conversations, billing, integrations e audit. O destino do FastAPI é transicional: ele não será removido antes de equivalência e plano explícito.

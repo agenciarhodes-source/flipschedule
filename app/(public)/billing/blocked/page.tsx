@@ -1,0 +1,2 @@
+import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
+export default function BillingBlockedPage() { return <PreparatoryPage eyebrow="Acesso e faturamento" title="Verificação indisponível" description="Esta página não indica bloqueio real, débito ou alteração de acesso. Não há cobrança conectada nesta fase." nextStep="O estado futuro dependerá de entitlement confirmado no servidor, separado do retorno do checkout." />; }

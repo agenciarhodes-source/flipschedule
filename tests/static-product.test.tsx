@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
-import MarketingPage from "@/app/(marketing)/page";
+import DemoPage from "@/app/(marketing)/demo/page";
 import { DemoLogin } from "@/components/auth/demo-login";
 import { AgendaView } from "@/components/modules/agenda/agenda-view";
 import { CrmView } from "@/components/modules/crm/crm-view";
@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 describe("public experience",()=>{
- it("renders landing headline, metrics and login CTA",()=>{render(<MarketingPage/>);expect(screen.getByRole("heading",{level:1})).toHaveTextContent("Sua clínica");expect(screen.getByText("Receita realizada")).toBeInTheDocument();for(const link of screen.getAllByRole("link",{name:/Acessar sistema|Entrar na demonstração/}))expect(link).toHaveAttribute("href","/login")});
+ it("renders the preserved demo headline, metrics and login CTA",()=>{render(<DemoPage/>);expect(screen.getByRole("heading",{level:1})).toHaveTextContent("Sua clínica");expect(screen.getByText("Receita realizada")).toBeInTheDocument();for(const link of screen.getAllByRole("link",{name:/Acessar sistema|Entrar na demonstração/}))expect(link).toHaveAttribute("href","/login")});
  it("identifies login as demo and links to the demo tenant",()=>{render(<DemoLogin/>);expect(screen.getByText(/Não há autenticação/)).toBeInTheDocument();expect(screen.getByRole("link",{name:/Entrar na demonstração/})).toHaveAttribute("href","/clinica-vitalita/dashboard")});
  it("keeps public plan acceptance entirely visual",async()=>{const user=userEvent.setup();render(<DemoPublicPlan token="demo"/>);expect(screen.getByText(/DEMONSTRAÇÃO · token demo/)).toBeInTheDocument();await user.click(screen.getByRole("button",{name:/Aceitar plano/}));expect(screen.getByRole("heading",{name:/Plano aceito visualmente/})).toBeInTheDocument();expect(screen.getByText(/Nada foi enviado, persistido ou registrado/)).toBeInTheDocument()});
 });
