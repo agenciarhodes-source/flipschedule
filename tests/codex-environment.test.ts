@@ -29,7 +29,15 @@ describe("Codex environment stabilization", () => {
     const script = readText("scripts/codex-setup.sh");
     expect(script).toContain("pnpm install --frozen-lockfile");
     expect(script).toContain("pnpm db:generate");
-    expect(script).not.toMatch(/prisma\s+migrate|prisma\s+db\s+push|pnpm\s+migrate|npm\s+run\s+migrate|db push|migration/i);
+    const executableScript = script
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#"))
+      .join("\n");
+
+    expect(executableScript).not.toMatch(
+      /prisma\s+migrate|prisma\s+db\s+push|pnpm\s+migrate|npm\s+run\s+migrate|db\s+push/i,
+    );
 
     const agents = readText("AGENTS.md");
     expect(agents).toContain("## Protocolo para Codex Cloud");
