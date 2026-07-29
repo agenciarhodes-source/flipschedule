@@ -27,6 +27,9 @@
     "check": "pnpm db:validate && pnpm db:generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "@fontsource/instrument-serif": "5.3.0",
     "@neondatabase/serverless": "1.0.2",
     "@prisma/adapter-neon": "7.2.0",
     "@prisma/client": "7.2.0",
@@ -49,13 +52,13 @@
     "@types/react": "19.0.3",
     "@types/react-dom": "19.0.2",
     "autoprefixer": "10.4.20",
+    "dotenv": "17.2.3",
     "eslint": "9.17.0",
     "eslint-config-next": "15.5.7",
     "jsdom": "25.0.1",
     "postcss": "8.4.49",
-    "tailwindcss": "3.4.17",
-    "dotenv": "17.2.3",
     "prisma": "7.2.0",
+    "tailwindcss": "3.4.17",
     "tsx": "4.21.0",
     "typescript": "5.7.2",
     "vitest": "2.1.8"
