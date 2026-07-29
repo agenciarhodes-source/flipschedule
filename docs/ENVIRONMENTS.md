@@ -13,6 +13,8 @@
 
 `.env.example` lista somente nomes. Valores locais ficam em arquivo ignorado; valores públicos ficam na configuração do ambiente quando não sensíveis; secrets ficam no gerenciador Vercel/provedor, com escopo por ambiente. Nunca copiar secret de produção para preview/staging. `NEXT_PUBLIC_*` é público por definição.
 
+As configurações públicas de navegação são `NEXT_PUBLIC_MARKETING_URL`, `NEXT_PUBLIC_APP_URL` e `NEXT_PUBLIC_SUPPORT_EMAIL`. `MARKETING_HOSTNAME` e `APP_HOSTNAME` reservam os hosts oficiais para configuração futura. Esses valores não são secrets e não podem ser usados como prova de origem, autorização, seleção de tenant ou substituto de sessão. DNS e Vercel não foram configurados por esta fundação.
+
 ## Deploy
 
 PR pode gerar preview depois que a fundação existir. Merge e deploy seguem gates de CI e aprovação. Staging valida integração; produção requer checklist, responsável, janela/impacto e smoke test. Feature flags separam publicação de ativação. Rollback de aplicação não deve pressupor rollback automático do banco.

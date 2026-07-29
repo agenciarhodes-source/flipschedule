@@ -1,0 +1,2 @@
+import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
+export default function ForgotPasswordPage() { return <PreparatoryPage eyebrow="Recuperação de acesso" title="Esqueceu sua senha?" description="A recuperação por e-mail ainda não está ativa. Nenhuma mensagem ou link de recuperação será enviado nesta etapa." nextStep="O envio seguro de recuperação será implementado com a autenticação real." />; }

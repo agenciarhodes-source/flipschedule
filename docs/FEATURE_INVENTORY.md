@@ -45,3 +45,7 @@ A raiz contém representações visuais estáticas da landing, login, dashboard,
 ## Reconstrução — estado do modelo
 
 O Passo 2A agora representa os módulos confirmados em um schema relacional Prisma, incluindo pipeline configurável, vínculo profissional-clínica, consentimentos, históricos, comunicação, billing e governança. A implementação é somente estrutural e aguarda revisão; nenhuma feature está conectada ao banco.
+
+## Fundação pública do aplicativo
+
+O aplicativo Next.js agora reserva `/login`, os fluxos de primeiro acesso/recuperação, checkout e estado de billing como páginas exclusivamente visuais. A raiz redireciona para `/login`, e a demonstração da antiga raiz foi preservada em `/demo`. Nenhuma dessas páginas autentica, envia e-mail, processa pagamento, altera entitlement ou consulta banco. A landing comercial oficial continua pendente e será mantida em projeto separado.

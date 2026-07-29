@@ -1,2 +1,5 @@
-import { DemoLogin } from "@/components/auth/demo-login";
-export default function LoginPage(){return <DemoLogin/>}
+import { LoginPageContent } from "@/components/auth/login-page-content";
+
+export default function LoginPage() {
+  return <LoginPageContent />;
+}

@@ -1,0 +1,2 @@
+import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
+export default async function CheckoutPage({ params }: { params: Promise<{ plano: string }> }) { const { plano } = await params; return <PreparatoryPage eyebrow="Checkout preparatório" title="Contratação do FlipSchedule" description={`O plano “${plano}” foi selecionado apenas para apresentação. Nenhuma cobrança, assinatura ou ativação foi realizada.`} nextStep="Preços e contratação serão conectados ao Asaas somente na fase autorizada." />; }

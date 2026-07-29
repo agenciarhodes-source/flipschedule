@@ -18,6 +18,7 @@ Cada fase só termina com evidências dos critérios. Datas e responsáveis são
 ## Progresso registrado
 
 - **Fase 1 — migração visual estática implementada, validação ainda bloqueada:** em 2026-07-28 foi confirmado que npm e pnpm apontam para `https://registry.npmjs.org/`, mas o proxy obrigatório do ambiente recusou o túnel HTTPS com HTTP 403. Sem resolução DNS fora do proxy, não foi possível instalar dependências, gerar um lockfile real, iniciar a aplicação ou obter evidência verde dos quality gates e do CI. A fase permanece não concluída; nenhum gate foi dispensado.
+- **Fundação de domínios e rotas públicas:** o contrato separa a landing futura (`flipschedule.com.br`) do aplicativo (`app.flipschedule.com.br`), redireciona a raiz do app ao login e reserva telas públicas preparatórias. Isso não conclui landing, autenticação, Neon, checkout, Asaas, billing, deploy ou configuração de domínio.
 
 ## Gates transversais
 

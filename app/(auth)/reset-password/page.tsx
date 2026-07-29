@@ -1,0 +1,2 @@
+import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
+export default function ResetPasswordPage() { return <PreparatoryPage eyebrow="Nova senha" title="Redefinição de senha" description="Este fluxo é apenas preparatório. Nenhuma senha ou token é recebido, validado ou alterado nesta página." nextStep="A redefinição segura será liberada junto ao provedor de autenticação." />; }
