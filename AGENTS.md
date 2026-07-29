@@ -87,6 +87,22 @@ Não crie essa estrutura antecipadamente se a tarefa for apenas documental.
 - Commits devem ser coesos e usar a mensagem solicitada quando fornecida. Revise `git diff`, `git diff --check`, `git diff --stat` e `git status`.
 - Um Pull Request não representa deploy; registre o que foi apenas proposto, executado e validado.
 
+## Protocolo para Codex Cloud
+
+- O Codex Cloud pode disponibilizar o commit selecionado em uma branch local chamada `work`.
+- A ausência de uma branch local chamada `main` não é motivo para interromper uma tarefa.
+- A ausência de `origin` ou de qualquer remote não é motivo para interromper uma tarefa.
+- Quando o ambiente não possuir remote, o HEAD atual deve ser tratado como o snapshot autorizado da branch escolhida pelo usuário na interface do Codex.
+- Não executar `git switch main`, `git pull`, `git fetch`, `git push` ou `gh pr create` quando não houver remote.
+- Não criar outra branch dentro do ambiente cloud quando a plataforma já tiver criado a branch de trabalho.
+- Verificar `git status`, branch atual e HEAD apenas para diagnóstico.
+- Interromper apenas quando houver alterações preexistentes não relacionadas, conflito real ou dependência indispensável ausente.
+- Implementar, validar e criar o commit local normalmente.
+- A criação do Pull Request deve ser realizada pelo fluxo da interface do Codex quando não houver remote.
+- Quando o ambiente possuir remote e credenciais, o fluxo Git convencional pode ser usado.
+- Nunca declarar falha apenas porque a branch se chama `work`.
+- Nunca exigir sincronização com `main` dentro da sandbox quando o snapshot já foi criado a partir da branch selecionada.
+
 ## Padrão do relatório final
 
 Informe em português, com referências aos arquivos: resumo; arquivos criados/alterados; decisões e pendências; riscos; testes e comandos exatos com resultado; branch; commit; Pull Request; próxima fase. Confirme explicitamente se houve mudança funcional, instalação de dependência, deploy, criação de banco, execução de migration, configuração externa ou inclusão de secret. Nunca alegue conclusão de uma etapa que não foi executada e verificada.

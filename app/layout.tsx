@@ -1,25 +1,15 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Instrument_Serif } from "next/font/google";
+
+import "@fontsource/instrument-serif/400.css";
+import "@fontsource/ibm-plex-sans/400.css";
+import "@fontsource/ibm-plex-sans/500.css";
+import "@fontsource/ibm-plex-sans/600.css";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
 
 import { PRODUCT_NAME } from "@/lib/constants/product";
 
 import "./globals.css";
-
-const displayFont = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-display",
-});
-const sansFont = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-sans",
-});
-const monoFont = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-mono",
-});
 
 export const metadata: Metadata = {
   title: PRODUCT_NAME,
@@ -28,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR" className={`${displayFont.variable} ${sansFont.variable} ${monoFont.variable}`}>
+    <html lang="pt-BR">
       <body>{children}</body>
     </html>
   );

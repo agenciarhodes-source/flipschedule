@@ -29,6 +29,9 @@
     --radius: 0.5rem;
     --shadow-subtle: 0 12px 40px hsl(var(--bg) / 0.28);
     --space-page: clamp(1.25rem, 3vw, 2rem);
+    --font-display: "Instrument Serif";
+    --font-sans: "IBM Plex Sans";
+    --font-mono: "IBM Plex Mono";
   }
 
   * { box-sizing: border-box; border-color: hsl(var(--line)); }
