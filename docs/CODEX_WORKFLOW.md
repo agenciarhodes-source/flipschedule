@@ -66,6 +66,12 @@ O fluxo recomendado inclui:
 - `pnpm build`
 - `pnpm check`
 
+## Migrations de produção
+
+- O fluxo de production não deve usar `prisma migrate dev`, `prisma db push`, `prisma migrate reset` nem `prisma db seed`.
+- O deploy de produção acontece somente via workflow manual do GitHub Actions, com o secret `NEON_PRODUCTION_DIRECT_URL` no ambiente `production`.
+- O workflow valida a presença do secret, a forma da URL e a ausência de `-pooler` antes de executar `prisma migrate deploy`.
+
 ## Dependências e lockfile
 
 - As dependências são fixadas em `pnpm-lock.yaml`.

@@ -1,0 +1,99 @@
+name: Database migration — production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY to confirm production migration
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flipschedule-production-database-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate confirmation
+        if: ${{ github.event.inputs.confirmation != 'DEPLOY' }}
+        run: |
+          echo "Confirmation input must be exactly DEPLOY." >&2
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Validate production database URL secret
+        env:
+          NEON_PRODUCTION_DIRECT_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+        run: |
+          if [ -z "$NEON_PRODUCTION_DIRECT_URL" ]; then
+            echo "Missing required secret: NEON_PRODUCTION_DIRECT_URL" >&2
+            exit 1
+          fi
+
+          protocol="${NEON_PRODUCTION_DIRECT_URL%%://*}"
+          if [ "$protocol" != "postgresql" ] && [ "$protocol" != "postgres" ]; then
+            echo "NEON_PRODUCTION_DIRECT_URL must use a PostgreSQL protocol" >&2
+            exit 1
+          fi
+
+          if [[ "$NEON_PRODUCTION_DIRECT_URL" == *-pooler* ]]; then
+            echo "NEON_PRODUCTION_DIRECT_URL must be a direct connection string without -pooler" >&2
+            exit 1
+          fi
+
+          host=$(printf '%s' "$NEON_PRODUCTION_DIRECT_URL" | sed -E 's#^[a-zA-Z]+://[^@]+@([^/]+).*#\1#')
+          if [ -z "$host" ]; then
+            echo "NEON_PRODUCTION_DIRECT_URL is invalid" >&2
+            exit 1
+          fi
+
+          echo "Using direct Neon connection for host: $host"
+
+      - name: Deploy Prisma migrations
+        env:
+          DIRECT_DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+        run: |
+          pnpm db:migrate:production:deploy
+
+      - name: Confirm Prisma migration status
+        env:
+          DIRECT_DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+        run: |
+          pnpm db:migrate:production:status
+
+      - name: Fail if migration status is not fully updated
+        env:
+          DIRECT_DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+        run: |
+          status_output=$(pnpm db:migrate:production:status 2>&1)
+          echo "$status_output"
+          if echo "$status_output" | grep -qi "Database schema is up to date"; then
+            exit 0
+          fi
+          if echo "$status_output" | grep -qi "No pending migrations"; then
+            exit 0
+          fi
+          echo "Prisma migration status did not report an updated database state" >&2
+          exit 1
