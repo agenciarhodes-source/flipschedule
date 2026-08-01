@@ -30,7 +30,7 @@ Nenhum schema Prisma é definido nesta fase. A visão conceitual está em `DATA_
 
 ## Autenticação e sessões
 
-Autenticação será real, com provedor/biblioteca ainda pendente no ADR-0004. Sessões devem ser verificáveis no servidor, rotacionáveis e revogáveis; cookies seguros e HttpOnly são preferidos. Recovery, verificação de e-mail, expiração e proteção contra enumeração/abuso são requisitos. Nunca se autoriza por estado client-side.
+A autenticação agora usa Better Auth com Prisma adapter e PostgreSQL. O fluxo atual implementa sign-in por e-mail/senha, sessões persistidas no banco, proteção server-side das rotas privadas e resolução de tenant a partir de membership ativa. Recovery, verificação de e-mail e cadastro público continuam pendentes e não são marcados como concluídos.
 
 ## Multi-tenancy e RBAC
 

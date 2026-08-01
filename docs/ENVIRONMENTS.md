@@ -13,6 +13,8 @@
 
 `.env.example` lista somente nomes. Valores locais ficam em arquivo ignorado; valores públicos ficam na configuração do ambiente quando não sensíveis; secrets ficam no gerenciador Vercel/provedor, com escopo por ambiente. Nunca copiar secret de produção para preview/staging. `NEXT_PUBLIC_*` é público por definição.
 
+Para a autenticação, use `BETTER_AUTH_SECRET` com alta entropia, `BETTER_AUTH_URL` explícito por ambiente e `BETTER_AUTH_TRUSTED_ORIGINS` como allowlist. Não use `NEXT_PUBLIC_*` para segredos.
+
 As configurações públicas de navegação são `NEXT_PUBLIC_MARKETING_URL`, `NEXT_PUBLIC_APP_URL` e `NEXT_PUBLIC_SUPPORT_EMAIL`. `MARKETING_HOSTNAME` e `APP_HOSTNAME` reservam os hosts oficiais para configuração futura. Esses valores não são secrets e não podem ser usados como prova de origem, autorização, seleção de tenant ou substituto de sessão. DNS e Vercel não foram configurados por esta fundação.
 
 ## Deploy

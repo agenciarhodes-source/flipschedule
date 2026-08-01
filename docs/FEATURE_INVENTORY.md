@@ -31,6 +31,7 @@ Legenda: “real” significa código/persistência efetivamente implementados n
 
 ## Cobertura transversal
 
+- **Autenticação:** sign-in real por e-mail/senha via Better Auth, com sessões persistidas e validação server-side.
 - **Endpoints:** 37 operações REST sob `/api`, todas públicas.
 - **Testes:** 27 testes de integração backend; zero suites frontend encontradas.
 - **Persistência:** coleções Mongo sem schema/index/migration versionados.
