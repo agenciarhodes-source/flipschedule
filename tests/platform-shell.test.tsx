@@ -8,8 +8,11 @@ import { PlatformShell } from "@/components/layout/platform-shell";
 import { PlatformSidebar } from "@/components/layout/platform-sidebar";
 import { createPlatformNavigation } from "@/lib/constants/platform-navigation";
 
-let pathname = "/clinica-vitalita/dashboard";
-vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+const navigationState = vi.hoisted(() => ({ pathname: "/clinica-vitalita/dashboard" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigationState.pathname,
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), prefetch: vi.fn() }),
+}));
 
 const tenant = { tenantName: "Clínica Vitalità", tenantSlug: "clinica-vitalita" };
 
@@ -18,7 +21,7 @@ afterEach(() => {
 });
 
 describe("platform navigation", () => {
-  beforeEach(() => { pathname = "/clinica-vitalita/dashboard"; });
+  beforeEach(() => { navigationState.pathname = "/clinica-vitalita/dashboard"; });
 
   it("renders every navigation item and the visual logout", () => {
     render(<PlatformSidebar {...tenant} />);
@@ -28,7 +31,7 @@ describe("platform navigation", () => {
   });
 
   it("marks the current item with aria-current", () => {
-    pathname = "/clinica-vitalita/agenda";
+    navigationState.pathname = "/clinica-vitalita/agenda";
     const item = createPlatformNavigation("clinica-vitalita")[1];
     expect(item).toBeDefined();
     render(<NavigationItem item={item!} />);

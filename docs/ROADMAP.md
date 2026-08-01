@@ -24,6 +24,10 @@ Cada fase só termina com evidências dos critérios. Datas e responsáveis são
 
 Toda fase exige escopo e critérios antes do código, testes automatizados proporcionais, documentação atualizada, revisão de secrets/PII, evidência de isolamento tenant e plano operacional. Um PR, deploy ou migration isolado não conclui fase.
 
+### Fundação de autenticação
+
+A implementação atual entrega login por e-mail/senha, sessões persistidas no banco, proteção de rotas privadas e contexto de tenant derivado de membership ativa. Cadastro público, recuperação de senha e primeiro acesso continuam pendentes e não são marcados como concluídos.
+
 ### Estado detalhado da Fase 2
 
 - **Passo 2A:** implementado no código e aguardando revisão (schema/client/testes/documentação; sem banco ou migration).

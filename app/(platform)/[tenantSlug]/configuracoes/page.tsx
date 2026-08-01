@@ -1,2 +1,7 @@
 import { SettingsView } from "@/components/modules/settings/settings-view";
-export default function ConfiguracoesPage(){return <SettingsView/>}
+import { requireAuthenticatedTenantContext } from "@/lib/auth/guards";
+
+export default async function ConfiguracoesPage() {
+  await requireAuthenticatedTenantContext();
+  return <SettingsView />;
+}

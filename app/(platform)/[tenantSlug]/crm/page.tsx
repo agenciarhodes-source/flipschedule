@@ -1,2 +1,7 @@
 import { CrmView } from "@/components/modules/crm/crm-view";
-export default function CrmPage(){return <CrmView/>}
+import { requireAuthenticatedTenantContext } from "@/lib/auth/guards";
+
+export default async function CrmPage() {
+  await requireAuthenticatedTenantContext();
+  return <CrmView />;
+}

@@ -9,8 +9,11 @@ import LoginPage from "@/app/(auth)/login/page";
 import CheckoutSuccessPage from "@/app/(public)/checkout/success/page";
 import { appUrl, marketingUrl, publicUrls, supportEmail } from "@/lib/config/public-urls";
 
-const redirect = vi.fn();
-vi.mock("next/navigation", () => ({ redirect }));
+const { redirect } = vi.hoisted(() => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  redirect,
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 
 afterEach(() => {
   cleanup();
@@ -32,7 +35,7 @@ describe("public app routes", () => {
     expect(screen.getByRole("link", { name: "Esqueci minha senha" })).toHaveAttribute("href", "/forgot-password");
     expect(screen.getByRole("link", { name: /Conhecer a demonstração/ })).toHaveAttribute("href", "/demo");
     expect(screen.getByRole("link", { name: "Visitar o site oficial" })).toHaveAttribute("href", "https://flipschedule.com.br");
-    expect(screen.getByRole("button", { name: /Entrar/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Entrar/i })).toBeEnabled();
   });
 
   it("preserves the demonstration at /demo", () => {
