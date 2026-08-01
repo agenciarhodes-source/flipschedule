@@ -1,2 +1,14 @@
-import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
-export default function FirstAccessPage() { return <PreparatoryPage eyebrow="Primeiro acesso" title="Prepare seu acesso" description="O fluxo de ativação de conta ainda não está disponível. Nenhuma conta ou senha será criada nesta página." nextStep="Aguarde as instruções oficiais de acesso do FlipSchedule." />; }
+import { redirect } from "next/navigation";
+
+import { FirstAccessForm } from "@/components/auth/first-access-form";
+import { Eyebrow } from "@/components/shared/eyebrow";
+import { getFirstAccessSession } from "@/lib/auth/session";
+
+export const dynamic = "force-dynamic";
+
+export default async function FirstAccessPage() {
+  const session = await getFirstAccessSession();
+  if (!session) redirect("/login");
+  if (!session.mustChangePassword) redirect("/dashboard");
+  return <main className="flex min-h-screen items-center justify-center bg-bg px-5 py-12 text-ink"><section className="w-full max-w-md"><Eyebrow className="mb-4">Primeiro acesso</Eyebrow><h1 className="font-display text-4xl">Crie sua senha definitiva</h1><p className="mt-4 text-ink-muted">Por segurança, substitua a senha temporária antes de acessar a clínica.</p><FirstAccessForm /></section></main>;
+}

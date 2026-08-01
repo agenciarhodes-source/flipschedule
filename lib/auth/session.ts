@@ -22,6 +22,7 @@ export async function getAuthenticatedSessionContext() {
       emailNormalized: true,
       status: true,
       emailVerifiedAt: true,
+      mustChangePassword: true,
       memberships: {
         where: { status: "ACTIVE" },
         select: {
@@ -37,6 +38,7 @@ export async function getAuthenticatedSessionContext() {
 
   if (!user || user.status !== "ACTIVE") throw new AuthAccessDeniedError();
   if (!user.emailVerifiedAt) throw new AuthAccessDeniedError();
+  if (user.mustChangePassword) return { firstAccessRequired: true as const, userId: user.id };
 
   const activeMembership = [...(user.memberships ?? [])].sort((a, b) => a.tenantId.localeCompare(b.tenantId))[0];
   if (!activeMembership) throw new AuthAccessDeniedError();
@@ -44,6 +46,7 @@ export async function getAuthenticatedSessionContext() {
   if (activeMembership.tenant.status !== "ACTIVE") throw new AuthAccessDeniedError();
 
   return {
+    firstAccessRequired: false as const,
     userId: user.id,
     displayName: user.displayName,
     email: normalizeEmail(user.emailNormalized),
@@ -54,4 +57,12 @@ export async function getAuthenticatedSessionContext() {
     membershipRole: activeMembership.role,
     membershipStatus: activeMembership.status,
   };
+}
+
+export async function getFirstAccessSession() {
+  const requestHeaders = await headers();
+  const session = await getAuth().api.getSession({ headers: requestHeaders });
+  if (!session?.user) return null;
+  const user = await getPrismaClient().user.findUnique({ where: { id: session.user.id }, select: { mustChangePassword: true } });
+  return user ? { userId: session.user.id, mustChangePassword: user.mustChangePassword } : null;
 }

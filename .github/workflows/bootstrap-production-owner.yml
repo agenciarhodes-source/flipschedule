@@ -1,0 +1,45 @@
+name: Bootstrap production owner
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type BOOTSTRAP to confirm
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flipschedule-production-owner-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate confirmation
+        if: ${{ github.event.inputs.confirmation != 'BOOTSTRAP' }}
+        run: exit 1
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Bootstrap owner
+        env:
+          APP_ENV: production
+          DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+          BOOTSTRAP_PRODUCTION_CONFIRMED: BOOTSTRAP
+          BOOTSTRAP_OWNER_EMAIL: ${{ secrets.BOOTSTRAP_OWNER_EMAIL }}
+          BOOTSTRAP_OWNER_NAME: ${{ secrets.BOOTSTRAP_OWNER_NAME }}
+          BOOTSTRAP_OWNER_TEMP_PASSWORD: ${{ secrets.BOOTSTRAP_OWNER_TEMP_PASSWORD }}
+          BOOTSTRAP_TENANT_NAME: ${{ secrets.BOOTSTRAP_TENANT_NAME }}
+          BOOTSTRAP_TENANT_SLUG: ${{ secrets.BOOTSTRAP_TENANT_SLUG }}
+        run: pnpm auth:bootstrap-owner

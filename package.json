@@ -26,7 +26,8 @@
     "db:migrate:production:status": "prisma migrate status --config prisma.deploy.config.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "check": "pnpm db:validate && pnpm db:generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm db:validate && pnpm db:generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "auth:bootstrap-owner": "tsx scripts/bootstrap-owner.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "5.3.0",
