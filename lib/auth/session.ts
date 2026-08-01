@@ -4,11 +4,12 @@ import { headers } from "next/headers";
 
 import { getPrismaClient } from "@/lib/db/client";
 import { AuthAccessDeniedError } from "./errors";
-import { auth } from "./server";
+import { getAuth } from "./server";
 import { normalizeEmail } from "./utils";
 
 export async function getAuthenticatedSessionContext() {
   const requestHeaders = await headers();
+  const auth = getAuth();
   const session = await auth.api.getSession({ headers: requestHeaders });
   if (!session?.user) throw new AuthAccessDeniedError();
 

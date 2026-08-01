@@ -5,11 +5,11 @@ const { authApiGetSession } = vi.hoisted(() => ({ authApiGetSession: vi.fn() }))
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 vi.mock("@/lib/auth/server", () => ({
-  auth: {
+  getAuth: () => ({
     api: {
       getSession: authApiGetSession,
     },
-  },
+  }),
 }));
 
 describe("auth route guards", () => {

@@ -25,6 +25,8 @@ The server context resolves session, user status, membership status and tenant s
 ## Security notes
 
 - secrets come from environment variables only;
+- Better Auth is initialized lazily only when a request needs it, so route-module imports and Preview builds do not require production secrets;
+- production requests fail with a sanitized unavailable response when authentication is not configured;
 - public signup stays disabled;
 - the first-access and reset-password flows are intentionally pending;
 - production secrets must be rotated regularly and must never be committed.
