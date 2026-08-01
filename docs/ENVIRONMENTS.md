@@ -23,6 +23,16 @@ PR pode gerar preview depois que a fundação existir. Merge e deploy seguem gat
 
 Migration é artefato versionado do Prisma e passa por revisão, teste em clone/dados sintéticos, avaliação de lock/downtime e plano de forward-fix/rollback. A execução usa conexão apropriada e credencial de menor privilégio possível. Nunca executar automaticamente em todos os previews contra banco compartilhado; nunca inferir que deploy aplicou migration.
 
+### Production
+
+- Development usa `prisma migrate dev` para iterar localmente.
+- Production usa exclusivamente GitHub Actions com `prisma migrate deploy` e o workflow manual `Database migration — production`.
+- O secret esperado é `NEON_PRODUCTION_DIRECT_URL` no ambiente GitHub `production`.
+- A conexão deve ser direta, sem hostname contendo `-pooler`.
+- Nunca colar URLs no terminal, chat, PR ou logs.
+- Rollback não é automático; migrations devem ser aditivas e revisadas antes do merge.
+- `migrate deploy` é idempotente e aplica apenas migrations pendentes.
+
 ## Seeds e dados
 
 Seeds são idempotentes, explícitos e recusam produção por padrão. Devem usar nomes, telefones, CPFs e mensagens claramente fictícios e válidos apenas quando o teste exigir. **É proibido usar, copiar ou restaurar dados reais de pacientes em local, preview ou testes.** Staging também usa sintéticos por padrão; anonimização exige processo aprovado e irreversível.
