@@ -193,20 +193,23 @@ enum AuditOutcome {
 }
 
 model User {
-  id                  String              @id @default(uuid()) @db.Uuid
-  emailNormalized     String              @unique
-  displayName         String
-  status              UserStatus          @default(ACTIVE)
-  emailVerified       Boolean             @default(false)
-  emailVerifiedAt     DateTime?           @db.Timestamptz(3)
-  createdAt           DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime            @updatedAt @db.Timestamptz(3)
-  memberships         Membership[]
-  entitlementsGranted AccessEntitlement[] @relation("AccessEntitlementGrantedBy")
-  auditLogs           AuditLog[]          @relation("AuditLogActorUser")
-  authSessions        AuthSession[]
-  authAccounts        AuthAccount[]
-  authVerifications   AuthVerification[]
+  id                     String              @id @default(uuid()) @db.Uuid
+  emailNormalized        String              @unique
+  displayName            String
+  status                 UserStatus          @default(ACTIVE)
+  emailVerified          Boolean             @default(false)
+  emailVerifiedAt        DateTime?           @db.Timestamptz(3)
+  mustChangePassword     Boolean             @default(false)
+  passwordChangedAt      DateTime?           @db.Timestamptz(3)
+  firstAccessCompletedAt DateTime?           @db.Timestamptz(3)
+  createdAt              DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime            @updatedAt @db.Timestamptz(3)
+  memberships            Membership[]
+  entitlementsGranted    AccessEntitlement[] @relation("AccessEntitlementGrantedBy")
+  auditLogs              AuditLog[]          @relation("AuditLogActorUser")
+  authSessions           AuthSession[]
+  authAccounts           AuthAccount[]
+  authVerifications      AuthVerification[]
 }
 
 model AuthSession {

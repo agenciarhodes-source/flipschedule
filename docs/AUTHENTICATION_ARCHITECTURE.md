@@ -28,5 +28,7 @@ The server context resolves session, user status, membership status and tenant s
 - Better Auth is initialized lazily only when a request needs it, so route-module imports and Preview builds do not require production secrets;
 - production requests fail with a sanitized unavailable response when authentication is not configured;
 - public signup stays disabled;
-- the first-access and reset-password flows are intentionally pending;
+- o bootstrap idempotente cria a credencial inicial sem armazenar senha em `User`;
+- usuários marcados com `mustChangePassword` somente acessam `/first-access`; a conclusão troca o hash, revoga outras sessões e é auditada;
+- o fluxo de reset-password continua pendente;
 - production secrets must be rotated regularly and must never be committed.

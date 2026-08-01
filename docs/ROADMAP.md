@@ -26,7 +26,7 @@ Toda fase exige escopo e critérios antes do código, testes automatizados propo
 
 ### Fundação de autenticação
 
-A implementação atual entrega login por e-mail/senha, sessões persistidas no banco, proteção de rotas privadas e contexto de tenant derivado de membership ativa. Cadastro público, recuperação de senha e primeiro acesso continuam pendentes e não são marcados como concluídos.
+A implementação atual entrega login por e-mail/senha, sessões persistidas, bootstrap controlado do primeiro proprietário, primeiro acesso obrigatório, proteção de rotas privadas e contexto de tenant derivado de membership ativa. Cadastro público e recuperação de senha continuam pendentes.
 
 ### Estado detalhado da Fase 2
 

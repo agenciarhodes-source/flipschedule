@@ -7,7 +7,9 @@ import { getAuthenticatedSessionContext } from "./session";
 
 export async function requireAuthenticatedTenantContext() {
   try {
-    return await getAuthenticatedSessionContext();
+    const context = await getAuthenticatedSessionContext();
+    if (context.firstAccessRequired) redirect("/first-access");
+    return context;
   } catch (error) {
     if (error instanceof AuthAccessDeniedError) {
       redirect("/login");
@@ -18,7 +20,9 @@ export async function requireAuthenticatedTenantContext() {
 
 export async function requireAccessForRoute() {
   try {
-    return await getAuthenticatedSessionContext();
+    const context = await getAuthenticatedSessionContext();
+    if (context.firstAccessRequired) redirect("/first-access");
+    return context;
   } catch (error) {
     if (error instanceof AuthAccessDeniedError) {
       redirect("/login");

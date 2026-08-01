@@ -37,6 +37,8 @@ Migration é artefato versionado do Prisma e passa por revisão, teste em clone/
 
 ## Seeds e dados
 
+O bootstrap de proprietário usa conexão direta e variáveis `BOOTSTRAP_*`. Em development é executado manualmente; em production, somente pelo workflow manual protegido, sem migrations acopladas. Estado conflitante falha fechado e repetição do mesmo bootstrap não redefine a senha.
+
 Seeds são idempotentes, explícitos e recusam produção por padrão. Devem usar nomes, telefones, CPFs e mensagens claramente fictícios e válidos apenas quando o teste exigir. **É proibido usar, copiar ou restaurar dados reais de pacientes em local, preview ou testes.** Staging também usa sintéticos por padrão; anonimização exige processo aprovado e irreversível.
 
 ## Integrações
