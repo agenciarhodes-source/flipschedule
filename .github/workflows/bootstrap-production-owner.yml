@@ -32,9 +32,33 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+
+      - name: Validate required production bootstrap secrets
+        env:
+          NEON_PRODUCTION_DIRECT_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+          BOOTSTRAP_OWNER_EMAIL: ${{ secrets.BOOTSTRAP_OWNER_EMAIL }}
+          BOOTSTRAP_OWNER_NAME: ${{ secrets.BOOTSTRAP_OWNER_NAME }}
+          BOOTSTRAP_OWNER_TEMP_PASSWORD: ${{ secrets.BOOTSTRAP_OWNER_TEMP_PASSWORD }}
+          BOOTSTRAP_TENANT_NAME: ${{ secrets.BOOTSTRAP_TENANT_NAME }}
+          BOOTSTRAP_TENANT_SLUG: ${{ secrets.BOOTSTRAP_TENANT_SLUG }}
+        run: |
+          for secret_name in NEON_PRODUCTION_DIRECT_URL BOOTSTRAP_OWNER_EMAIL BOOTSTRAP_OWNER_NAME BOOTSTRAP_OWNER_TEMP_PASSWORD BOOTSTRAP_TENANT_NAME BOOTSTRAP_TENANT_SLUG; do
+            if [ -z "${!secret_name}" ]; then
+              echo "Missing required production bootstrap secret: $secret_name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Confirm production database schema is up to date
+        env:
+          DIRECT_DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+          DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+        run: pnpm db:migrate:production:status
+
       - name: Bootstrap owner
         env:
           APP_ENV: production
+          DIRECT_DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
           DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
           BOOTSTRAP_PRODUCTION_CONFIRMED: BOOTSTRAP
           BOOTSTRAP_OWNER_EMAIL: ${{ secrets.BOOTSTRAP_OWNER_EMAIL }}

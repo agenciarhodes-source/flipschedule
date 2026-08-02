@@ -1,6 +1,10 @@
 import "dotenv/config";
 
-import { assertBootstrapEnvironment, bootstrapOwner } from "../lib/auth/bootstrap-owner";
+import {
+  assertBootstrapEnvironment,
+  bootstrapOwner,
+  classifyBootstrapError,
+} from "../lib/auth/bootstrap-owner-core";
 
 async function main() {
   assertBootstrapEnvironment(process.env);
@@ -14,7 +18,7 @@ async function main() {
   process.stdout.write(result.created ? "Owner bootstrap completed.\n" : "Owner bootstrap already completed.\n");
 }
 
-main().catch(() => {
-  process.stderr.write("Owner bootstrap failed.\n");
+main().catch((error: unknown) => {
+  process.stderr.write(`${classifyBootstrapError(error)}\n`);
   process.exitCode = 1;
 });
