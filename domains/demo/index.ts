@@ -1,4 +1,5 @@
 export * from "./appointments";
+export * from "./schedule";
 export * from "./conversations";
 export * from "./dashboard";
 export * from "./leads";
