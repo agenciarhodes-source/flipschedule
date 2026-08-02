@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
-import DemoPage from "@/app/(marketing)/demo/page";
+import { MarketingLanding } from "@/components/marketing/marketing-landing";
 import { DemoLogin } from "@/components/auth/demo-login";
 import { AgendaView } from "@/components/modules/agenda/agenda-view";
 import { CrmView } from "@/components/modules/crm/crm-view";
@@ -35,13 +35,13 @@ afterEach(() => {
 });
 
 describe("public experience",()=>{
- it("renders the preserved demo headline, metrics and login CTA",()=>{render(<DemoPage/>);expect(screen.getByRole("heading",{level:1})).toHaveTextContent("Sua clínica");expect(screen.getByText("Receita realizada")).toBeInTheDocument();for(const link of screen.getAllByRole("link",{name:/Acessar sistema|Entrar na demonstração/}))expect(link).toHaveAttribute("href","/login")});
+ it("renders the preserved demo headline, metrics and login CTA",()=>{render(<MarketingLanding/>);expect(screen.getByRole("heading",{level:1})).toHaveTextContent("Sua clínica");expect(screen.getByText("Receita realizada")).toBeInTheDocument();for(const link of screen.getAllByRole("link",{name:/Acessar sistema|Entrar na demonstração/}))expect(link).toHaveAttribute("href","/login")});
  it("identifies login as demo and links to the demo tenant",()=>{render(<DemoLogin/>);expect(screen.getByText(/Não há autenticação/)).toBeInTheDocument();expect(screen.getByRole("link",{name:/Entrar na demonstração/})).toHaveAttribute("href","/clinica-vitalita/dashboard")});
  it("keeps public plan acceptance entirely visual",async()=>{const user=userEvent.setup();render(<DemoPublicPlan token="demo"/>);expect(screen.getByText(/DEMONSTRAÇÃO · token demo/)).toBeInTheDocument();await user.click(screen.getByRole("button",{name:/Aceitar plano/}));expect(screen.getByRole("heading",{name:/Plano aceito visualmente/})).toBeInTheDocument();expect(screen.getByText(/Nada foi enviado, persistido ou registrado/)).toBeInTheDocument()});
 });
 describe("static modules",()=>{
  it("formats dashboard BRL, KPIs and alerts",()=>{render(<DashboardView/>);expect(screen.getByText(currencyMatcher(18742000))).toBeInTheDocument();expect(screen.getByRole("region",{name:"Indicadores"})).toBeInTheDocument();expect(screen.getByText("3 horários vagos amanhã")).toBeInTheDocument()});
- it("renders agenda week, professionals and accessible statuses",()=>{render(<AgendaView/>);expect(screen.getByRole("region",{name:"Semana da agenda"})).toBeInTheDocument();expect(screen.getByRole("button",{name:/Dra. Ana Ribeiro/})).toBeInTheDocument();expect(screen.getByText("Confirmado")).toBeInTheDocument()});
+ it("renders agenda week, professionals and accessible statuses",()=>{render(<AgendaView/>);expect(screen.getByRole("region",{name:"Semana da agenda"})).toBeInTheDocument();expect(screen.getByRole("button",{name:/Dra. Mariana Costa/})).toBeInTheDocument();expect(screen.getByText("Confirmado")).toBeInTheDocument()});
  it("changes inbox thread and sends a local message",async()=>{const user=userEvent.setup();render(<InboxView/>);await user.click(screen.getByRole("button",{name:/João Pedro Lima/}));expect(screen.getByRole("region",{name:"Thread da conversa"})).toHaveTextContent("Vocês trabalham com implantes?");const input=screen.getByLabelText("Mensagem");await user.type(input,"Mensagem local");await user.click(screen.getByRole("button",{name:"Enviar mensagem local"}));expect(screen.getByText("Mensagem local")).toBeInTheDocument()});
  it("renders CRM columns with matching counters",()=>{render(<CrmView/>);for(const stage of demoLeadStages){const heading=screen.getByRole("heading",{name:stage.label});const column=heading.parentElement?.parentElement;expect(column).toBeTruthy();expect(within(column!).getByLabelText(`${demoLeads.filter(l=>l.stage===stage.id).length} leads`)).toBeInTheDocument()}});
  it("formats treatment plan cents and translates status",()=>{render(<PlansView/>);expect(screen.getByText(currencyMatcher(460000))).toBeInTheDocument();expect(screen.getByText("Enviado")).toBeInTheDocument();expect(screen.getByText("Aceito")).toBeInTheDocument()});

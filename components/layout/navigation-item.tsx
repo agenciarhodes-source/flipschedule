@@ -9,11 +9,13 @@ import { cn } from "@/lib/utils";
 type NavigationItemProps = Readonly<{
   item: NavigationItemData;
   onNavigate?: () => void;
+  hideLabel?: boolean;
 }>;
 
 export function NavigationItem({
   item,
   onNavigate,
+  hideLabel = false,
 }: NavigationItemProps) {
   const pathname = usePathname();
   const active =
@@ -31,7 +33,7 @@ export function NavigationItem({
       href={item.href}
       {...optionalLinkProps}
       className={cn(
-        "flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+        "flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
         active
           ? "bg-bg-hover text-ink"
           : "text-ink-muted hover:bg-bg-hover hover:text-ink",
@@ -42,7 +44,7 @@ export function NavigationItem({
         size={17}
         className={active ? "text-primary" : "text-ink-dim"}
       />
-      <span>{item.label}</span>
+      <span className={hideLabel ? "sr-only" : undefined}>{item.label}</span>
     </Link>
   );
 }

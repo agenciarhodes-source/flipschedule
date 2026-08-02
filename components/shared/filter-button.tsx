@@ -1,0 +1,2 @@
+import { SlidersHorizontal } from "lucide-react";
+export function FilterButton({ children = "Filtros" }: Readonly<{ children?: React.ReactNode }>) { return <button type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-line bg-bg-alt px-4 text-sm text-ink-muted hover:bg-bg-hover hover:text-ink"><SlidersHorizontal aria-hidden="true" size={15} />{children}</button>; }

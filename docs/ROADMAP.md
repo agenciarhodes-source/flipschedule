@@ -32,3 +32,7 @@ A implementação atual entrega login por e-mail/senha, sessões persistidas, bo
 
 - **Passo 2A:** implementado no código e aguardando revisão (schema/client/testes/documentação; sem banco ou migration).
 - **Passos 2B e 2C:** pendentes; respectivamente provisionamento controlado e migration/constraints revisáveis.
+
+## Registro — fundação visual da demonstração
+
+A fundação visual e navegável pública sob `/demo` foi criada, com application shell compartilhado, navegação desktop/mobile, design system consolidado, nove telas-base e fixtures fictícias isoladas. Este registro confirma somente a arquitetura visual: Dashboard, Agenda, CRM, Pacientes, Orçamentos, Inbox, Relatórios, Configurações e Administração **não estão funcionalmente concluídos** e permanecem nas respectivas fases do roadmap.
