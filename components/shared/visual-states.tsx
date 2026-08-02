@@ -1,0 +1,4 @@
+import { CheckCircle2, CloudOff, LockKeyhole } from "lucide-react";
+export function SuccessState() { return <div role="status" className="flex items-center gap-3 rounded-md border border-primary/25 bg-primary/5 p-4 text-sm"><CheckCircle2 aria-hidden="true" className="text-primary" size={18} />Alterações simuladas com sucesso.</div>; }
+export function PermissionState() { return <div className="flex min-h-48 flex-col items-center justify-center text-center"><LockKeyhole aria-hidden="true" className="text-warm" /><h2 className="mt-4 font-display text-2xl">Acesso não permitido</h2><p className="mt-2 text-sm text-ink-muted">Seu perfil não possui permissão para visualizar esta área.</p></div>; }
+export function OfflineState() { return <div role="status" className="flex items-center gap-3 rounded-md border border-warm/25 bg-warm/5 p-4 text-sm"><CloudOff aria-hidden="true" className="text-warm" size={18} />Você está offline. Exibindo os últimos dados disponíveis.</div>; }

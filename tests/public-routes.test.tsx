@@ -4,7 +4,7 @@ import path from "node:path";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import DemoPage from "@/app/(marketing)/demo/page";
+import DemoPage from "@/app/(demo)/demo/page";
 import LoginPage from "@/app/(auth)/login/page";
 import CheckoutSuccessPage from "@/app/(public)/checkout/success/page";
 import { appUrl, marketingUrl, publicUrls, supportEmail } from "@/lib/config/public-urls";
@@ -38,10 +38,9 @@ describe("public app routes", () => {
     expect(screen.getByRole("button", { name: /Entrar/i })).toBeEnabled();
   });
 
-  it("preserves the demonstration at /demo", () => {
-    render(<DemoPage />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sua clínica");
-    expect(screen.getByText("Receita realizada")).toBeInTheDocument();
+  it("redirects /demo to the dashboard", () => {
+    DemoPage();
+    expect(redirect).toHaveBeenCalledWith("/demo/dashboard");
   });
 
   it("resolves the official public URLs without environment setup", () => {
@@ -58,7 +57,7 @@ describe("public app routes", () => {
   it("keeps public routes independent from Prisma and DATABASE_URL", () => {
     const root = path.resolve(__dirname, "..");
     const publicFiles = [
-      "app/(marketing)/page.tsx", "app/(marketing)/demo/page.tsx", "app/(auth)/login/page.tsx",
+      "app/(marketing)/page.tsx", "app/(demo)/demo/page.tsx", "app/(demo)/demo/layout.tsx", "app/(auth)/login/page.tsx",
       "app/(auth)/first-access/page.tsx", "app/(auth)/forgot-password/page.tsx", "app/(auth)/reset-password/page.tsx",
       "app/(public)/checkout/[plano]/page.tsx", "app/(public)/checkout/success/page.tsx", "app/(public)/checkout/pending/page.tsx",
       "app/(public)/checkout/cancelled/page.tsx", "app/(public)/checkout/error/page.tsx", "app/(public)/billing/blocked/page.tsx",

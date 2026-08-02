@@ -1,0 +1,2 @@
+import { Building2, ChevronDown } from "lucide-react";
+export function UnitSelector() { return <button type="button" className="flex min-h-12 w-full items-center gap-3 rounded-md border border-line bg-bg-elev px-3 text-left"><Building2 aria-hidden="true" className="text-primary" size={16} /><span className="min-w-0 flex-1"><span className="block font-mono text-[9px] uppercase tracking-wider text-ink-dim">Unidade ativa</span><span className="block truncate text-sm">Centro</span></span><ChevronDown aria-hidden="true" size={14} className="text-ink-dim" /></button>; }

@@ -1,0 +1,1 @@
+export function SectionHeader({ title, description, action }: Readonly<{ title: string; description?: string; action?: React.ReactNode }>) { return <header className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-2xl">{title}</h2>{description ? <p className="mt-1 text-sm text-ink-muted">{description}</p> : null}</div>{action}</header>; }
