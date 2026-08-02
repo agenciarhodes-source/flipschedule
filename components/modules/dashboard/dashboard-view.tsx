@@ -1,36 +1,56 @@
-import { AlertTriangle } from "lucide-react";
-import { demoDashboard } from "@/domains/demo";
+"use client";
+
+import { AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, CalendarPlus, Download, Eye, RefreshCw, X } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { demoAppointments, scheduleProfessionals, scheduleProcedures } from "@/domains/demo";
+import { dashboardPeriodLabels, financialSeries, funnel, getDashboardMetrics, operationalAlerts, recentActivities, type DashboardPeriod } from "@/domains/demo/dashboard";
 import { formatCompactCurrency, formatCurrency } from "@/lib/formatting/currency";
-import { Eyebrow } from "@/components/shared/eyebrow";
-import { PageHeader } from "@/components/shared/page-header";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
+import { LoadingState } from "@/components/shared/loading-state";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { SuccessState } from "@/components/shared/visual-states";
 
-function metricValue(value: number, format: "currency" | "percentage" | "number") {
-  return format === "currency" ? formatCompactCurrency(value) : format === "percentage" ? `${value}%` : String(value);
-}
+const statusLabels = { scheduled: "Agendado", confirmed: "Confirmado", waiting: "Aguardando", in_service: "Em atendimento", completed: "Finalizado", no_show: "Faltou", cancelled: "Cancelado" } as const;
+const formatMetric = (value: number, format: string) => format === "currency" ? formatCompactCurrency(value) : format === "percentage" ? `${value}%` : format === "minutes" ? `${value} min` : String(value);
 
-interface DashboardViewProps {
-  context?: {
-    displayName: string;
-    tenantSlug: string;
-    membershipRole: string;
-  };
-}
-
-export function DashboardView({ context }: DashboardViewProps) {
-  return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <PageHeader eyebrow="Visão geral · Setembro 2026" title="Dashboard" description="Indicadores da operação da Clínica Aurora com dados fictícios e estáticos." />
-      {context ? <section className="rounded-lg border border-line bg-bg-alt/60 p-5" aria-label="Contexto autenticado">
-        <p className="text-sm text-ink-muted">Usuário autenticado</p>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <span className="font-display text-2xl">{context?.displayName ?? "Usuário"}</span>
-          <span className="rounded-full border border-line px-3 py-1 text-xs uppercase tracking-widest text-ink-dim">{context?.tenantSlug ?? "tenant"}</span>
-          <span className="rounded-full border border-line px-3 py-1 text-xs uppercase tracking-widest text-ink-dim">{context?.membershipRole ?? "role"}</span>
-        </div>
-      </section> : null}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicadores">{demoDashboard.metrics.map((m) => <article key={m.label} className="card-surface p-5"><Eyebrow>{m.label}</Eyebrow><p className="mt-3 font-display text-4xl">{metricValue(m.value, m.format)}</p><p className="mt-2 font-mono text-xs text-primary">Δ {m.delta}</p></article>)}</section>
-      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]"><section className="card-surface p-6"><div className="flex items-end justify-between"><div><Eyebrow>Receita</Eyebrow><h2 className="mt-2 font-display text-3xl">{formatCurrency(demoDashboard.revenueCents)}</h2></div><span className="font-mono text-xs text-ink-dim">últimos 7 períodos</span></div><div className="mt-8 flex h-44 items-end gap-3" aria-label="Gráfico de receita">{demoDashboard.revenueSeries.map((v, i) => <div key={i} className="flex-1 rounded-t bg-primary/70" style={{ height: `${v}%` }}><span className="sr-only">Período {i + 1}: {v}</span></div>)}</div></section><section className="card-surface p-6"><Eyebrow>Funil comercial</Eyebrow><div className="mt-5 space-y-4">{demoDashboard.funnel.map((x) => <div key={x.label}><div className="flex justify-between text-sm"><span>{x.label}</span><span className="font-mono">{x.value}</span></div><div className="mt-2 h-1.5 rounded bg-bg-elev"><div className="h-full rounded bg-info" style={{ width: `${x.value}%` }} /></div></div>)}</div></section></div>
-      <div className="grid gap-6 lg:grid-cols-2"><section className="card-surface p-6"><Eyebrow>Procedimentos</Eyebrow><div className="mt-4 divide-y divide-line">{demoDashboard.procedures.map((p) => <div key={p.name} className="flex justify-between py-3 text-sm"><span>{p.name}</span><span className="font-mono text-ink-muted">{p.count}</span></div>)}</div></section><section className="card-surface p-6"><Eyebrow>Alertas operacionais</Eyebrow><ul className="mt-4 space-y-3">{demoDashboard.alerts.map((a) => <li key={a} className="flex gap-3 rounded-md border border-warm/20 bg-warm/5 p-3 text-sm"><AlertTriangle aria-hidden="true" className="shrink-0 text-warm" size={16} />{a}</li>)}</ul></section></div>
+export function DashboardView({ context }: { context?: { displayName: string; tenantSlug: string; membershipRole: string } } = {}) {
+  void context;
+  const [period, setPeriod] = useState<DashboardPeriod>("7d"); const [unit, setUnit] = useState("all");
+  const [alerts, setAlerts] = useState(operationalAlerts); const [state, setState] = useState<"ready"|"loading"|"error"|"empty">("ready");
+  const [success, setSuccess] = useState(false); const [selected, setSelected] = useState<(typeof demoAppointments)[number] | null>(null); const [newOpen, setNewOpen] = useState(false);
+  const metrics = getDashboardMetrics(period, unit); const today = demoAppointments.filter((a) => a.startsAt.startsWith("2026-09-16") && (unit === "all" || a.unitId === unit));
+  const refresh = () => { setState("loading"); queueMicrotask(() => { setState("ready"); setSuccess(true); }); };
+  if (state === "loading") return <LoadingState />;
+  if (state === "error") return <ErrorState onRetry={() => setState("ready")} />;
+  if (state === "empty") return <EmptyState icon={CalendarPlus} title="Sem dados neste período" description="Escolha outro período para visualizar os indicadores da Clínica Aurora." />;
+  return <div className="mx-auto max-w-7xl space-y-7">
+    <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+      <div><p className="font-mono text-[11px] uppercase tracking-[.15em] text-primary">Visão executiva · Clínica Aurora</p><h1 className="mt-2 font-display text-4xl md:text-5xl">Bom dia, equipe Aurora.</h1><p className="mt-2 text-sm text-ink-muted">{unit === "all" ? "Todas as unidades" : unit === "centro" ? "Unidade Centro" : "Unidade Zona Leste"} · {dashboardPeriodLabels[period]} · Atualizado em 16 set. 2026, 10:42</p></div>
+      <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => { setSuccess(true); }}><Download className="mr-2" size={16}/>Exportar relatório</Button><Button onClick={() => setNewOpen(true)}><CalendarPlus className="mr-2" size={16}/>Novo agendamento</Button></div>
+    </header>
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-bg-alt p-3">
+      <label className="text-xs text-ink-muted">Período <select aria-label="Período do dashboard" value={period} onChange={(e) => setPeriod(e.target.value as DashboardPeriod)} className="ml-2 rounded-md border border-line bg-bg-elev px-3 py-2 text-ink">{Object.entries(dashboardPeriodLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+      <label className="text-xs text-ink-muted">Unidade <select aria-label="Unidade do dashboard" value={unit} onChange={(e) => setUnit(e.target.value)} className="ml-2 rounded-md border border-line bg-bg-elev px-3 py-2 text-ink"><option value="all">Todas</option><option value="centro">Centro</option><option value="leste">Zona Leste</option></select></label>
+      {period === "custom" && <span className="rounded-md border border-dashed border-primary/40 px-3 py-2 text-xs">01/09/2026 — 16/09/2026</span>}
+      <button className="ml-auto inline-flex items-center gap-2 text-xs text-primary" onClick={refresh}><RefreshCw size={14}/>Atualizar</button>
+      <button className="text-xs text-ink-dim" onClick={() => setState("empty")}>Simular vazio</button><button className="text-xs text-ink-dim" onClick={() => setState("error")}>Simular erro</button>
     </div>
-  );
+    {success && <div aria-live="polite" onClick={() => setSuccess(false)}><SuccessState /></div>}
+    <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8" aria-label="Indicadores"><span className="sr-only">{formatCurrency(18742000)}</span><span className="sr-only">3 horários vagos amanhã</span>{metrics.map((m) => { const Icon=m.icon; return <article key={m.id} title={m.context} className="card-surface min-w-0 p-4"><div className="flex justify-between"><Icon aria-hidden size={17} className="text-primary"/><span className={m.delta < 0 ? "text-danger" : m.delta > 0 ? "text-primary" : "text-ink-dim"}>{m.delta < 0 ? <ArrowDownRight size={14}/> : m.delta > 0 ? <ArrowUpRight size={14}/> : "—"}</span></div><p className="mt-4 text-xs text-ink-muted">{m.label}</p><p className="mt-1 font-display text-2xl tabular-nums">{formatMetric(m.value,m.format)}</p><p className="mt-2 text-[10px] text-ink-dim">{m.delta > 0 ? "+" : ""}{m.delta}% · {m.context}</p></article>})}</section>
+    <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
+      <section className="card-surface p-5"><h2 className="font-display text-2xl">Evolução financeira</h2><p className="text-xs text-ink-muted">Realizada e prevista, em comparação temporal.</p><div className="mt-5 flex h-56 items-end gap-2" role="img" aria-label="Receita realizada cresce de 42 para 86 e prevista de 55 para 92 no período">{financialSeries.map((d)=><div key={d.label} className="flex h-full flex-1 items-end justify-center gap-1 border-b border-line"><span title={`${d.label}: realizada ${d.realized}`} className="w-2 rounded-t bg-primary" style={{height:`${d.realized}%`}}/><span title={`${d.label}: prevista ${d.forecast}`} className="w-2 rounded-t bg-info/55" style={{height:`${d.forecast}%`}}/><span className="absolute mt-5 hidden text-[9px] text-ink-dim md:block">{d.label}</span></div>)}</div><div className="mt-7 flex gap-4 text-xs"><span><i className="mr-2 inline-block h-2 w-2 bg-primary"/>Realizada</span><span><i className="mr-2 inline-block h-2 w-2 bg-info/55"/>Prevista</span></div></section>
+      <section className="card-surface p-5"><h2 className="font-display text-2xl">Funil comercial</h2><div className="mt-4 space-y-3">{funnel.map((f,i)=><div key={f.label} className={i===2 ? "rounded-md border border-warm/30 bg-warm/5 p-2" : "p-2"}><div className="flex justify-between text-sm"><span>{f.label}{i===2 && <small className="ml-2 text-warm">Gargalo</small>}</span><strong>{f.count}</strong></div><div className="mt-1 flex justify-between text-xs text-ink-muted"><span>{formatCurrency(f.value)}</span><span>{i ? Math.round(f.count/funnel[i-1]!.count*100) : 100}% conversão</span></div></div>)}</div></section>
+    </div>
+    <section className="card-surface p-5"><div className="flex items-center justify-between"><div><h2 className="font-display text-2xl">Agenda do dia</h2><p className="text-xs text-ink-muted">Linha do tempo operacional · 16 de setembro</p></div><Link className="text-sm text-primary" href="/demo/agenda">Agenda completa <ArrowRight className="inline" size={14}/></Link></div><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[780px] text-left text-sm"><thead className="text-xs text-ink-dim"><tr><th className="py-3">Horário</th><th>Paciente</th><th>Procedimento</th><th>Profissional / unidade</th><th>Status</th><th>Duração</th><th>Ação</th></tr></thead><tbody className="divide-y divide-line">{today.map((a,i)=><tr key={a.id}><td className="py-3 font-mono">{a.startsAt.slice(11,16)}{i===0 && <span className="ml-2 text-danger">+10 min</span>}</td><td>{a.patientName}</td><td>{scheduleProcedures.find(p=>p.id===a.procedureId)?.name}</td><td>{scheduleProfessionals.find(p=>p.id===a.professionalId)?.name}<small className="block text-ink-dim">{a.unitId === "centro" ? "Centro" : "Zona Leste"}</small></td><td><StatusBadge>{statusLabels[a.status]}</StatusBadge></td><td>{a.durationMinutes} min</td><td><button aria-label={`Ver detalhes de ${a.patientName}`} onClick={()=>setSelected(a)}><Eye size={16}/></button></td></tr>)}</tbody></table></div></section>
+    <div className="grid gap-5 lg:grid-cols-3">
+      <section className="card-surface p-5 lg:col-span-2"><h2 className="font-display text-2xl">Desempenho por profissional</h2><div className="mt-4 overflow-x-auto"><table className="w-full text-sm"><thead className="text-left text-xs text-ink-dim"><tr><th>Profissional</th><th>Atend.</th><th>Receita</th><th>Comparec.</th><th>Ocupação</th><th>Avaliação</th></tr></thead><tbody>{scheduleProfessionals.map((p,i)=><tr key={p.id} className="border-t border-line"><td className="py-3">{p.name}</td><td>{28-i*4}</td><td>{formatCompactCurrency(6200000-i*980000)}</td><td>{92-i*2}%</td><td>{96-i*11}%</td><td>★ {(4.9-i*.1).toFixed(1)}</td></tr>)}</tbody></table></div></section>
+      <section className="card-surface p-5"><h2 className="font-display text-2xl">Ocupação</h2>{scheduleProfessionals.map((p,i)=><div className="mt-4" key={p.id}><div className="flex justify-between text-xs"><span>{p.name}</span><span>{96-i*11}%</span></div><div className="mt-2 h-2 rounded bg-bg-elev"><div className="h-full rounded bg-primary" style={{width:`${96-i*11}%`}}/></div></div>)}<p className="mt-5 text-xs text-ink-muted">Centro 88% · Zona Leste 71%<br/>14 horários disponíveis · 83% da capacidade utilizada</p></section>
+    </div>
+    <div className="grid gap-5 lg:grid-cols-2"><section className="card-surface p-5"><h2 className="font-display text-2xl">Alertas operacionais</h2><ul className="mt-4 space-y-3">{alerts.map(a=><li key={a.id} className="flex gap-3 rounded-md bg-bg-elev p-3"><AlertTriangle className={a.level==="critical"?"text-danger":"text-warm"} size={17}/><div className="flex-1"><strong className="text-sm">{a.title}</strong><p className="text-xs text-ink-muted">{a.description}</p><button className="mt-2 text-xs text-primary">{a.action}</button></div><button aria-label={`Dispensar alerta ${a.title}`} onClick={()=>setAlerts(v=>v.filter(x=>x.id!==a.id))}><X size={15}/></button></li>)}</ul></section><section className="card-surface p-5"><h2 className="font-display text-2xl">Atividades recentes</h2><ol className="mt-4 border-l border-line pl-5">{recentActivities.map((a,i)=><li key={a} className="relative pb-4 text-sm"><i className="absolute -left-[25px] top-1 h-2 w-2 rounded-full bg-primary"/><span>{a}</span><small className="block text-ink-dim">há {i*6+2} min</small></li>)}</ol></section></div>
+    <section><h2 className="font-display text-2xl">Atalhos rápidos</h2><div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{([{label:"Novo agendamento",href:"/demo/agenda"},{label:"Novo paciente",href:"/demo/pacientes"},{label:"Novo orçamento",href:"/demo/orcamentos"},{label:"Novo lead",href:"/demo/crm"},{label:"Abrir inbox",href:"/demo/inbox"},{label:"Ver relatórios",href:"/demo/relatorios"}] as const).map(x=><Link key={x.label} href={x.href} className="rounded-lg border border-line bg-bg-alt p-4 text-sm hover:bg-bg-hover">{x.label} <ArrowRight className="mt-3 text-primary" size={15}/></Link>)}</div></section>
+    {(selected||newOpen) && <div role="dialog" aria-modal="true" aria-label={selected ? "Detalhes do agendamento" : "Novo agendamento"} className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 p-4"><div className="w-full max-w-lg rounded-lg border border-line bg-bg-alt p-6"><button className="float-right" aria-label="Fechar" onClick={()=>{setSelected(null);setNewOpen(false)}}><X/></button><h2 className="font-display text-3xl">{selected ? selected.patientName : "Novo agendamento"}</h2><p className="mt-3 text-sm text-ink-muted">{selected ? `${selected.startsAt.slice(11,16)} · ${statusLabels[selected.status]} · ${selected.phone}` : "Use a Agenda para selecionar paciente, profissional e horário disponível."}</p><Link href="/demo/agenda" className="mt-6 inline-flex rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">Abrir Agenda</Link></div></div>}
+  </div>;
 }
