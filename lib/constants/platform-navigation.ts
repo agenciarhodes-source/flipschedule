@@ -1,4 +1,4 @@
-import { CalendarClock, FileText, LayoutDashboard, MessageSquare, Settings, UserRound, Users } from "lucide-react";
+import { BarChart3, CalendarClock, FileText, LayoutDashboard, MessageSquare, Settings, UserRound, Users } from "lucide-react";
 
 import type { NavigationItemData } from "@/lib/types/navigation";
 
@@ -11,6 +11,7 @@ export function createPlatformNavigation(tenantSlug: string): NavigationItemData
     { href: `${base}/crm`, label: "CRM", icon: Users },
     { href: `${base}/orcamentos`, label: "Orçamentos", icon: FileText },
     { href: `${base}/pacientes`, label: "Pacientes", icon: UserRound },
+    { href: `${base}/relatorios`, label: "Relatórios", icon: BarChart3 },
     { href: `${base}/configuracoes`, label: "Configurações", icon: Settings },
   ];
 }

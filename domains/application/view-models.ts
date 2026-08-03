@@ -41,3 +41,8 @@ export interface ConversationListItem { id:string; channel:ConversationChannel; 
 export interface ConversationDetails extends ConversationListItem { patientId:string|null; leadId:string|null; messages:MessageView[]; messagePage:{hasMore:boolean; nextCursor:string|null} }
 export interface ConversationSummaryMetrics { total:number; open:number; pending:number; unread:number }
 export interface UnreadConversationSummary { conversations:number; messages:number }
+
+export interface ReportBreakdown { id:string; name:string; appointments:number; attended:number; noShows:number; revenueCents:number; acceptedPlans:number; acceptedValueCents:number }
+export interface ReportPeriod { from:string; to:string }
+export interface ReportSnapshot { period:ReportPeriod; previousPeriod:ReportPeriod; appointments:number; attended:number; noShows:number; newPatients:number; leads:number; wonLeads:number; treatmentPlans:number; acceptedPlans:number; proposedValueCents:number; acceptedValueCents:number; conversations:number; unreadMessages:number; consentPatients:number; revokedConsents:number; clinics:ReportBreakdown[]; professionals:ReportBreakdown[]; previous:{appointments:number;attended:number;newPatients:number;wonLeads:number;acceptedPlans:number;acceptedValueCents:number} }
+export interface OrganizationSettingsView { name:string; slug:string; timezone:string; locale:string; integrations:{provider:string;status:string;connectedAt:string|null}[]; subscription:{planCode:string;status:string;currentPeriodEnd:string|null;cancelAtPeriodEnd:boolean}|null }
