@@ -4,7 +4,7 @@ export const permissions = [
   "organization.read", "organization.update", "team.read", "team.invite", "team.update_role", "team.suspend", "team.revoke", "team.transfer_ownership",
   "clinics.read", "clinics.manage", "professionals.read", "professionals.manage", "procedures.read", "procedures.manage", "schedule.read_all", "schedule.read_own", "schedule.manage",
   "patients.read_all", "patients.read_assigned", "patients.manage", "crm.read", "crm.manage", "treatment_plans.read_all", "treatment_plans.read_own", "treatment_plans.manage",
-  "inbox.read", "inbox.manage", "reports.read_global", "reports.read_own", "reports.export", "integrations.read", "integrations.manage", "subscription.read", "audit.read",
+  "inbox.read", "inbox.manage", "reports.read_global", "reports.read_own", "reports.export", "integrations.read", "integrations.manage", "subscription.read", "subscription.manage", "billing.checkout", "billing.cancel", "billing.reconcile", "audit.read",
 ] as const;
 export type Permission = (typeof permissions)[number];
 

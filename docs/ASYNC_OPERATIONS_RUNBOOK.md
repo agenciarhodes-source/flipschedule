@@ -15,3 +15,7 @@ Antes de reprocessar, confirme tenant, estado, limite e causa. A ação deve lim
 ## Migration e rollback
 
 A migration é aditiva: enum, colunas e índices; não foi aplicada. Validar backup e impacto de lock antes de deploy. PostgreSQL não remove valor de enum com rollback simples; em incidente, fazer forward-fix e deixar workers desativados.
+
+## Billing SaaS em Sandbox (PR 33)
+
+A fundação de billing separa cobrança da assinatura FlipSchedule de pagamentos clínicos, usa catálogo vazio até decisão comercial, checkout Asaas hospedado, credenciais server-only, estados explícitos, idempotência, isolamento tenant e RBAC. Production, migration aplicada, preços comerciais e cobrança de pacientes permanecem pendentes. Consulte `BILLING_AND_ASAAS_INTEGRATION.md`, `BILLING_STATE_MACHINE.md` e `ASAAS_SANDBOX_RUNBOOK.md`.

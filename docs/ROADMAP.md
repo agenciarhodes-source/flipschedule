@@ -54,3 +54,7 @@ Esse marco não representa certificação WCAG, validação em todos os disposit
 ## Fundação de integrações assíncronas (PR 32)
 
 Contratos, fila persistente, ingress, workers pontuais, retry e operação segura foram fundados sem providers reais nem scheduler. Conectar Meta/e-mail, validar contratos oficiais e provisionar scheduler continuam pendentes.
+
+## Billing SaaS em Sandbox (PR 33)
+
+A fundação de billing separa cobrança da assinatura FlipSchedule de pagamentos clínicos, usa catálogo vazio até decisão comercial, checkout Asaas hospedado, credenciais server-only, estados explícitos, idempotência, isolamento tenant e RBAC. Production, migration aplicada, preços comerciais e cobrança de pacientes permanecem pendentes. Consulte `BILLING_AND_ASAAS_INTEGRATION.md`, `BILLING_STATE_MACHINE.md` e `ASAAS_SANDBOX_RUNBOOK.md`.
