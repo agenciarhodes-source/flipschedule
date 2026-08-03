@@ -1,6 +1,6 @@
 # Roadmap da reconstrução do FlipSchedule
 
-> Estado demonstrativo: CRM e Pacientes possuem experiência demonstrativa completa em estado local. Isso não representa persistência, integração ou backend concluídos.
+> Estado demonstrativo: CRM, Pacientes, Orçamentos e Inbox possuem experiência demonstrativa completa em estado local. Isso não representa persistência, integração ou backend concluídos.
 
 Cada fase só termina com evidências dos critérios. Datas e responsáveis são pendentes de planejamento.
 
@@ -18,6 +18,8 @@ Cada fase só termina com evidências dos critérios. Datas e responsáveis são
 | 9 — Piloto/lançamento | Validar segurança, operação e produto | Todas as fases aplicáveis | Hardening, pentest, LGPD, piloto, go-live checklist | Clínica piloto, jurídico e suporte | Incidente de dados ou indisponibilidade | Aceites explícitos, SLO/alertas/suporte ativos e pendências P0 fechadas | Expansões P1/P2 sem novo planejamento |
 
 ## Progresso registrado
+
+- **Orçamentos e Inbox demonstrativos:** as rotas `/demo/orcamentos`, `/demo/orcamentos/[id]` e `/demo/inbox` possuem experiência demonstrativa completa baseada em fixtures e estado local. Envio real, pagamentos, webhooks, canais externos, persistência, backend e integrações permanecem pendentes.
 
 - **Dashboard e Agenda demonstrativos:** as rotas `/demo/dashboard` e `/demo/agenda` possuem experiência visual demonstrativa completa, baseada somente em mocks e estado local; persistência, banco e integrações não estão concluídos.
 
