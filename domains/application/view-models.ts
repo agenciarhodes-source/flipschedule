@@ -23,3 +23,21 @@ export interface PatientTimelineItem { id: string; type: "created" | "appointmen
 export interface PatientDuplicateCandidate { id: string; name: string; matchedBy: "phone" | "email" }
 export interface PatientListItem { id: string; name: string; contact: PatientContactView; birthDate: string | null; archived: boolean; createdAt: string; updatedAt: string; nextAppointmentAt: string | null; appointmentCount: number }
 export interface PatientDetails extends PatientListItem { address: PatientAddressView; appointments: PatientAppointmentSummary[]; timeline: PatientTimelineItem[]; treatmentPlanCount: number; conversationCount: number; leadIds: string[] }
+
+export type TreatmentPlanStatus = "draft"|"sent"|"viewed"|"accepted"|"rejected"|"expired"|"cancelled";
+export interface TreatmentPlanItemView { id:string; procedureId:string|null; procedureName:string|null; description:string; quantity:number; unitPriceCents:number; discountCents:number; totalCents:number; position:number }
+export interface TreatmentPlanStatusHistoryView { id:string; fromStatus:TreatmentPlanStatus|null; toStatus:TreatmentPlanStatus; changedAt:string; reason:string|null }
+export interface TreatmentPlanListItem { id:string; title:string; status:TreatmentPlanStatus; patientId:string; patientName:string; professionalId:string|null; professionalName:string|null; clinicId:string|null; clinicName:string|null; leadId:string|null; subtotalCents:number; discountCents:number; totalCents:number; expiresAt:string|null; updatedAt:string }
+export interface TreatmentPlanDetails extends TreatmentPlanListItem { items:TreatmentPlanItemView[]; history:TreatmentPlanStatusHistoryView[]; sentAt:string|null; acceptedAt:string|null; rejectedAt:string|null; createdAt:string }
+export interface TreatmentPlanSummaryMetrics { total:number; openValueCents:number; acceptedValueCents:number; expiringSoon:number }
+export interface PublicTreatmentPlanView { title:string; status:TreatmentPlanStatus; patientFirstName:string; clinicName:string|null; items:TreatmentPlanItemView[]; subtotalCents:number; discountCents:number; totalCents:number; expiresAt:string|null }
+export interface PublicTreatmentPlanLinkResult { url:string; expiresAt:string }
+
+export type ConversationChannel = "whatsapp"|"instagram"|"messenger"|"email"|"internal";
+export type ConversationStatus = "open"|"pending"|"closed"|"archived";
+export interface ConversationContactView { kind:"patient"|"lead"|"unlinked"; id:string|null; name:string }
+export interface MessageView { id:string; direction:"inbound"|"outbound"|"internal"; status:"pending"|"sent"|"delivered"|"read"|"failed"|"received"; contentType:string; preview:string|null; createdAt:string; readAt:string|null }
+export interface ConversationListItem { id:string; channel:ConversationChannel; status:ConversationStatus; contact:ConversationContactView; integrationId:string|null; lastMessageAt:string|null; unreadCount:number; preview:string|null }
+export interface ConversationDetails extends ConversationListItem { patientId:string|null; leadId:string|null; messages:MessageView[]; messagePage:{hasMore:boolean; nextCursor:string|null} }
+export interface ConversationSummaryMetrics { total:number; open:number; pending:number; unread:number }
+export interface UnreadConversationSummary { conversations:number; messages:number }
