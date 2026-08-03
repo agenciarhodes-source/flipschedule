@@ -1,2 +1,1 @@
-import { SettingsView } from "@/components/modules/settings/settings-view";
-export default function DemoSettingsPage() { return <SettingsView />; }
+import { redirect } from "next/navigation";export default function DemoSettingsPage(){redirect("/demo/configuracoes/clinica")}

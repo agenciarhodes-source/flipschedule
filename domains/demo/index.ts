@@ -7,3 +7,6 @@ export * from "./patients";
 export * from "./professionals";
 export * from "./procedures";
 export * from "./treatment-plans";
+export * from "./reports";
+export * from "./settings";
+export * from "./administration";
