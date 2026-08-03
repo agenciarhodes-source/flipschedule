@@ -19,3 +19,7 @@ A migration é aditiva: enum, colunas e índices; não foi aplicada. Validar bac
 ## Billing SaaS em Sandbox (PR 33)
 
 A fundação de billing separa cobrança da assinatura FlipSchedule de pagamentos clínicos, usa catálogo vazio até decisão comercial, checkout Asaas hospedado, credenciais server-only, estados explícitos, idempotência, isolamento tenant e RBAC. Production, migration aplicada, preços comerciais e cobrança de pacientes permanecem pendentes. Consulte `BILLING_AND_ASAAS_INTEGRATION.md`, `BILLING_STATE_MACHINE.md` e `ASAAS_SANDBOX_RUNBOOK.md`.
+
+## Administração e billing
+
+O registry de produção é único para ingress e worker e só inclui Asaas com token de webhook disponível. Evento sem efeito ou desconhecido não é processado como sucesso. Reconciliação continua após falha individual e reporta resumo sanitizado.

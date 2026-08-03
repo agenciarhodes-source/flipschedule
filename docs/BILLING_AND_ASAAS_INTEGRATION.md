@@ -23,3 +23,7 @@ Cancelamento ao fim do período exige OWNER, confirmação reforçada, RBAC serv
 ## Limitações e rollback
 
 Não há production, preços comerciais, cobrança clínica, nota fiscal, split, subconta, antecipação ou Pix Automático. A migration é aditiva e não foi aplicada. Antes de deploy: backup, impacto de lock, ordem e forward-fix. Em incidente, desabilitar worker/checkout, preservar eventos e reconciliar; enum e histórico não devem ser removidos destrutivamente.
+
+## Hardening do PR 34
+
+A leitura exige `subscription.read`. Ingress e worker compartilham registry Asaas configurado em runtime. Eventos suportados atualizam checkout, assinatura, pagamento e entitlement em transação; desconhecidos exigem revisão. Reconciliação preserva estado diante de status desconhecido e isola falhas por item.
