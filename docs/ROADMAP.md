@@ -1,5 +1,7 @@
 # Roadmap da reconstrução do FlipSchedule
 
+> Estado demonstrativo: CRM e Pacientes possuem experiência demonstrativa completa em estado local. Isso não representa persistência, integração ou backend concluídos.
+
 Cada fase só termina com evidências dos critérios. Datas e responsáveis são pendentes de planejamento.
 
 | Fase | Objetivo | Pré-requisitos | Entregáveis | Dependências | Riscos | Critérios de conclusão | Não pertence à fase |
