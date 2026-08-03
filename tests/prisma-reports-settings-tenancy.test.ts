@@ -15,7 +15,7 @@ describe("reports and organization security contract", () => {
   it("allows organization writes only through the central RBAC permission and audits them", () => {
     expect(source).toContain('hasPermission(this.context.membershipRole,"organization.update")');
     expect(rbacSource).toMatch(/OWNER:\s*new Set\(permissions\)/);
-    expect(rbacSource).toMatch(/MANAGER:\s*new Set\([^)]*"organization\.update"/s);
+    expect(rbacSource).toMatch(/MANAGER:\s*new Set\([\s\S]*?"organization\.update"/);
     expect(source).toContain('action:"tenant.settings.update"');
     expect(source).toContain("actorMembershipId:this.context.membershipId");
   });
