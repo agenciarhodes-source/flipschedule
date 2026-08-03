@@ -7,3 +7,7 @@ Integrações e filas usam colunas explícitas, não metadata. Queries e claims 
 ## Billing SaaS em Sandbox (PR 33)
 
 A fundação de billing separa cobrança da assinatura FlipSchedule de pagamentos clínicos, usa catálogo vazio até decisão comercial, checkout Asaas hospedado, credenciais server-only, estados explícitos, idempotência, isolamento tenant e RBAC. Production, migration aplicada, preços comerciais e cobrança de pacientes permanecem pendentes. Consulte `BILLING_AND_ASAAS_INTEGRATION.md`, `BILLING_STATE_MACHINE.md` e `ASAAS_SANDBOX_RUNBOOK.md`.
+
+## Contexto administrativo da plataforma
+
+`PlatformOperator` e `PlatformSupportGrant` não pertencem ao RBAC de tenant. `PlatformContext` deriva da identidade autenticada sem `tenantSlug`; grants temporários não criam Membership. A FK composta de `BillingCheckout(createdByMembershipId, tenantId)` garante autoria no mesmo tenant.

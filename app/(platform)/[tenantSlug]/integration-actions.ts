@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getApplicationContext } from "@/lib/auth/application-context";
 import { requirePermission } from "@/domains/application";
-import { createProductionProviderRegistry } from "@/domains/application/integrations";
+import { createProductionProviderRegistry } from "@/domains/infrastructure/integrations/production-registry";
 import { EnvironmentCredentialStore } from "@/domains/infrastructure/integrations/credential-store";
 import { IntegrationService } from "@/domains/infrastructure/prisma/integration-service";
 import { IntegrationOperationsService } from "@/domains/infrastructure/prisma/integration-operations-service";

@@ -1,5 +1,5 @@
 import { getPrismaClient } from "../lib/db/client";
-import { createProductionProviderRegistry } from "../domains/application/integrations/registry";
+import { createProductionProviderRegistry } from "../domains/infrastructure/integrations/production-registry";
 import { WebhookEventClaimer,WebhookEventProcessor,WebhookEventReconciler } from "../domains/infrastructure/integrations/async-runtime";
 import { assertSafeWorkerEnvironment } from "../domains/infrastructure/integrations/runtime-guard";
 export async function main(){assertSafeWorkerEnvironment();const prisma=getPrismaClient();return new WebhookEventReconciler(new WebhookEventClaimer(prisma),new WebhookEventProcessor(prisma,createProductionProviderRegistry())).run(20)}

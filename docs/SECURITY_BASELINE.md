@@ -59,3 +59,7 @@ Credentials são aliases resolvidos server-side; configuração rejeita secrets.
 ## Billing SaaS em Sandbox (PR 33)
 
 A fundação de billing separa cobrança da assinatura FlipSchedule de pagamentos clínicos, usa catálogo vazio até decisão comercial, checkout Asaas hospedado, credenciais server-only, estados explícitos, idempotência, isolamento tenant e RBAC. Production, migration aplicada, preços comerciais e cobrança de pacientes permanecem pendentes. Consulte `BILLING_AND_ASAAS_INTEGRATION.md`, `BILLING_STATE_MACHINE.md` e `ASAAS_SANDBOX_RUNBOOK.md`.
+
+## Administração da plataforma (PR 34)
+
+`/admin` usa sessão + User verificada/ativa + PlatformOperator ativo, nunca role de Membership. Não há impersonação. Grants de suporte são temporários, tenant-scoped e somente para visão sanitizada; último PLATFORM_OWNER é protegido.

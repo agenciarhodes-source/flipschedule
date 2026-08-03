@@ -8,5 +8,3 @@ export class ProviderRegistry {
  find(provider:IntegrationProvider){return this.adapters.get(provider)??null}
  require(provider:IntegrationProvider){const adapter=this.find(provider);if(!adapter)throw new UnsupportedProviderError();return adapter}
 }
-/** Production is deliberately deny-by-default until an official provider contract is approved. */
-export const createProductionProviderRegistry=()=>new ProviderRegistry();

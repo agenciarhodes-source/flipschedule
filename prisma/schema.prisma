@@ -7,6 +7,20 @@ datasource db {
   provider = "postgresql"
 }
 
+enum PlatformOperatorRole {
+  PLATFORM_OWNER
+  PLATFORM_ADMIN
+  SUPPORT
+  BILLING
+  READONLY
+}
+
+enum PlatformOperatorStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
 enum UserStatus {
   ACTIVE
   SUSPENDED
@@ -203,24 +217,26 @@ enum AuditOutcome {
 }
 
 model User {
-  id                     String              @id @default(uuid()) @db.Uuid
-  emailNormalized        String              @unique
-  displayName            String
-  status                 UserStatus          @default(ACTIVE)
-  emailVerified          Boolean             @default(false)
-  emailVerifiedAt        DateTime?           @db.Timestamptz(3)
-  mustChangePassword     Boolean             @default(false)
-  passwordChangedAt      DateTime?           @db.Timestamptz(3)
-  firstAccessCompletedAt DateTime?           @db.Timestamptz(3)
-  createdAt              DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt              DateTime            @updatedAt @db.Timestamptz(3)
-  memberships            Membership[]
-  entitlementsGranted    AccessEntitlement[] @relation("AccessEntitlementGrantedBy")
-  auditLogs              AuditLog[]          @relation("AuditLogActorUser")
-  authSessions           AuthSession[]
-  authAccounts           AuthAccount[]
-  authVerifications      AuthVerification[]
-  invitationsAccepted    TenantInvitation[]  @relation("TenantInvitationAcceptedBy")
+  id                       String              @id @default(uuid()) @db.Uuid
+  emailNormalized          String              @unique
+  displayName              String
+  status                   UserStatus          @default(ACTIVE)
+  emailVerified            Boolean             @default(false)
+  emailVerifiedAt          DateTime?           @db.Timestamptz(3)
+  mustChangePassword       Boolean             @default(false)
+  passwordChangedAt        DateTime?           @db.Timestamptz(3)
+  firstAccessCompletedAt   DateTime?           @db.Timestamptz(3)
+  createdAt                DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime            @updatedAt @db.Timestamptz(3)
+  memberships              Membership[]
+  entitlementsGranted      AccessEntitlement[] @relation("AccessEntitlementGrantedBy")
+  auditLogs                AuditLog[]          @relation("AuditLogActorUser")
+  authSessions             AuthSession[]
+  authAccounts             AuthAccount[]
+  authVerifications        AuthVerification[]
+  invitationsAccepted      TenantInvitation[]  @relation("TenantInvitationAcceptedBy")
+  platformOperator         PlatformOperator?   @relation("PlatformOperatorUser")
+  platformOperatorsCreated PlatformOperator[]  @relation("PlatformOperatorCreatedBy")
 }
 
 model AuthSession {
@@ -312,6 +328,7 @@ model Tenant {
   webhookEvents                WebhookEvent[]
   auditLogs                    AuditLog[]
   invitations                  TenantInvitation[]
+  platformSupportGrants        PlatformSupportGrant[]
 }
 
 model Clinic {
@@ -952,6 +969,40 @@ model BillingCheckout {
 
   @@unique([id, tenantId])
   @@index([tenantId, status, createdAt])
+}
+
+model PlatformOperator {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  userId               String                 @unique @db.Uuid
+  role                 PlatformOperatorRole
+  status               PlatformOperatorStatus @default(ACTIVE)
+  createdByUserId      String?                @db.Uuid
+  createdAt            DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime               @updatedAt @db.Timestamptz(3)
+  user                 User                   @relation("PlatformOperatorUser", fields: [userId], references: [id], onDelete: Restrict)
+  createdBy            User?                  @relation("PlatformOperatorCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  supportGrants        PlatformSupportGrant[] @relation("SupportGrantOperator")
+  supportGrantsCreated PlatformSupportGrant[] @relation("SupportGrantCreatedBy")
+
+  @@index([status, role])
+}
+
+model PlatformSupportGrant {
+  id                  String           @id @default(uuid()) @db.Uuid
+  operatorId          String           @db.Uuid
+  tenantId            String           @db.Uuid
+  reason              String
+  expiresAt           DateTime         @db.Timestamptz(3)
+  revokedAt           DateTime?        @db.Timestamptz(3)
+  createdByOperatorId String           @db.Uuid
+  createdAt           DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime         @updatedAt @db.Timestamptz(3)
+  operator            PlatformOperator @relation("SupportGrantOperator", fields: [operatorId], references: [id], onDelete: Restrict)
+  tenant              Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdByOperator   PlatformOperator @relation("SupportGrantCreatedBy", fields: [createdByOperatorId], references: [id], onDelete: Restrict)
+
+  @@index([operatorId, tenantId, expiresAt])
+  @@index([tenantId, revokedAt, expiresAt])
 }
 
 model WebhookEvent {
