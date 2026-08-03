@@ -30,3 +30,6 @@ Este diretório é a fonte de contexto para a reconstrução. Código existente 
 ## Estado desta fundação
 
 Esta fase é exclusivamente documental. Não foram instalados Next.js, Prisma ou dependências; nenhum serviço, domínio, banco, deploy, autenticação ou integração foi configurado; nenhuma migration foi criada ou executada.
+- [`INTEGRATIONS_AND_ASYNC_PROCESSING.md`](INTEGRATIONS_AND_ASYNC_PROCESSING.md): fundação segura de integrações, filas e operação assíncrona.
+- [`INTEGRATION_PROVIDER_CONTRACT.md`](INTEGRATION_PROVIDER_CONTRACT.md): contrato deny-by-default para adapters.
+- [`ASYNC_OPERATIONS_RUNBOOK.md`](ASYNC_OPERATIONS_RUNBOOK.md): execução pontual, diagnóstico e dead-letter.

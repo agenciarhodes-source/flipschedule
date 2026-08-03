@@ -5,9 +5,9 @@ import { redirect } from "next/navigation";
 import { AuthAccessDeniedError } from "./errors";
 import { getAuthenticatedSessionContext } from "./session";
 
-export async function requireAuthenticatedTenantContext() {
+export async function requireAuthenticatedTenantContext(requestedTenantSlug?:string) {
   try {
-    const context = await getAuthenticatedSessionContext();
+    const context = await getAuthenticatedSessionContext(requestedTenantSlug);
     if (context.firstAccessRequired) redirect("/first-access");
     return context;
   } catch (error) {
