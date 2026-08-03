@@ -1,0 +1,23 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { getApplicationContext } from "@/lib/auth/application-context";
+import { createPrismaServices } from "@/domains/infrastructure/prisma/factory";
+import type { AppointmentStatus } from "@/domains/application/view-models";
+
+const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
+const nullable = (form: FormData, key: string) => text(form, key) || null;
+const checked = (form: FormData, key: string) => form.get(key) === "on";
+async function services() { return createPrismaServices(await getApplicationContext()); }
+async function refresh(slug: string) { revalidatePath(`/${slug}/agenda`); revalidatePath(`/${slug}/configuracoes`); }
+
+export async function saveClinic(form: FormData) { const s=await services(); const input={name:text(form,"name"),slug:text(form,"slug"),timezoneOverride:nullable(form,"timezone"),active:checked(form,"active")}; const id=nullable(form,"id"); const result=id?await s.clinics.update(id,input):await s.clinics.create(input);if(result.ok)await refresh(text(form,"tenantSlug"));return result; }
+export async function saveProcedure(form: FormData) { const s=await services();const input={name:text(form,"name"),category:nullable(form,"category"),durationMinutes:Number(text(form,"durationMinutes")),priceCents:Number(text(form,"priceCents")),active:checked(form,"active")};const id=nullable(form,"id");const result=id?await s.procedures.update(id,input):await s.procedures.create(input);if(result.ok)await refresh(text(form,"tenantSlug"));return result; }
+export async function saveResource(form: FormData) { const s=await services();const input={clinicId:text(form,"clinicId"),name:text(form,"name"),type:text(form,"type"),active:checked(form,"active")};const id=nullable(form,"id");const result=id?await s.resources.update(id,input):await s.resources.create(input);if(result.ok)await refresh(text(form,"tenantSlug"));return result; }
+export async function saveProfessional(form: FormData) { const s=await services();const input={name:text(form,"name"),specialty:text(form,"specialty"),registrationNumber:nullable(form,"registrationNumber"),registrationRegion:nullable(form,"registrationRegion"),color:nullable(form,"color"),active:checked(form,"active"),clinicIds:form.getAll("clinicIds").map(String)};const id=nullable(form,"id");const result=id?await s.professionals.update(id,input):await s.professionals.create(input);if(result.ok)await refresh(text(form,"tenantSlug"));return result; }
+export async function saveWorkingHours(form: FormData) {const s=await services();const slots=JSON.parse(text(form,"slots")||"[]") as unknown;const result=await s.workingHours.replace({professionalId:text(form,"professionalId"),clinicId:text(form,"clinicId"),slots});if(result.ok)await refresh(text(form,"tenantSlug"));return result;}
+export async function createScheduleBlock(form: FormData) {const s=await services();const result=await s.scheduleBlocks.create({clinicId:nullable(form,"clinicId"),professionalId:nullable(form,"professionalId"),resourceId:nullable(form,"resourceId"),startsAt:text(form,"startsAt"),endsAt:text(form,"endsAt"),reason:nullable(form,"reason")});if(result.ok)await refresh(text(form,"tenantSlug"));return result;}
+export async function quickCreatePatient(form: FormData) {const s=await services();const result=await s.patients.create({name:text(form,"name"),phoneE164:nullable(form,"phoneE164"),emailNormalized:nullable(form,"email")});if(result.ok)await refresh(text(form,"tenantSlug"));return result;}
+export async function createAppointment(form: FormData) {const s=await services();const result=await s.appointments.create({clinicId:text(form,"clinicId"),patientId:text(form,"patientId"),professionalId:text(form,"professionalId"),procedureId:nullable(form,"procedureId"),resourceId:nullable(form,"resourceId"),startsAt:text(form,"startsAt"),endsAt:text(form,"endsAt"),priceCents:Number(text(form,"priceCents")||0),source:nullable(form,"source")});if(result.ok)await refresh(text(form,"tenantSlug"));return result;}
+export async function transitionAppointment(form: FormData) {const s=await services();const result=await s.appointments.transition(text(form,"id"),text(form,"status") as AppointmentStatus,nullable(form,"reason")??undefined);if(result.ok)await refresh(text(form,"tenantSlug"));return result;}
+export async function rescheduleAppointment(form: FormData) {const s=await services();const result=await s.appointments.reschedule(text(form,"id"),{startsAt:text(form,"startsAt"),endsAt:text(form,"endsAt")});if(result.ok)await refresh(text(form,"tenantSlug"));return result;}

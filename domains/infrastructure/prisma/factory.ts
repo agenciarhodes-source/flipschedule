@@ -1,5 +1,6 @@
 import "server-only";
 import type { ApplicationContext } from "@/domains/application/context";
 import { PrismaAppointmentReader, PrismaClinicReader, PrismaProcedureReader, PrismaProfessionalReader, PrismaResourceReader, PrismaWorkingHoursReader } from "./readers";
+import { AppointmentService, ClinicService, ProfessionalService, ProcedureService, QuickPatientService, ResourceService, ScheduleBlockService, WorkingHoursService } from "./services";
 export function createPrismaReaders(context: ApplicationContext) { return { clinics: new PrismaClinicReader(context), professionals: new PrismaProfessionalReader(context), procedures: new PrismaProcedureReader(context), resources: new PrismaResourceReader(context), workingHours: new PrismaWorkingHoursReader(context), appointments: new PrismaAppointmentReader(context) }; }
-
+export function createPrismaServices(context: ApplicationContext) { return { clinics: new ClinicService(context), professionals: new ProfessionalService(context), procedures: new ProcedureService(context), resources: new ResourceService(context), workingHours: new WorkingHoursService(context), scheduleBlocks: new ScheduleBlockService(context), patients: new QuickPatientService(context), appointments: new AppointmentService(context) }; }
