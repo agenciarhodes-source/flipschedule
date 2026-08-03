@@ -1,10 +1,10 @@
 import { PlatformShell } from "@/components/layout/platform-shell";
-import { getDemoTenant } from "@/domains/demo/demo-tenants";
 import { requireAuthenticatedTenantContext } from "@/lib/auth/guards";
+import { notFound } from "next/navigation";
 
 export default async function PlatformLayout({ children, params }: Readonly<{ children: React.ReactNode; params: Promise<{ tenantSlug: string }> }>) {
   const { tenantSlug } = await params;
-  const tenant = getDemoTenant(tenantSlug);
-  await requireAuthenticatedTenantContext();
-  return <PlatformShell tenantName={tenant.name} tenantSlug={tenant.slug}>{children}</PlatformShell>;
+  const context = await requireAuthenticatedTenantContext();
+  if (tenantSlug !== context.tenantSlug) notFound();
+  return <PlatformShell tenantName={context.tenantName} tenantSlug={context.tenantSlug}>{children}</PlatformShell>;
 }

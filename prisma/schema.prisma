@@ -210,6 +210,7 @@ model User {
   authSessions           AuthSession[]
   authAccounts           AuthAccount[]
   authVerifications      AuthVerification[]
+  invitationsAccepted    TenantInvitation[]  @relation("TenantInvitationAcceptedBy")
 }
 
 model AuthSession {
@@ -299,6 +300,7 @@ model Tenant {
   payments                     Payment[]
   webhookEvents                WebhookEvent[]
   auditLogs                    AuditLog[]
+  invitations                  TenantInvitation[]
 }
 
 model Clinic {
@@ -345,10 +347,33 @@ model Membership {
   treatmentPlansCreated TreatmentPlan[]              @relation("TreatmentPlanCreatedBy")
   treatmentPlanChanges  TreatmentPlanStatusHistory[] @relation("TreatmentPlanStatusHistoryChangedBy")
   auditLogs             AuditLog[]                   @relation("AuditLogActorMembership")
+  invitationsSent       TenantInvitation[]           @relation("TenantInvitationInvitedBy")
 
   @@unique([tenantId, userId])
   @@unique([id, tenantId])
   @@index([userId, status])
+}
+
+model TenantInvitation {
+  id                    String         @id @default(uuid()) @db.Uuid
+  tenantId              String         @db.Uuid
+  emailNormalized       String
+  role                  MembershipRole
+  tokenHash             String         @unique
+  expiresAt             DateTime       @db.Timestamptz(3)
+  acceptedAt            DateTime?      @db.Timestamptz(3)
+  revokedAt             DateTime?      @db.Timestamptz(3)
+  invitedByMembershipId String         @db.Uuid
+  acceptedByUserId      String?        @db.Uuid
+  createdAt             DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @db.Timestamptz(3)
+  tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invitedBy             Membership     @relation("TenantInvitationInvitedBy", fields: [invitedByMembershipId], references: [id], onDelete: Restrict)
+  acceptedBy            User?          @relation("TenantInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, emailNormalized])
+  @@index([tenantId, acceptedAt, revokedAt, expiresAt])
+  @@index([expiresAt])
 }
 
 model AccessEntitlement {
