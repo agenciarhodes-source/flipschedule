@@ -1,6 +1,7 @@
 import type { DateRange, PageRequest, PageResult, SortDirection } from "./query";
 import type { AppointmentDetails, AppointmentStatus, AppointmentSummary, ClinicSummary, ProcedureSummary, ProfessionalSummary, ResourceSummary, WorkingHoursSummary } from "./view-models";
 import type { LeadAssigneeView, LeadDetails, LeadListItem, LeadPipelineColumn, LeadSummaryMetrics, PatientDetails, PatientDuplicateCandidate, PatientListItem } from "./view-models";
+import type { ConversationChannel,ConversationDetails,ConversationListItem,ConversationStatus,TreatmentPlanDetails,TreatmentPlanListItem,TreatmentPlanStatus } from "./view-models";
 export interface ListQuery extends PageRequest { direction?: SortDirection }
 export interface ClinicReader { list(query?: ListQuery): Promise<PageResult<ClinicSummary>>; findById(id: string): Promise<ClinicSummary | null> }
 export interface ProfessionalReader { list(query?: ListQuery & { clinicId?: string }): Promise<PageResult<ProfessionalSummary>>; findById(id: string): Promise<ProfessionalSummary | null> }
@@ -10,3 +11,5 @@ export interface WorkingHoursReader { list(query: ListQuery & { professionalId?:
 export interface AppointmentReader { list(query: ListQuery & { range: DateRange; clinicId?: string; professionalId?: string; status?: AppointmentStatus }): Promise<PageResult<AppointmentSummary>>; findById(id: string): Promise<AppointmentDetails | null> }
 export interface LeadReader { list(query?: ListQuery & { search?: string; stageId?: string; assigneeId?: string; clinicId?: string; source?: string; range?: DateRange }): Promise<PageResult<LeadListItem>>; findById(id: string): Promise<LeadDetails | null>; pipeline(): Promise<LeadPipelineColumn[]>; assignees(): Promise<LeadAssigneeView[]>; metrics(): Promise<LeadSummaryMetrics> }
 export interface PatientReader { list(query?: ListQuery & { search?: string; archived?: boolean }): Promise<PageResult<PatientListItem>>; findById(id: string): Promise<PatientDetails | null>; duplicates(input: { phone?: string; email?: string; excludeId?: string }): Promise<PatientDuplicateCandidate[]> }
+export interface TreatmentPlanReader { list(query?:ListQuery&{search?:string;status?:TreatmentPlanStatus;patientId?:string;professionalId?:string;clinicId?:string;leadId?:string;range?:DateRange;expiringSoon?:boolean}):Promise<PageResult<TreatmentPlanListItem>>; findById(id:string):Promise<TreatmentPlanDetails|null> }
+export interface ConversationReader { list(query?:ListQuery&{search?:string;channel?:ConversationChannel;status?:ConversationStatus;patientId?:string;leadId?:string;integrationId?:string;range?:DateRange;unread?:boolean}):Promise<PageResult<ConversationListItem>>; findById(id:string,input?:{limit?:number;before?:string}):Promise<ConversationDetails|null> }

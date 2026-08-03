@@ -7,6 +7,8 @@ export interface ScheduleBlockWriter { create(input: unknown): Promise<ActionRes
 export interface QuickPatientWriter { create(input: unknown): Promise<ActionResult<{ id: string; name: string }>> }
 export interface PatientWriter extends QuickPatientWriter { update(id: string, input: unknown): Promise<ActionResult<{ id: string }>> }
 export interface LeadWriter { create(input: unknown): Promise<ActionResult<{ id: string }>>; update(id: string, input: unknown): Promise<ActionResult<{ id: string }>>; move(id: string, input: unknown): Promise<ActionResult<{ id: string }>>; convert(id: string): Promise<ActionResult<{ id: string; patientId: string }>> }
+export interface TreatmentPlanWriter { create(input:unknown):Promise<ActionResult<{id:string}>>; update(id:string,input:unknown):Promise<ActionResult<{id:string}>>; duplicate(id:string):Promise<ActionResult<{id:string}>>; transition(id:string,input:unknown):Promise<ActionResult<{id:string;status:string}>>; createPublicLink(id:string):Promise<ActionResult<{url:string;expiresAt:string}>> }
+export interface ConversationWriter { create(input:unknown):Promise<ActionResult<{id:string}>>; link(id:string,input:unknown):Promise<ActionResult<{id:string}>>; transition(id:string,input:unknown):Promise<ActionResult<{id:string;status:string}>>; addMessage(id:string,input:unknown):Promise<ActionResult<{id:string;status:string}>>; markRead(id:string):Promise<ActionResult<{id:string;count:number}>> }
 export interface AppointmentWriter {
   create(input: unknown): Promise<ActionResult<{ id: string }>>;
   reschedule(id: string, input: unknown): Promise<ActionResult<{ id: string }>>;

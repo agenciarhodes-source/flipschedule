@@ -1,7 +1,7 @@
-import { PlansView } from "@/components/modules/treatment-plans/plans-view";
-import { requireAuthenticatedTenantContext } from "@/lib/auth/guards";
+import { RealPlansView } from "@/components/modules/treatment-plans/real-plans-view";
+import { getApplicationContext } from "@/lib/auth/application-context";import {createPrismaReaders} from "@/domains/infrastructure/prisma/factory";
 
 export default async function OrcamentosPage() {
-  await requireAuthenticatedTenantContext();
-  return <PlansView />;
+  const context=await getApplicationContext();const result=await createPrismaReaders(context).treatmentPlans.list({limit:25});
+  return <RealPlansView items={result.items} slug={context.tenantSlug}/>;
 }
