@@ -5,6 +5,8 @@ export interface EntityWriter<T> { create(input: unknown): Promise<ActionResult<
 export interface WorkingHoursWriter { replace(input: unknown): Promise<ActionResult<{ count: number }>> }
 export interface ScheduleBlockWriter { create(input: unknown): Promise<ActionResult<{ id: string }>>; remove(id: string): Promise<ActionResult<{ id: string }>> }
 export interface QuickPatientWriter { create(input: unknown): Promise<ActionResult<{ id: string; name: string }>> }
+export interface PatientWriter extends QuickPatientWriter { update(id: string, input: unknown): Promise<ActionResult<{ id: string }>> }
+export interface LeadWriter { create(input: unknown): Promise<ActionResult<{ id: string }>>; update(id: string, input: unknown): Promise<ActionResult<{ id: string }>>; move(id: string, input: unknown): Promise<ActionResult<{ id: string }>>; convert(id: string): Promise<ActionResult<{ id: string; patientId: string }>> }
 export interface AppointmentWriter {
   create(input: unknown): Promise<ActionResult<{ id: string }>>;
   reschedule(id: string, input: unknown): Promise<ActionResult<{ id: string }>>;
