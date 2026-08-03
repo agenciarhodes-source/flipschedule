@@ -11,6 +11,7 @@ const { signInEmail, replaceMock } = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("@/lib/auth/client", () => ({
