@@ -31,6 +31,7 @@
     ,"worker:webhooks": "tsx scripts/process-webhooks.ts"
     ,"worker:messages": "tsx scripts/process-outbound-messages.ts"
     ,"worker:reconcile": "tsx scripts/reconcile-integrations.ts"
+    ,"worker:billing": "tsx scripts/reconcile-billing.ts"
     ,"worker:once": "pnpm worker:webhooks && pnpm worker:messages && pnpm worker:reconcile"
   },
   "dependencies": {

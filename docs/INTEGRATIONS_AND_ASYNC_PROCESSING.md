@@ -17,3 +17,7 @@ Retries usam atrasos aproximados de 30 s, 2 min, 10 min, 30 min e 60 min, jitter
 `credentialReference` aceita somente alias `env:NAME`; o valor é resolvido em runtime e nunca segue ao cliente. `configuration` rejeita nomes de segredo. Correlation IDs são UUIDs sem PII. Logs operacionais aceitam somente allowlist. Sem `FIELD_ENCRYPTION_KEY` válida o ingress rejeita, sem fallback em texto puro.
 
 Não há scheduler, daemon, Meta/WhatsApp/e-mail real, Asaas, billing, chamada externa, configuração de produção ou migration aplicada. Scripts executam um lote e terminam; produção exige `ALLOW_PRODUCTION_WORKER=true` explícito.
+
+## Billing SaaS em Sandbox (PR 33)
+
+A fundação de billing separa cobrança da assinatura FlipSchedule de pagamentos clínicos, usa catálogo vazio até decisão comercial, checkout Asaas hospedado, credenciais server-only, estados explícitos, idempotência, isolamento tenant e RBAC. Production, migration aplicada, preços comerciais e cobrança de pacientes permanecem pendentes. Consulte `BILLING_AND_ASAAS_INTEGRATION.md`, `BILLING_STATE_MACHINE.md` e `ASAAS_SANDBOX_RUNBOOK.md`.

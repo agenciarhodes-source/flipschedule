@@ -180,6 +180,15 @@ enum PaymentStatus {
   FAILED
 }
 
+enum BillingCheckoutStatus {
+  CREATED
+  ACTIVE
+  PAID
+  CANCELLED
+  EXPIRED
+  FAILED
+}
+
 enum WebhookStatus {
   RECEIVED
   PROCESSING
@@ -299,6 +308,7 @@ model Tenant {
   integrations                 Integration[]
   subscriptions                Subscription[]
   payments                     Payment[]
+  billingCheckouts             BillingCheckout[]
   webhookEvents                WebhookEvent[]
   auditLogs                    AuditLog[]
   invitations                  TenantInvitation[]
@@ -328,27 +338,28 @@ model Clinic {
 }
 
 model Membership {
-  id                    String                       @id @default(uuid()) @db.Uuid
-  tenantId              String                       @db.Uuid
-  userId                String                       @db.Uuid
-  role                  MembershipRole
-  status                MembershipStatus             @default(INVITED)
-  invitedAt             DateTime                     @default(now()) @db.Timestamptz(3)
-  acceptedAt            DateTime?                    @db.Timestamptz(3)
-  createdAt             DateTime                     @default(now()) @db.Timestamptz(3)
-  updatedAt             DateTime                     @updatedAt @db.Timestamptz(3)
-  tenant                Tenant                       @relation(fields: [tenantId], references: [id])
-  user                  User                         @relation(fields: [userId], references: [id])
-  professionals         Professional[]               @relation("ProfessionalMembership")
-  blocksCreated         ScheduleBlock[]              @relation("ScheduleBlockCreatedBy")
-  leadsAssigned         Lead[]                       @relation("LeadAssignedMembership")
-  leadChanges           LeadStageHistory[]           @relation("LeadStageHistoryChangedBy")
-  appointmentsCreated   Appointment[]                @relation("AppointmentCreatedBy")
-  appointmentChanges    AppointmentStatusHistory[]   @relation("AppointmentStatusHistoryChangedBy")
-  treatmentPlansCreated TreatmentPlan[]              @relation("TreatmentPlanCreatedBy")
-  treatmentPlanChanges  TreatmentPlanStatusHistory[] @relation("TreatmentPlanStatusHistoryChangedBy")
-  auditLogs             AuditLog[]                   @relation("AuditLogActorMembership")
-  invitationsSent       TenantInvitation[]           @relation("TenantInvitationInvitedBy")
+  id                      String                       @id @default(uuid()) @db.Uuid
+  tenantId                String                       @db.Uuid
+  userId                  String                       @db.Uuid
+  role                    MembershipRole
+  status                  MembershipStatus             @default(INVITED)
+  invitedAt               DateTime                     @default(now()) @db.Timestamptz(3)
+  acceptedAt              DateTime?                    @db.Timestamptz(3)
+  createdAt               DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                     @updatedAt @db.Timestamptz(3)
+  tenant                  Tenant                       @relation(fields: [tenantId], references: [id])
+  user                    User                         @relation(fields: [userId], references: [id])
+  professionals           Professional[]               @relation("ProfessionalMembership")
+  blocksCreated           ScheduleBlock[]              @relation("ScheduleBlockCreatedBy")
+  leadsAssigned           Lead[]                       @relation("LeadAssignedMembership")
+  leadChanges             LeadStageHistory[]           @relation("LeadStageHistoryChangedBy")
+  appointmentsCreated     Appointment[]                @relation("AppointmentCreatedBy")
+  appointmentChanges      AppointmentStatusHistory[]   @relation("AppointmentStatusHistoryChangedBy")
+  treatmentPlansCreated   TreatmentPlan[]              @relation("TreatmentPlanCreatedBy")
+  treatmentPlanChanges    TreatmentPlanStatusHistory[] @relation("TreatmentPlanStatusHistoryChangedBy")
+  auditLogs               AuditLog[]                   @relation("AuditLogActorMembership")
+  invitationsSent         TenantInvitation[]           @relation("TenantInvitationInvitedBy")
+  billingCheckoutsCreated BillingCheckout[]            @relation("BillingCheckoutCreatedBy")
 
   @@unique([tenantId, userId])
   @@unique([id, tenantId])
@@ -879,6 +890,11 @@ model Subscription {
   currentPeriodStart     DateTime?          @db.Timestamptz(3)
   currentPeriodEnd       DateTime?          @db.Timestamptz(3)
   cancelAtPeriodEnd      Boolean            @default(false)
+  providerStatus         String?
+  billingType            String?
+  gracePeriodEndsAt      DateTime?          @db.Timestamptz(3)
+  lastSyncedAt           DateTime?          @db.Timestamptz(3)
+  externalReference      String?            @unique
   cancelledAt            DateTime?          @db.Timestamptz(3)
   createdAt              DateTime           @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime           @updatedAt @db.Timestamptz(3)
@@ -901,6 +917,9 @@ model Payment {
   dueAt             DateTime        @db.Timestamptz(3)
   paidAt            DateTime?       @db.Timestamptz(3)
   failedAt          DateTime?       @db.Timestamptz(3)
+  providerStatus    String?
+  lastSyncedAt      DateTime?       @db.Timestamptz(3)
+  correlationId     String?
   createdAt         DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
   tenant            Tenant          @relation(fields: [tenantId], references: [id])
@@ -909,6 +928,30 @@ model Payment {
   @@unique([id, tenantId])
   @@unique([provider, externalPaymentId])
   @@index([tenantId, status, dueAt])
+}
+
+model BillingCheckout {
+  id                    String                @id @default(uuid()) @db.Uuid
+  tenantId              String                @db.Uuid
+  provider              BillingProvider
+  planCode              String
+  externalReference     String                @unique
+  externalCheckoutId    String?               @unique
+  status                BillingCheckoutStatus @default(CREATED)
+  amountCents           Int
+  cycle                 String
+  expiresAt             DateTime?             @db.Timestamptz(3)
+  completedAt           DateTime?             @db.Timestamptz(3)
+  cancelledAt           DateTime?             @db.Timestamptz(3)
+  createdByMembershipId String                @db.Uuid
+  correlationId         String
+  createdAt             DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime              @updatedAt @db.Timestamptz(3)
+  tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdBy             Membership            @relation("BillingCheckoutCreatedBy", fields: [createdByMembershipId], references: [id], onDelete: Restrict)
+
+  @@unique([id, tenantId])
+  @@index([tenantId, status, createdAt])
 }
 
 model WebhookEvent {
