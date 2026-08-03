@@ -1,7 +1,3 @@
-import { PatientsView } from "@/components/modules/patients/patients-view";
-import { requireAuthenticatedTenantContext } from "@/lib/auth/guards";
+import { RealPatientsView } from "@/components/modules/patients/real-patients-view";import { getApplicationContext } from "@/lib/auth/application-context";import { createPrismaReaders } from "@/domains/infrastructure/prisma/factory";
 
-export default async function PacientesPage() {
-  await requireAuthenticatedTenantContext();
-  return <PatientsView />;
-}
+export default async function PacientesPage({searchParams}:{searchParams:Promise<{q?:string}>}) {const context=await getApplicationContext();const q=(await searchParams).q??"";const result=await createPrismaReaders(context).patients.list({search:q,limit:100,archived:false});return <RealPatientsView patients={result.items} search={q} tenantSlug={context.tenantSlug}/>}

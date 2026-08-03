@@ -1,7 +1,3 @@
-import { CrmView } from "@/components/modules/crm/crm-view";
-import { requireAuthenticatedTenantContext } from "@/lib/auth/guards";
+import { RealCrmView } from "@/components/modules/crm/real-crm-view";import { getApplicationContext } from "@/lib/auth/application-context";import { createPrismaReaders } from "@/domains/infrastructure/prisma/factory";
 
-export default async function CrmPage() {
-  await requireAuthenticatedTenantContext();
-  return <CrmView />;
-}
+export default async function CrmPage({searchParams}:{searchParams:Promise<{q?:string}>}) {const context=await getApplicationContext();const readers=createPrismaReaders(context);const q=(await searchParams).q??"";const [columns,assignees,metrics,clinics]=await Promise.all([readers.leads.pipeline(),readers.leads.assignees(),readers.leads.metrics(),readers.clinics.list({limit:100})]);return <RealCrmView columns={columns} assignees={assignees} metrics={metrics} clinics={clinics.items} search={q}/>}
