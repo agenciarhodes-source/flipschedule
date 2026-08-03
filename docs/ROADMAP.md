@@ -44,3 +44,9 @@ A implementação atual entrega login por e-mail/senha, sessões persistidas, bo
 ## Registro — fundação visual da demonstração
 
 A fundação visual e navegável pública sob `/demo` foi criada, com application shell compartilhado, navegação desktop/mobile, design system consolidado, nove telas-base e fixtures fictícias isoladas. Este registro confirma somente a arquitetura visual: Dashboard, Agenda, CRM, Pacientes, Orçamentos, Inbox, Relatórios, Configurações e Administração **não estão funcionalmente concluídos** e permanecem nas respectivas fases do roadmap.
+
+## Registro — hardening visual, responsivo e de acessibilidade da demonstração
+
+Em 2026-08-03, as rotas demonstrativas receberam revisão transversal de código e uma **baseline visual revisada**, uma **baseline responsiva revisada** e uma **baseline técnica de acessibilidade implementada**. O registro inclui shell, módulos, recuperação de rotas/registros, foco de drawer, semântica de tabelas, contenção de overflow, alvos de toque e reduced motion. A matriz e as limitações estão em `DEMO_VISUAL_QA_MATRIX.md` e `DEMO_VISUAL_QA_ACCESSIBILITY.md`.
+
+Esse marco não representa certificação WCAG, validação em todos os dispositivos, conclusão de backend, persistência, autenticação, billing, integrações, deploy ou acesso a production. Auditoria manual com tecnologias assistivas e dispositivos reais permanece pendente.
