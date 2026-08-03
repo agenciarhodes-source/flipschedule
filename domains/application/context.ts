@@ -7,6 +7,7 @@ export interface ApplicationContext {
   membershipRole: MembershipRole;
   tenantId: string;
   tenantSlug: string;
+  tenantTimezone: string;
   displayName: string;
   email: string;
 }
