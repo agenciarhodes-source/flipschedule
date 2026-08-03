@@ -2,14 +2,15 @@ import "server-only";
 import {createHash,randomBytes} from "node:crypto";
 import {z} from "zod";
 import type {PrismaClient} from "@/generated/prisma/client";
-import type {ApplicationContext,MembershipRole} from "@/domains/application/context";
+import type {ApplicationContext} from "@/domains/application/context";
+import {hasPermission} from "@/domains/application/rbac";
 import {actionFailure,type ActionResult} from "@/domains/application/actions";
 import type {PublicTreatmentPlanView} from "@/domains/application/view-models";
 import {calculateTreatmentPlanTotals} from "@/domains/application/treatment-plan";
 import {getPrismaClient} from "@/lib/db";import {appUrl} from "@/lib/config/public-urls";
 type Tx=Omit<PrismaClient,"$connect"|"$disconnect"|"$on"|"$transaction"|"$extends">;const uuid=z.string().uuid();
-const fail=(e:z.ZodError):ActionResult<never>=>actionFailure("VALIDATION_ERROR","Revise os campos informados.",e.flatten().fieldErrors as Record<string,string[]>);const roles=new Set<MembershipRole>(["OWNER","MANAGER","RECEPTIONIST"]);
-abstract class Base{constructor(protected c:ApplicationContext,protected p:PrismaClient=getPrismaClient()){}denied(){return roles.has(this.c.membershipRole)||this.c.membershipRole==="PROFESSIONAL"?null:actionFailure("ACCESS_DENIED","Você não tem permissão para esta ação.")}audit(tx:Tx,a:string,t:string,id:string){return tx.auditLog.create({data:{tenantId:this.c.tenantId,actorUserId:this.c.userId,actorMembershipId:this.c.membershipId,action:a,resourceType:t,resourceId:id,outcome:"SUCCESS"},select:{id:true}})}unavailable(){return actionFailure("UNAVAILABLE","Não foi possível concluir a operação. Tente novamente.")}}
+const fail=(e:z.ZodError):ActionResult<never>=>actionFailure("VALIDATION_ERROR","Revise os campos informados.",e.flatten().fieldErrors as Record<string,string[]>);
+abstract class Base{constructor(protected c:ApplicationContext,protected p:PrismaClient=getPrismaClient()){}denied(){return hasPermission(this.c.membershipRole,"treatment_plans.manage")||hasPermission(this.c.membershipRole,"inbox.manage")?null:actionFailure("ACCESS_DENIED","Você não tem permissão para esta ação.")}audit(tx:Tx,a:string,t:string,id:string){return tx.auditLog.create({data:{tenantId:this.c.tenantId,actorUserId:this.c.userId,actorMembershipId:this.c.membershipId,action:a,resourceType:t,resourceId:id,outcome:"SUCCESS"},select:{id:true}})}unavailable(){return actionFailure("UNAVAILABLE","Não foi possível concluir a operação. Tente novamente.")}}
 const item=z.object({procedureId:uuid.nullable().default(null),description:z.string().trim().min(2).max(240),quantity:z.number().int().min(1).max(100),unitPriceCents:z.number().int().nonnegative().max(100_000_000),discountCents:z.number().int().nonnegative().default(0)});
 const planInput=z.object({patientId:uuid,clinicId:uuid.nullable().default(null),professionalId:uuid.nullable().default(null),leadId:uuid.nullable().default(null),title:z.string().trim().min(2).max(160),discountCents:z.number().int().nonnegative().default(0),expiresAt:z.coerce.date().nullable().default(null),items:z.array(item).min(1).max(50)});
 function totals(data:z.infer<typeof planInput>){const calculated=calculateTreatmentPlanTotals(data.items,data.discountCents);const items=data.items.map((x,i)=>({...x,totalCents:calculated.itemTotals[i]!,position:i}));return {items,subtotalCents:calculated.subtotalCents,totalCents:calculated.totalCents}}

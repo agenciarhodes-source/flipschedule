@@ -2,16 +2,19 @@
 
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 
 import { Eyebrow } from "@/components/shared/eyebrow";
 import { authClient } from "@/lib/auth/client";
 import { publicUrls } from "@/lib/config/public-urls";
 import { normalizeEmail } from "@/lib/auth/utils";
+import { isSafeInternalCallback } from "@/lib/auth/utils";
 
 export function LoginPageContent() {
   const router = useRouter();
+  const requestedCallback = useSearchParams().get("callbackURL");
+  const callbackURL = isSafeInternalCallback(requestedCallback) ? requestedCallback! : "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,7 +33,7 @@ export function LoginPageContent() {
       const response = await authClient.signIn.email({
         email: normalizedEmail,
         password,
-        callbackURL: "/dashboard",
+        callbackURL,
       });
 
       if (response.error) {
@@ -38,7 +41,7 @@ export function LoginPageContent() {
         return;
       }
 
-      router.replace("/dashboard");
+      router.replace(callbackURL);
     } catch (error) {
       setFeedback("Não foi possível entrar no momento. Tente novamente.");
       console.error("login_failed", { message: error instanceof Error ? error.message : "unknown" });

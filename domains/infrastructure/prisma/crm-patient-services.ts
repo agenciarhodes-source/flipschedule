@@ -2,14 +2,15 @@ import "server-only";
 
 import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma/client";
-import type { ApplicationContext, MembershipRole } from "@/domains/application/context";
+import type { ApplicationContext } from "@/domains/application/context";
+import { hasPermission } from "@/domains/application/rbac";
 import { actionFailure, type ActionResult } from "@/domains/application/actions";
 import { getPrismaClient } from "@/lib/db";
 
 type Tx=Omit<PrismaClient,"$connect"|"$disconnect"|"$on"|"$transaction"|"$extends">;
-const allowed=new Set<MembershipRole>(["OWNER","MANAGER","RECEPTIONIST"]);const uuid=z.string().uuid();const optionalText=z.string().trim().max(160).nullable().default(null);const contact=z.object({name:z.string().trim().min(2).max(120),phoneE164:z.string().regex(/^\+[1-9]\d{7,14}$/).nullable().default(null),emailNormalized:z.string().trim().email().toLowerCase().nullable().default(null)});
+const allowed=(context:ApplicationContext)=>hasPermission(context.membershipRole,"patients.manage")||hasPermission(context.membershipRole,"crm.manage");const uuid=z.string().uuid();const optionalText=z.string().trim().max(160).nullable().default(null);const contact=z.object({name:z.string().trim().min(2).max(120),phoneE164:z.string().regex(/^\+[1-9]\d{7,14}$/).nullable().default(null),emailNormalized:z.string().trim().email().toLowerCase().nullable().default(null)});
 const fail=(error:z.ZodError):ActionResult<never>=>actionFailure("VALIDATION_ERROR","Revise os campos informados.",Object.fromEntries(Object.entries(error.flatten().fieldErrors).filter((x):x is [string,string[]]=>Boolean(x[1]))));
-abstract class Service {constructor(protected context:ApplicationContext,protected prisma:PrismaClient=getPrismaClient()){} protected denied(){return allowed.has(this.context.membershipRole)?null:actionFailure("ACCESS_DENIED","Você não tem permissão para esta ação.")} protected audit(tx:Tx,action:string,type:string,id:string){return tx.auditLog.create({data:{tenantId:this.context.tenantId,actorUserId:this.context.userId,actorMembershipId:this.context.membershipId,action,resourceType:type,resourceId:id,outcome:"SUCCESS"},select:{id:true}})} protected unavailable(){return actionFailure("UNAVAILABLE","Não foi possível concluir a operação. Tente novamente.")}}
+abstract class Service {constructor(protected context:ApplicationContext,protected prisma:PrismaClient=getPrismaClient()){} protected denied(){return allowed(this.context)?null:actionFailure("ACCESS_DENIED","Você não tem permissão para esta ação.")} protected audit(tx:Tx,action:string,type:string,id:string){return tx.auditLog.create({data:{tenantId:this.context.tenantId,actorUserId:this.context.userId,actorMembershipId:this.context.membershipId,action,resourceType:type,resourceId:id,outcome:"SUCCESS"},select:{id:true}})} protected unavailable(){return actionFailure("UNAVAILABLE","Não foi possível concluir a operação. Tente novamente.")}}
 
 const patientInput=contact.extend({birthDate:z.coerce.date().nullable().default(null),archived:z.boolean().default(false)});
 export class PatientService extends Service {

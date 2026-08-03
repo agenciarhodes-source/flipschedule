@@ -3,13 +3,13 @@ import "server-only";
 import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma/client";
 import type { AppointmentStatus as DbAppointmentStatus } from "@/generated/prisma/client";
-import type { ApplicationContext, MembershipRole } from "@/domains/application/context";
+import type { ApplicationContext } from "@/domains/application/context";
+import { hasPermission } from "@/domains/application/rbac";
 import { actionFailure, type ActionResult } from "@/domains/application/actions";
 import { mapAppointmentStatus } from "@/domains/application/mappers";
 import type { AppointmentStatus } from "@/domains/application/view-models";
 import { getPrismaClient } from "@/lib/db";
 
-const mutatingRoles = new Set<MembershipRole>(["OWNER", "MANAGER", "RECEPTIONIST"]);
 const uuid = z.string().uuid();
 const label = z.string().trim().min(2).max(120);
 const auditSelect = { id: true } as const;
@@ -21,7 +21,7 @@ function unavailable(): ActionResult<never> { return actionFailure("UNAVAILABLE"
 abstract class TenantService {
   protected readonly prisma: PrismaClient;
   constructor(protected readonly context: ApplicationContext, prisma?: PrismaClient) { this.prisma = prisma ?? getPrismaClient(); }
-  protected denied<T>(): ActionResult<T> | null { return mutatingRoles.has(this.context.membershipRole) ? null : actionFailure("ACCESS_DENIED", "Você não tem permissão para esta ação."); }
+  protected denied<T>(): ActionResult<T> | null { return (["clinics.manage", "professionals.manage", "procedures.manage", "schedule.manage", "patients.manage"] as const).some((permission) => hasPermission(this.context.membershipRole, permission)) ? null : actionFailure("ACCESS_DENIED", "Você não tem permissão para esta ação."); }
   protected audit(tx: Tx, action: string, resourceType: string, resourceId: string) { return tx.auditLog.create({ data: { tenantId: this.context.tenantId, actorUserId: this.context.userId, actorMembershipId: this.context.membershipId, action, resourceType, resourceId, outcome: "SUCCESS" }, select: auditSelect }); }
 }
 

@@ -5,3 +5,4 @@ export * from "./readers";
 export * from "./view-models";
 export * from "./actions";
 export * from "./writers";
+export * from "./rbac";

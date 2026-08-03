@@ -20,6 +20,7 @@ Este diretório é a fonte de contexto para a reconstrução. Código existente 
 - [`BASELINE_TEST_RESULTS.md`](BASELINE_TEST_RESULTS.md): resultado reproduzível da baseline.
 - [`REAL_TREATMENT_PLANS_AND_INBOX.md`](REAL_TREATMENT_PLANS_AND_INBOX.md): implementação real de orçamentos e conversas, autorização e limitações.
 - [`REAL_REPORTS_AND_ORGANIZATION_SETTINGS.md`](REAL_REPORTS_AND_ORGANIZATION_SETTINGS.md): relatórios, configurações institucionais e correção do link público.
+- [`DEFINITIVE_RBAC_AND_TEAM_INVITATIONS.md`](DEFINITIVE_RBAC_AND_TEAM_INVITATIONS.md): matriz central de permissões e ciclo seguro de convites e equipe.
 - `memory/PRD.md`: PRD histórico; útil como evidência, não normativo quando divergir desta fundação.
 
 ## Governança

@@ -54,6 +54,7 @@ export async function getAuthenticatedSessionContext() {
     tenantId: activeMembership.tenant.id,
     tenantSlug: activeMembership.tenant.slug,
     tenantTimezone: activeMembership.tenant.timezone,
+    tenantName: activeMembership.tenant.name,
     tenantStatus: activeMembership.tenant.status,
     membershipRole: activeMembership.role,
     membershipStatus: activeMembership.status,
