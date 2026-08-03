@@ -51,3 +51,7 @@ Estes controles são mínimos, não checklist exaustivo. Dados de saúde e PII e
 ## Critérios mínimos antes do piloto
 
 Threat model atualizado; testes cross-tenant/RBAC; revisão de rotas públicas; secrets scan; verificação de webhooks; restore testado; plano de incidente; revisão LGPD/jurídica; rate limits; auditoria e redaction verificadas; vulnerabilidades críticas tratadas ou formalmente bloqueantes.
+
+## Integrações e filas
+
+Credentials são aliases resolvidos server-side; configuração rejeita secrets. Webhooks exigem adapter/assinatura oficial antes da persistência, payload cifrado e idempotência. Claims são condicionais, retries finitos e logs usam allowlist sem PII/payload.

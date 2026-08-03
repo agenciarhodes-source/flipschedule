@@ -131,6 +131,7 @@ enum MessageDirection {
 
 enum MessageStatus {
   PENDING
+  PROCESSING
   SENT
   DELIVERED
   READ
@@ -830,6 +831,11 @@ model Message {
   deliveredAt         DateTime?        @db.Timestamptz(3)
   readAt              DateTime?        @db.Timestamptz(3)
   failedAt            DateTime?        @db.Timestamptz(3)
+  attempts            Int              @default(0)
+  nextAttemptAt       DateTime?        @db.Timestamptz(3)
+  processingStartedAt DateTime?        @db.Timestamptz(3)
+  lastErrorCode       String?
+  correlationId       String?
   createdAt           DateTime         @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime         @updatedAt @db.Timestamptz(3)
   tenant              Tenant           @relation(fields: [tenantId], references: [id])
@@ -838,6 +844,8 @@ model Message {
   @@unique([id, tenantId])
   @@unique([tenantId, conversationId, externalMessageId])
   @@index([tenantId, conversationId, createdAt])
+  @@index([status, nextAttemptAt])
+  @@index([tenantId, direction, status, nextAttemptAt])
 }
 
 model Integration {
@@ -857,6 +865,7 @@ model Integration {
 
   @@unique([id, tenantId])
   @@unique([tenantId, provider, externalAccountId])
+  @@index([tenantId, status])
 }
 
 model Subscription {
@@ -903,21 +912,23 @@ model Payment {
 }
 
 model WebhookEvent {
-  id                String        @id @default(uuid()) @db.Uuid
-  tenantId          String?       @db.Uuid
-  provider          String
-  externalEventId   String
-  status            WebhookStatus @default(RECEIVED)
-  payloadHash       String?
-  payloadCiphertext String?
-  receivedAt        DateTime      @db.Timestamptz(3)
-  processedAt       DateTime?     @db.Timestamptz(3)
-  nextAttemptAt     DateTime?     @db.Timestamptz(3)
-  attempts          Int           @default(0)
-  lastErrorCode     String?
-  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
-  tenant            Tenant?       @relation(fields: [tenantId], references: [id])
+  id                  String        @id @default(uuid()) @db.Uuid
+  tenantId            String?       @db.Uuid
+  provider            String
+  externalEventId     String
+  status              WebhookStatus @default(RECEIVED)
+  payloadHash         String?
+  payloadCiphertext   String?
+  receivedAt          DateTime      @db.Timestamptz(3)
+  processedAt         DateTime?     @db.Timestamptz(3)
+  nextAttemptAt       DateTime?     @db.Timestamptz(3)
+  attempts            Int           @default(0)
+  lastErrorCode       String?
+  processingStartedAt DateTime?     @db.Timestamptz(3)
+  correlationId       String?
+  createdAt           DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @db.Timestamptz(3)
+  tenant              Tenant?       @relation(fields: [tenantId], references: [id])
 
   @@unique([provider, externalEventId])
   @@index([status, nextAttemptAt])

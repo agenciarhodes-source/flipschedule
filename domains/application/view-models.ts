@@ -36,7 +36,7 @@ export interface PublicTreatmentPlanLinkResult { url:string; expiresAt:string }
 export type ConversationChannel = "whatsapp"|"instagram"|"messenger"|"email"|"internal";
 export type ConversationStatus = "open"|"pending"|"closed"|"archived";
 export interface ConversationContactView { kind:"patient"|"lead"|"unlinked"; id:string|null; name:string }
-export interface MessageView { id:string; direction:"inbound"|"outbound"|"internal"; status:"pending"|"sent"|"delivered"|"read"|"failed"|"received"; contentType:string; preview:string|null; createdAt:string; readAt:string|null }
+export interface MessageView { id:string; direction:"inbound"|"outbound"|"internal"; status:"pending"|"processing"|"sent"|"delivered"|"read"|"failed"|"received"; contentType:string; preview:string|null; createdAt:string; readAt:string|null; attempts:number; nextAttemptAt:string|null; lastErrorCode:string|null }
 export interface ConversationListItem { id:string; channel:ConversationChannel; status:ConversationStatus; contact:ConversationContactView; integrationId:string|null; lastMessageAt:string|null; unreadCount:number; preview:string|null }
 export interface ConversationDetails extends ConversationListItem { patientId:string|null; leadId:string|null; messages:MessageView[]; messagePage:{hasMore:boolean; nextCursor:string|null} }
 export interface ConversationSummaryMetrics { total:number; open:number; pending:number; unread:number }

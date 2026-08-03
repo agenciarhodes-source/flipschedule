@@ -50,3 +50,7 @@ A fundação visual e navegável pública sob `/demo` foi criada, com applicatio
 Em 2026-08-03, as rotas demonstrativas receberam revisão transversal de código e uma **baseline visual revisada**, uma **baseline responsiva revisada** e uma **baseline técnica de acessibilidade implementada**. O registro inclui shell, módulos, recuperação de rotas/registros, foco de drawer, semântica de tabelas, contenção de overflow, alvos de toque e reduced motion. A matriz e as limitações estão em `DEMO_VISUAL_QA_MATRIX.md` e `DEMO_VISUAL_QA_ACCESSIBILITY.md`.
 
 Esse marco não representa certificação WCAG, validação em todos os dispositivos, conclusão de backend, persistência, autenticação, billing, integrações, deploy ou acesso a production. Auditoria manual com tecnologias assistivas e dispositivos reais permanece pendente.
+
+## Fundação de integrações assíncronas (PR 32)
+
+Contratos, fila persistente, ingress, workers pontuais, retry e operação segura foram fundados sem providers reais nem scheduler. Conectar Meta/e-mail, validar contratos oficiais e provisionar scheduler continuam pendentes.

@@ -24,3 +24,7 @@ Parcelamento, cobrança, pagamento, aceite parcial, status por item, prioridade,
 - escrita composta, histórico e auditoria usam transação;
 - datas são serializadas em ISO e valores financeiros permanecem inteiros;
 - o modo `/demo` e seus dados locais permanecem inalterados.
+
+## Runtime assíncrono
+
+A mensagem outbound persistida passa a oferecer estado `PROCESSING`, lease, tentativas, retry e erro sanitizado. `SENT` somente ocorre após confirmação do adapter. Como nenhum adapter real foi aprovado/registrado, nenhuma mensagem externa é enviada nesta fase.

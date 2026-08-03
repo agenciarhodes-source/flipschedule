@@ -1,0 +1,3 @@
+import type { IntegrationProvider } from "@/generated/prisma/client";
+import type { IntegrationProviderAdapter,ProviderSendMessageResult } from "@/domains/application/integrations";
+export function createFakeAdapter(provider:IntegrationProvider,result:ProviderSendMessageResult={ok:true,externalMessageId:"fake-message-id"}):IntegrationProviderAdapter{return {provider,supportsChannel:()=>true,async validateConfiguration(configuration){return {valid:true,configuration:(configuration??{}) as Record<string,unknown>}},async healthCheck(){return {healthy:true}},async verifyWebhook(request){return {valid:true,webhook:{...request,externalEventId:"fake-event-id",integrationExternalAccountId:"fake-account"}}},async parseWebhook(){return []},async sendMessage(){return result}}}
