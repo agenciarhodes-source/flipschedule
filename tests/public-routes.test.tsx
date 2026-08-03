@@ -13,6 +13,7 @@ const { redirect } = vi.hoisted(() => ({ redirect: vi.fn() }));
 vi.mock("next/navigation", () => ({
   redirect,
   useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 afterEach(() => {
