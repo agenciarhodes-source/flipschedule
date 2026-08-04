@@ -56,7 +56,7 @@ jobs:
       - run: pnpm db:migrate:deploy && pnpm db:migrate:status && pnpm ops:verify-structure
       - run: SEED_CONFIRMATION=SEED_SYNTHETIC_EXTERNAL_STAGING pnpm ops:seed-external-staging-pilot && SEED_CONFIRMATION=SEED_SYNTHETIC_EXTERNAL_STAGING pnpm ops:seed-external-staging-pilot
       - run: pnpm ops:verify-external-staging
-      - run: pnpm test -- tests/pilot-data-policy.test.ts tests/external-staging-controls.test.ts tests/authenticated-staging-smoke.test.ts tests/staging-controls.test.tsx
+      - run: pnpm vitest run tests/pilot-data-policy.test.ts tests/external-staging-controls.test.ts tests/authenticated-staging-smoke.test.ts tests/staging-controls.test.tsx
       - run: CLINIC=true LEGAL=true TRAINING=true SUPPORT=true INCIDENT=true SYNTHETIC=true pnpm ops:validate-human-pilot-attestations
       - run: test "$(CLINIC=false LEGAL=true TRAINING=true SUPPORT=true INCIDENT=true SYNTHETIC=true pnpm -s ops:validate-human-pilot-attestations >/dev/null 2>&1; echo $?)" != 0
       - run: pnpm lint && pnpm typecheck && pnpm build
