@@ -1,0 +1,2 @@
+import { isStagingRuntime } from "@/lib/runtime/config";
+export function StagingBanner({env=process.env}:{env?:Record<string,string|undefined>}){if(!isStagingRuntime(env))return null;return <div role="status" aria-label="Aviso de ambiente de homologação" className="sticky top-0 z-50 bg-amber-300 px-3 py-2 text-center text-xs font-semibold text-black sm:text-sm">AMBIENTE DE HOMOLOGAÇÃO — USE APENAS DADOS FICTÍCIOS</div>}

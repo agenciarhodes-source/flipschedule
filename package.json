@@ -34,12 +34,16 @@
     "worker:billing": "tsx scripts/reconcile-billing.ts",
     "worker:once": "pnpm worker:webhooks && pnpm worker:messages && pnpm worker:reconcile",
     "auth:bootstrap-platform-owner": "tsx scripts/bootstrap-platform-owner.ts",
-    "ops:preflight": "tsx scripts/ops-preflight.ts",
+    "ops:preflight": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-preflight.ts",
     "ops:smoke": "tsx scripts/ops-smoke.ts",
     "ops:db-status": "tsx scripts/ops-db-status.ts",
     "ops:verify-restored-db": "tsx scripts/ops-verify-restored-db.ts",
     "ops:cleanup-expired-leases": "tsx scripts/ops-cleanup-expired-leases.ts",
-    "ops:cleanup-rate-limits": "tsx scripts/ops-cleanup-rate-limits.ts"
+    "ops:cleanup-rate-limits": "tsx scripts/ops-cleanup-rate-limits.ts",
+    "ops:release-manifest": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-release-manifest.ts",
+    "ops:seed-staging": "NODE_OPTIONS=--conditions=react-server tsx scripts/seed-staging.ts",
+    "ops:verify-staging": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-verify-staging.ts",
+    "ops:verify-structure": "prisma db execute --file prisma/verification/essential-structure.sql"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "5.3.0",

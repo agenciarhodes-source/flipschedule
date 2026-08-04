@@ -1,0 +1,42 @@
+name: Migration rehearsal
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: migration-rehearsal-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: rehearsal
+          POSTGRES_PASSWORD: rehearsal
+          POSTGRES_DB: flipschedule_rehearsal
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rehearsal -d flipschedule_rehearsal" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql://rehearsal:rehearsal@localhost:5432/flipschedule_rehearsal
+      DIRECT_DATABASE_URL: postgresql://rehearsal:rehearsal@localhost:5432/flipschedule_rehearsal
+      EXTERNAL_EFFECTS_MODE: DISABLED
+      RATE_LIMIT_HASH_KEY: rehearsal-only-not-a-secret-00000000
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:validate && pnpm db:generate
+      - run: pnpm db:migrate:deploy && pnpm db:migrate:status && pnpm ops:verify-structure
+      - name: Confirm idempotent deploy
+        run: pnpm db:migrate:deploy && pnpm db:migrate:status && pnpm ops:verify-structure
+      - run: pnpm vitest run tests/prisma-writer-tenancy.test.ts tests/billing-foundation.test.ts tests/pilot-hardening.test.ts tests/platform-administration.test.ts

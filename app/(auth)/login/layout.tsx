@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AuthConfigurationError } from "@/lib/auth/errors";
 import { getAuth } from "@/lib/auth/server";
 import { headers } from "next/headers";
+import { StagingBanner } from "@/components/layout/staging-banner";
 
 export const dynamic = "force-dynamic";
 
@@ -20,5 +21,5 @@ export default async function LoginLayout({ children }: Readonly<{ children: Rea
 
     throw error;
   }
-  return <>{children}</>;
+  return <><StagingBanner/>{children}</>;
 }
