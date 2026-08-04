@@ -37,3 +37,7 @@ Esta fase é exclusivamente documental. Não foram instalados Next.js, Prisma ou
 ## PR 39 — rehearsal descartável de backup/restore
 
 [`BACKUP_RESTORE_REHEARSAL.md`](BACKUP_RESTORE_REHEARSAL.md) e [`BACKUP_RESTORE_REHEARSAL_EVIDENCE.md`](BACKUP_RESTORE_REHEARSAL_EVIDENCE.md) definem contrato e evidência do backup/restore técnico em PostgreSQL 17 exclusivamente descartável; não representam backup Neon ou restore externo.
+
+## PR 40 — preparação de staging externo e piloto humano sintético
+
+Os contratos operacionais estão em [`EXTERNAL_STAGING_ACTIVATION.md`](EXTERNAL_STAGING_ACTIVATION.md), [`EXTERNAL_STAGING_VALIDATION_RUNBOOK.md`](EXTERNAL_STAGING_VALIDATION_RUNBOOK.md), [`SYNTHETIC_HUMAN_PILOT_PLAN.md`](SYNTHETIC_HUMAN_PILOT_PLAN.md) e documentos `PILOT_*`. São preparação; nenhuma infraestrutura ou aprovação foi executada.

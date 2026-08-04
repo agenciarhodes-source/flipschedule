@@ -44,3 +44,6 @@ Todos os itens humanos acima; pentest; tratamento de vulnerabilidades críticas;
 
 - [ ] ensaio técnico descartável de backup/restore aprovado no CI do SHA (não equivale a backup/restore real de staging ou production)
 - [ ] permanecem pendentes backup/restore reais, RPO, RTO, retenção, alertas, jurídico, clínica piloto, treinamento e aprovação de go-live
+
+## Preparação PR 40
+A execução externa futura deve seguir [ativação de staging](EXTERNAL_STAGING_ACTIVATION.md), [política sintética](PILOT_DATA_POLICY.md) e [critérios de início/pausa](PILOT_START_STOP_CRITERIA.md). Neste PR, infraestrutura, secrets, deploy, migration/seed/smoke/restore remotos, treinamento, aceite humano, piloto e produção permanecem **não executados**.

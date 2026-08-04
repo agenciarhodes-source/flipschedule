@@ -22,6 +22,7 @@ jobs:
       ASAAS_ENVIRONMENT: sandbox
       OPERATIONAL_MODE: NORMAL
       PILOT_MODE: true
+      PILOT_DATA_MODE: SYNTHETIC_ONLY
       PILOT_TENANT_SLUGS: piloto-sintetico
       NEXT_PUBLIC_APP_URL: https://pilot-rehearsal.example.test
       BETTER_AUTH_URL: https://pilot-rehearsal.example.test

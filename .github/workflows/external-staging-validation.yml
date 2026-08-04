@@ -1,0 +1,39 @@
+name: External staging validation
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation: {required: true, type: string}
+      changeId: {required: true, type: string}
+permissions: {contents: read}
+concurrency: {group: external-staging-validation, cancel-in-progress: false}
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: "${{ github.sha }}", fetch-depth: 1, persist-credentials: false}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 22, cache: pnpm}
+      - env: {CONFIRMATION: "${{ inputs.confirmation }}", CHANGE_ID: "${{ inputs.changeId }}", CHECKED_OUT_SHA: "${{ github.sha }}"}
+        run: node -e 'if(process.env.CONFIRMATION!=="VALIDATE_EXTERNAL_STAGING"||!/^[-A-Za-z0-9_.]{1,64}$/.test(process.env.CHANGE_ID)||!/^[a-f0-9]{40}$/.test(process.env.CHECKED_OUT_SHA))process.exit(1)'
+      - run: pnpm install --frozen-lockfile
+  verify:
+    needs: validate
+    environment: staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: "${{ github.sha }}", fetch-depth: 1, persist-credentials: false}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile && pnpm db:validate && pnpm db:generate
+      - name: Protected non-destructive verification
+        env: {APP_ENV: staging, DATABASE_URL: "${{ secrets.STAGING_DATABASE_URL }}", DIRECT_DATABASE_URL: "${{ secrets.STAGING_DIRECT_DATABASE_URL }}", BETTER_AUTH_SECRET: "${{ secrets.BETTER_AUTH_SECRET }}", FIELD_ENCRYPTION_KEY: "${{ secrets.FIELD_ENCRYPTION_KEY }}", RATE_LIMIT_HASH_KEY: "${{ secrets.RATE_LIMIT_HASH_KEY }}", BUILD_SHA: "${{ github.sha }}", RELEASE_ID: "${{ vars.RELEASE_ID }}", STAGING_BASE_URL: "${{ vars.STAGING_BASE_URL }}", STAGING_ALLOWED_HOSTNAME: "${{ vars.STAGING_ALLOWED_HOSTNAME }}", STAGING_DATABASE_HOSTNAME: "${{ vars.STAGING_DATABASE_HOSTNAME }}", STAGING_DATABASE_NAME: "${{ vars.STAGING_DATABASE_NAME }}", PRODUCTION_HOSTNAME: "${{ vars.PRODUCTION_HOSTNAME }}", PILOT_MODE: 'true', PILOT_DATA_MODE: SYNTHETIC_ONLY, PILOT_TENANT_SLUG: "${{ vars.PILOT_TENANT_SLUG }}", PILOT_TENANT_SLUGS: "${{ vars.PILOT_TENANT_SLUGS }}", EXTERNAL_EFFECTS_MODE: DISABLED, ASAAS_ENVIRONMENT: sandbox, OPERATIONAL_MODE: NORMAL, NEXT_PUBLIC_APP_URL: "${{ vars.STAGING_BASE_URL }}", BETTER_AUTH_URL: "${{ vars.STAGING_BASE_URL }}", BETTER_AUTH_TRUSTED_ORIGINS: "${{ vars.STAGING_BASE_URL }}"}
+        run: pnpm ops:preflight && pnpm ops:db-status && pnpm ops:verify-external-staging && pnpm ops:smoke

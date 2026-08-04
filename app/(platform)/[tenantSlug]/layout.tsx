@@ -7,5 +7,5 @@ export default async function PlatformLayout({ children, params }: Readonly<{ ch
   const { tenantSlug } = await params;
   const context = await requireAuthenticatedTenantContext(tenantSlug);
   if (tenantSlug !== context.tenantSlug) notFound();
-  return <><StagingBanner/><PlatformShell tenantName={context.tenantName} tenantSlug={context.tenantSlug} tenants={context.availableTenants}>{children}</PlatformShell></>;
+  return <><StagingBanner tenantSlug={context.tenantSlug}/><PlatformShell tenantName={context.tenantName} tenantSlug={context.tenantSlug} tenants={context.availableTenants}>{children}</PlatformShell></>;
 }

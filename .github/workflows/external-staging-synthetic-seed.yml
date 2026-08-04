@@ -1,0 +1,32 @@
+name: External staging synthetic seed
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation: {required: true, type: string}
+      changeId: {required: true, type: string}
+permissions: {contents: read}
+concurrency: {group: external-staging-synthetic-seed, cancel-in-progress: false}
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env: {CONFIRMATION: "${{ inputs.confirmation }}", CHANGE_ID: "${{ inputs.changeId }}", SHA: "${{ github.sha }}"}
+        run: node -e 'if(process.env.CONFIRMATION!=="SEED_SYNTHETIC_EXTERNAL_STAGING"||!/^[-A-Za-z0-9_.]{1,64}$/.test(process.env.CHANGE_ID)||!/^[a-f0-9]{40}$/.test(process.env.SHA))process.exit(1)'
+  seed:
+    needs: validate
+    environment: staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: "${{ github.sha }}", fetch-depth: 1, persist-credentials: false}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile && pnpm db:validate && pnpm db:generate
+      - name: Protected idempotent seed and verification
+        env: {APP_ENV: staging, DATABASE_URL: "${{ secrets.STAGING_DATABASE_URL }}", DIRECT_DATABASE_URL: "${{ secrets.STAGING_DIRECT_DATABASE_URL }}", SEED_CONFIRMATION: SEED_SYNTHETIC_EXTERNAL_STAGING, BUILD_SHA: "${{ github.sha }}", RELEASE_ID: "${{ vars.RELEASE_ID }}", STAGING_BASE_URL: "${{ vars.STAGING_BASE_URL }}", STAGING_ALLOWED_HOSTNAME: "${{ vars.STAGING_ALLOWED_HOSTNAME }}", STAGING_DATABASE_HOSTNAME: "${{ vars.STAGING_DATABASE_HOSTNAME }}", STAGING_DATABASE_NAME: "${{ vars.STAGING_DATABASE_NAME }}", PRODUCTION_HOSTNAME: "${{ vars.PRODUCTION_HOSTNAME }}", PILOT_MODE: 'true', PILOT_DATA_MODE: SYNTHETIC_ONLY, PILOT_TENANT_SLUG: "${{ vars.PILOT_TENANT_SLUG }}", PILOT_TENANT_SLUGS: "${{ vars.PILOT_TENANT_SLUGS }}", EXTERNAL_EFFECTS_MODE: DISABLED, ASAAS_ENVIRONMENT: sandbox}
+        run: pnpm ops:preflight && pnpm ops:db-status && pnpm ops:seed-external-staging-pilot && pnpm ops:seed-external-staging-pilot && pnpm ops:run-synthetic-pilot && pnpm ops:verify-external-staging
