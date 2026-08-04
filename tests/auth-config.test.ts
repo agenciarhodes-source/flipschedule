@@ -15,12 +15,13 @@ describe("auth configuration", () => {
   it("uses the environment supplied by the caller", () => {
     const config = readAuthConfig({
       APP_ENV: "production",
-      BETTER_AUTH_SECRET: "configured-secret",
+      BETTER_AUTH_SECRET: "configured-secret-0123456789abcdef",
       BETTER_AUTH_URL: "https://auth.example.test",
+      BETTER_AUTH_TRUSTED_ORIGINS: "https://auth.example.test",
     });
 
     expect(config).toMatchObject({
-      secret: "configured-secret",
+      secret: "configured-secret-0123456789abcdef",
       baseURL: "https://auth.example.test",
       isProduction: true,
     });

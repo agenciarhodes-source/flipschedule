@@ -1,9 +1,5 @@
-import "server-only";
-import { createHash } from "node:crypto";
-import { readdirSync,readFileSync } from "node:fs";
-import { join } from "node:path";
-import { getRuntimeEnvironment } from "./config";
-const safe=(value:string|undefined,max:number,pattern:RegExp)=>value&&value.length<=max&&pattern.test(value)?value:undefined;
-export type ReleaseMetadata={environment:string;commitSha:string|null;releaseId:string|null;buildTimestamp:string|null;migrationsDigest:string;applicationVersion:string};
-export function migrationsDigest(root=join(process.cwd(),"prisma/migrations")){const hash=createHash("sha256");for(const name of readdirSync(root).sort()){const file=join(root,name,"migration.sql");try{hash.update(name).update("\0").update(readFileSync(file))}catch{}}return hash.digest("hex")}
-export function getReleaseMetadata(env:Record<string,string|undefined>=process.env):ReleaseMetadata{return {environment:getRuntimeEnvironment(env),commitSha:safe(env.BUILD_SHA??env.VERCEL_GIT_COMMIT_SHA,64,/^[a-f0-9]+$/i)??null,releaseId:safe(env.RELEASE_ID,80,/^[a-zA-Z0-9._-]+$/)??null,buildTimestamp:safe(env.BUILD_TIMESTAMP,40,/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?Z$/)??null,migrationsDigest:migrationsDigest(),applicationVersion:process.env.npm_package_version??"0.1.0"}}
+import "server-only";import{createHash}from"node:crypto";import{readdirSync,readFileSync}from"node:fs";import{join}from"node:path";import{getRuntimeEnvironment}from"./environment";
+const sha256=(data:Buffer|string)=>createHash("sha256").update(data).digest("hex");export function migrationsDigest(root=join(process.cwd(),"prisma/migrations")){const h=createHash("sha256");for(const name of readdirSync(root).sort()){const file=join(root,name,"migration.sql");try{h.update(name).update("\0").update(readFileSync(file))}catch{}}return h.digest("hex")}
+export function createReleaseManifest(env:Record<string,string|undefined>=process.env){const commitSha=env.BUILD_SHA??env.GITHUB_SHA;if(!commitSha||!/^[a-f0-9]{40}$/i.test(commitSha))throw new Error("RELEASE_SHA_INVALID");const md=migrationsDigest(),lockfileDigest=sha256(readFileSync(join(process.cwd(),"pnpm-lock.yaml")));return{schemaVersion:1,commitSha:commitSha.toLowerCase(),migrationsDigest:md,lockfileDigest,applicationVersion:process.env.npm_package_version??"0.1.0",runtimeContractVersion:"1",expectedEnvironment:env.EXPECTED_ENVIRONMENT??getRuntimeEnvironment(env),releaseId:`${commitSha.slice(0,12)}-${md.slice(0,12)}`,buildTimestamp:env.BUILD_TIMESTAMP??new Date().toISOString()}}
+export function assertManifestCommit(manifest:ReturnType<typeof createReleaseManifest>,sha:string){if(manifest.commitSha!==sha.toLowerCase())throw new Error("RELEASE_COMMIT_MISMATCH")}
+export const getReleaseMetadata=createReleaseManifest;

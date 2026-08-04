@@ -7,3 +7,5 @@ Validação lazy, banner, noindex, efeitos externos, manifest, seed/verificaçã
 
 ## Ainda não executado
 GitHub Environment/secrets, banco/snapshot, migration, Vercel/deploy/domínio, smoke/seed/restore remotos e aprovação de staging.
+
+> PR 37: o rehearsal efêmero valida somente controles técnicos locais. Environment/secrets, banco, deploy, migration, backup/restore, smoke remoto, piloto e production externos permanecem pendentes de execução e aprovação humanas. Consulte `STAGING_RELEASE_REHEARSAL.md`, `PROTECTED_STAGING_WORKFLOWS.md`, `STAGING_AUTHENTICATION_SECURITY.md` e `STAGING_REHEARSAL_EVIDENCE.md`.

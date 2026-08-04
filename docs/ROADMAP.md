@@ -69,3 +69,5 @@ Configuração, health, hardening HTTP, rate-limit durável, contenção e runbo
 
 ## PR 36 — contrato de staging preparado
 Contratos, guards, workflows manuais, rehearsal descartável, seed sintético e runbooks foram implementados. Staging externo, banco, secrets, snapshot, migrations, deploy, domínio, smoke e aprovação permanecem bloqueados e não executados. Produção permanece integralmente fora do escopo.
+
+> PR 37: o rehearsal efêmero valida somente controles técnicos locais. Environment/secrets, banco, deploy, migration, backup/restore, smoke remoto, piloto e production externos permanecem pendentes de execução e aprovação humanas. Consulte `STAGING_RELEASE_REHEARSAL.md`, `PROTECTED_STAGING_WORKFLOWS.md`, `STAGING_AUTHENTICATION_SECURITY.md` e `STAGING_REHEARSAL_EVIDENCE.md`.

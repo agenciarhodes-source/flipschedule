@@ -35,3 +35,5 @@ Todos os itens humanos acima; pentest; tratamento de vulnerabilidades críticas;
 - [ ] executar rehearsal e snapshot
 - [ ] executar migration/deploy/smoke/seed/verificação remotos
 - [ ] registrar aprovação humana; preparation no código não equivale a staging ativo
+
+> PR 37: o rehearsal efêmero valida somente controles técnicos locais. Environment/secrets, banco, deploy, migration, backup/restore, smoke remoto, piloto e production externos permanecem pendentes de execução e aprovação humanas. Consulte `STAGING_RELEASE_REHEARSAL.md`, `PROTECTED_STAGING_WORKFLOWS.md`, `STAGING_AUTHENTICATION_SECURITY.md` e `STAGING_REHEARSAL_EVIDENCE.md`.

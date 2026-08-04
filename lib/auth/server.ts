@@ -43,7 +43,7 @@ export function createAuth() {
       cookieCache: { enabled: false },
     },
     advanced: {
-      useSecureCookies: authConfig.isProduction,
+      useSecureCookies: authConfig.isSecureRuntime,
     },
     databaseHooks: {
       user: {

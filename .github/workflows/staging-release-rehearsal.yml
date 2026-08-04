@@ -1,0 +1,66 @@
+name: Staging release rehearsal
+on:
+  pull_request:
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: staging-release-rehearsal-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  rehearse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: {POSTGRES_USER: ephemeral, POSTGRES_PASSWORD: ephemeral, POSTGRES_DB: flipschedule_rehearsal}
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U ephemeral -d flipschedule_rehearsal" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: staging
+      EXTERNAL_EFFECTS_MODE: DISABLED
+      ASAAS_ENVIRONMENT: sandbox
+      OPERATIONAL_MODE: MAINTENANCE
+      NEXT_PUBLIC_APP_URL: https://staging-rehearsal.example.test
+      BETTER_AUTH_URL: https://staging-rehearsal.example.test
+      BETTER_AUTH_TRUSTED_ORIGINS: https://staging-rehearsal.example.test
+      DATABASE_URL: postgresql://ephemeral:ephemeral@localhost:5432/flipschedule_rehearsal
+      DIRECT_DATABASE_URL: postgresql://ephemeral:ephemeral@localhost:5432/flipschedule_rehearsal
+      BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_ENVIRONMENT: staging
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false, fetch-depth: 1}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - name: Generate ephemeral secrets
+        run: |
+          set -euo pipefail
+          for key in BETTER_AUTH_SECRET FIELD_ENCRYPTION_KEY RATE_LIMIT_HASH_KEY; do
+            value=$(openssl rand -hex 32); echo "::add-mask::$value"; echo "$key=$value" >> "$GITHUB_ENV"
+          done
+      - run: pnpm ops:preflight
+      - run: pnpm db:format && git diff --exit-code prisma/schema.prisma
+      - run: pnpm db:validate
+      - run: pnpm db:generate
+      - run: pnpm db:migrate:deploy
+      - run: pnpm db:migrate:status
+      - run: pnpm ops:verify-structure
+      - run: pnpm db:migrate:deploy
+      - run: pnpm vitest run tests/auth-config.test.ts tests/auth-lazy-initialization.test.ts
+      - run: pnpm vitest run tests/prisma-writer-tenancy.test.ts
+      - run: pnpm vitest run tests/billing-foundation.test.ts
+      - run: pnpm vitest run tests/platform-administration.test.ts
+      - run: pnpm vitest run tests/staging-controls.test.tsx tests/staging-workflows.test.ts
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm ops:release-manifest
+      - name: Sanitized rehearsal report
+        env:
+          REHEARSAL_CHECKS: config,format,validate,generate,migrate,status,structure,idempotency,auth,tenancy,billing,admin,staging,lint,typecheck,build,manifest
+          MIGRATION_COUNT: "19"
+        run: pnpm ops:staging-rehearsal-report
