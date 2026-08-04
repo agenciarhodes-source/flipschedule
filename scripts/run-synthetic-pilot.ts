@@ -6,7 +6,25 @@ import {
   SYNTHETIC_NOW,
   SYNTHETIC_OWNER_EMAIL,
 } from "../domains/pilot/synthetic-data";
+import { createAuth } from "../lib/auth/server";
 import { createCliPrismaClient } from "../lib/db/cli-client";
+
+function sanitizedAuthError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return { name: "UnknownError", code: null, status: null };
+  }
+  const record = error as Record<string, unknown>;
+  return {
+    name: typeof record.name === "string" ? record.name : "UnknownError",
+    code: typeof record.code === "string" ? record.code : null,
+    status:
+      typeof record.status === "number" || typeof record.status === "string"
+        ? record.status
+        : typeof record.statusCode === "number"
+          ? record.statusCode
+          : null,
+  };
+}
 
 export async function main() {
   const prisma = createCliPrismaClient();
@@ -36,6 +54,30 @@ export async function main() {
         passwordVerified,
       },
     }));
+
+    try {
+      const auth = createAuth(prisma);
+      const result = await auth.api.signInEmail({
+        returnHeaders: true,
+        body: { email: SYNTHETIC_OWNER_EMAIL, password },
+      });
+      console.info(JSON.stringify({
+        authEndpointPreflight: {
+          completed: true,
+          setCookiePresent: Boolean(result.headers.get("set-cookie")),
+        },
+      }));
+      if (owner?.id) {
+        await prisma.authSession.deleteMany({ where: { userId: owner.id } });
+      }
+    } catch (error) {
+      console.info(JSON.stringify({
+        authEndpointPreflight: {
+          completed: false,
+          error: sanitizedAuthError(error),
+        },
+      }));
+    }
 
     const results = await runPilotScenarios({
       prisma,
