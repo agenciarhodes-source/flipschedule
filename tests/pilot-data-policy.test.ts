@@ -1,9 +1,13 @@
 import {describe,expect,it,vi} from "vitest";vi.mock("server-only",()=>({}));
+import type {PrismaClient} from "@/generated/prisma/client";
 import {isSyntheticPilotRuntime,resolvePilotDataMode,validateSyntheticClinicalInput} from "@/domains/pilot/data-policy";
+import {QuickPatientService} from "@/domains/infrastructure/prisma/services";
 const active={APP_ENV:"staging",PILOT_MODE:"true",PILOT_DATA_MODE:"SYNTHETIC_ONLY"};
+const context={userId:"00000000-0000-4000-8000-000000000001",membershipId:"00000000-0000-4000-8000-000000000002",membershipRole:"OWNER" as const,tenantId:"00000000-0000-4000-8000-000000000003",tenantSlug:"piloto-sintetico",tenantTimezone:"America/Sao_Paulo",displayName:"Operador",email:"operator@example.test"};
 describe("synthetic pilot data policy",()=>{
  it("is disabled outside the explicit staging pilot contract",()=>{expect(resolvePilotDataMode({APP_ENV:"production",PILOT_MODE:"true",PILOT_DATA_MODE:"SYNTHETIC_ONLY"})).toBe("DISABLED");expect(isSyntheticPilotRuntime({APP_ENV:"staging",PILOT_MODE:"false"})).toBe(false)});
  it("fails closed when staging pilot data mode is missing or unknown",()=>{expect(()=>resolvePilotDataMode({APP_ENV:"staging",PILOT_MODE:"true"})).toThrow("PILOT_SYNTHETIC_DATA_REQUIRED");expect(()=>resolvePilotDataMode({...active,PILOT_DATA_MODE:"REAL"})).toThrow("PILOT_SYNTHETIC_DATA_REQUIRED")});
  it("accepts marked clinical identities and example.test",()=>{expect(validateSyntheticClinicalInput({name:"Paciente Sintético 01",emailNormalized:"paciente01@example.test",phoneE164:null,cpf:null},active)).toBeTruthy()});
  it.each([{name:"Pessoa"},{name:"Paciente Sintético",cpf:"000.000.000-00"},{name:"Lead Sintético",phoneE164:"+5500000000000"},{name:"Paciente Sintético",emailNormalized:"real@public.example.com"},{name:"Paciente Sintético",notes:"ligar para 11999999999"}])("rejects non-synthetic payload %#",payload=>{expect(()=>validateSyntheticClinicalInput(payload,active)).toThrow("PILOT_SYNTHETIC_DATA_REQUIRED")});
+ it("blocks non-synthetic quick patient creation before database writes",async()=>{const previous={APP_ENV:process.env.APP_ENV,PILOT_MODE:process.env.PILOT_MODE,PILOT_DATA_MODE:process.env.PILOT_DATA_MODE};Object.assign(process.env,active);const transaction=vi.fn();const service=new QuickPatientService(context,{$transaction:transaction} as unknown as PrismaClient);try{const result=await service.create({name:"Pessoa Real",phoneE164:null,emailNormalized:"person@public.example.com"});expect(result).toMatchObject({ok:false,code:"VALIDATION_ERROR",message:"PILOT_SYNTHETIC_DATA_REQUIRED"});expect(transaction).not.toHaveBeenCalled()}finally{for(const [key,value] of Object.entries(previous))if(value===undefined)delete process.env[key];else process.env[key]=value}});
 });
