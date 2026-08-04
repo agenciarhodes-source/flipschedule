@@ -1,13 +1,42 @@
 import { writeFileSync } from "node:fs";
+import { verifyPassword } from "better-auth/crypto";
 
 import { runPilotScenarios } from "../domains/pilot/scenario-runner";
-import { SYNTHETIC_NOW } from "../domains/pilot/synthetic-data";
+import {
+  SYNTHETIC_NOW,
+  SYNTHETIC_OWNER_EMAIL,
+} from "../domains/pilot/synthetic-data";
 import { createCliPrismaClient } from "../lib/db/cli-client";
 
 export async function main() {
   const prisma = createCliPrismaClient();
   const externalCalls = { count: 0 };
   try {
+    const owner = await prisma.user.findUnique({
+      where: { emailNormalized: SYNTHETIC_OWNER_EMAIL },
+      select: {
+        id: true,
+        authAccounts: {
+          where: { providerId: "credential" },
+          select: { password: true },
+          take: 1,
+        },
+      },
+    });
+    const passwordHash = owner?.authAccounts[0]?.password ?? null;
+    const password = process.env.SYNTHETIC_PILOT_PASSWORD ?? "";
+    const passwordVerified = Boolean(
+      passwordHash && password &&
+      await verifyPassword({ hash: passwordHash, password }),
+    );
+    console.info(JSON.stringify({
+      credentialPreflight: {
+        ownerPresent: Boolean(owner),
+        credentialPresent: Boolean(passwordHash),
+        passwordVerified,
+      },
+    }));
+
     const results = await runPilotScenarios({
       prisma,
       now: SYNTHETIC_NOW,
