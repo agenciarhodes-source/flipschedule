@@ -6,3 +6,5 @@ Rollback de aplicação usa artefato anterior compatível. Para schema aditivo, 
 
 ## Staging controlado (PR 36)
 Consulte `STAGING_DEPLOYMENT_RUNBOOK.md`, `STAGING_MIGRATION_RUNBOOK.md` e `STAGING_ROLLBACK_CHECKLIST.md`. Migration manual precede deploy e nunca é acoplada ao build/deploy.
+
+O workflow descartável de backup/restore é um gate técnico independente e não autoriza deploy. Ele não acessa Neon/Vercel, não restaura staging/production e não altera o requisito de snapshot humano antes de migration externa autorizada.

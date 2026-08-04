@@ -49,7 +49,12 @@
     "ops:run-synthetic-pilot": "NODE_OPTIONS=--conditions=react-server tsx scripts/run-synthetic-pilot.ts",
     "ops:verify-synthetic-pilot": "NODE_OPTIONS=--conditions=react-server tsx scripts/verify-synthetic-pilot.ts",
     "ops:report-synthetic-pilot": "NODE_OPTIONS=--conditions=react-server tsx scripts/report-synthetic-pilot.ts",
-    "ops:pilot-rehearsal": "NODE_OPTIONS=--conditions=react-server tsx scripts/pilot-rehearsal.ts"
+    "ops:pilot-rehearsal": "NODE_OPTIONS=--conditions=react-server tsx scripts/pilot-rehearsal.ts",
+    "ops:backup-postgres": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-backup-postgres.ts",
+    "ops:restore-postgres": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-restore-postgres.ts",
+    "ops:verify-backup-restore": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-verify-backup-restore.ts",
+    "ops:report-backup-restore": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-backup-restore-report.ts",
+    "ops:backup-restore-rehearsal": "NODE_OPTIONS=--conditions=react-server tsx scripts/backup-restore-rehearsal.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "5.3.0",

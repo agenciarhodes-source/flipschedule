@@ -39,3 +39,8 @@ Todos os itens humanos acima; pentest; tratamento de vulnerabilidades críticas;
 > PR 37: o rehearsal efêmero valida somente controles técnicos locais. Environment/secrets, banco, deploy, migration, backup/restore, smoke remoto, piloto e production externos permanecem pendentes de execução e aprovação humanas. Consulte `STAGING_RELEASE_REHEARSAL.md`, `PROTECTED_STAGING_WORKFLOWS.md`, `STAGING_AUTHENTICATION_SECURITY.md` e `STAGING_REHEARSAL_EVIDENCE.md`.
 
 > PR 38 — Ensaio técnico sintético do piloto: PostgreSQL descartável, dois tenants fictícios, SHA real, migration count dinâmico e efeitos externos bloqueados. Não conclui staging externo, LGPD, piloto humano ou produção.
+
+## Evidência técnica adicional do PR 39
+
+- [ ] ensaio técnico descartável de backup/restore aprovado no CI do SHA (não equivale a backup/restore real de staging ou production)
+- [ ] permanecem pendentes backup/restore reais, RPO, RTO, retenção, alertas, jurídico, clínica piloto, treinamento e aprovação de go-live
