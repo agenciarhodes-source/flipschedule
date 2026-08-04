@@ -33,9 +33,12 @@ jobs:
         run: test '${{ inputs.confirmation }}' = MIGRATE_STAGING && test '${{ inputs.backup_confirmed }}' = true && test -n '${{ inputs.change_id }}'
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with: {ref: "${{ inputs.git_ref }}"}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
       - uses: actions/setup-node@v4
         with: {node-version: 22, cache: pnpm}
-      - run: corepack enable && corepack prepare pnpm@10.28.1 --activate && pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - run: pnpm ops:preflight && pnpm db:validate && pnpm db:generate
       - run: pnpm db:migrate:status
       - run: pnpm db:migrate:deploy
