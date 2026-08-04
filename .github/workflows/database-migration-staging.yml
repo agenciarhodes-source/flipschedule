@@ -2,7 +2,6 @@ name: Database migration — staging
 on:
   workflow_dispatch:
     inputs:
-      git_ref: {description: Commit SHA or approved ref, required: true, type: string}
       confirmation: {description: Type MIGRATE_STAGING, required: true, type: string}
       change_id: {description: Reviewed change identifier, required: true, type: string}
       backup_confirmed: {description: External snapshot completed, required: true, type: boolean}
@@ -12,36 +11,78 @@ concurrency:
   group: flipschedule-staging-database-migration
   cancel-in-progress: false
 jobs:
-  migrate:
-    environment: staging
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    env:
-      APP_ENV: staging
-      DIRECT_DATABASE_URL: ${{ secrets.STAGING_DIRECT_DATABASE_URL }}
-      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-      NEXT_PUBLIC_APP_URL: ${{ vars.STAGING_BASE_URL }}
-      BETTER_AUTH_URL: ${{ vars.STAGING_BASE_URL }}
-      BETTER_AUTH_TRUSTED_ORIGINS: ${{ vars.STAGING_BASE_URL }}
-      FIELD_ENCRYPTION_KEY: ${{ secrets.FIELD_ENCRYPTION_KEY }}
-      RATE_LIMIT_HASH_KEY: ${{ secrets.RATE_LIMIT_HASH_KEY }}
-      OPERATIONAL_MODE: MAINTENANCE
-      EXTERNAL_EFFECTS_MODE: DISABLED
-      ASAAS_ENVIRONMENT: sandbox
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      change_id: ${{ steps.dispatch.outputs.change_id }}
+      migrations_digest: ${{ steps.manifest.outputs.migrations_digest }}
     steps:
-      - name: Validate gates
-        run: test '${{ inputs.confirmation }}' = MIGRATE_STAGING && test '${{ inputs.backup_confirmed }}' = true && test -n '${{ inputs.change_id }}'
+      - name: Require immutable main event
+        env:
+          EVENT_REF: ${{ github.ref }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$EVENT_REF" = refs/heads/main
+          [[ "$EVENT_SHA" =~ ^[0-9a-f]{40}$ ]]
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with: {ref: "${{ inputs.git_ref }}"}
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.1
-      - uses: actions/setup-node@v4
+        with: {ref: "${{ github.sha }}", fetch-depth: 1, persist-credentials: false}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with: {node-version: 22, cache: pnpm}
       - run: pnpm install --frozen-lockfile
-      - run: pnpm ops:preflight && pnpm db:validate && pnpm db:generate
-      - run: pnpm db:migrate:status
-      - run: pnpm db:migrate:deploy
-      - run: pnpm db:migrate:status && pnpm ops:verify-structure
+      - id: dispatch
+        env:
+          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+          INPUT_CHANGE_ID: ${{ inputs.change_id }}
+          INPUT_BACKUP_CONFIRMED: ${{ inputs.backup_confirmed }}
+        run: pnpm tsx scripts/validate-staging-dispatch.ts
+      - id: manifest
+        env: {BUILD_SHA: "${{ github.sha }}", EXPECTED_ENVIRONMENT: staging}
+        run: pnpm ops:release-manifest --github-output
+  migrate:
+    needs: validate
+    environment: staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: "${{ github.sha }}", fetch-depth: 1, persist-credentials: false}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:validate && pnpm db:generate
+      - name: Preflight
+        env: &secure_env
+          APP_ENV: staging
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.STAGING_DIRECT_DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          FIELD_ENCRYPTION_KEY: ${{ secrets.FIELD_ENCRYPTION_KEY }}
+          RATE_LIMIT_HASH_KEY: ${{ secrets.RATE_LIMIT_HASH_KEY }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.STAGING_BASE_URL }}
+          BETTER_AUTH_URL: ${{ vars.STAGING_BASE_URL }}
+          BETTER_AUTH_TRUSTED_ORIGINS: ${{ vars.STAGING_BASE_URL }}
+          OPERATIONAL_MODE: MAINTENANCE
+          EXTERNAL_EFFECTS_MODE: DISABLED
+          ASAAS_ENVIRONMENT: sandbox
+        run: pnpm ops:preflight
+      - name: Migration status before
+        env: {DIRECT_DATABASE_URL: "${{ secrets.STAGING_DIRECT_DATABASE_URL }}"}
+        run: pnpm db:migrate:status
+      - name: Deploy migrations
+        env: {DIRECT_DATABASE_URL: "${{ secrets.STAGING_DIRECT_DATABASE_URL }}"}
+        run: pnpm db:migrate:deploy
+      - name: Verify migration
+        env: {DIRECT_DATABASE_URL: "${{ secrets.STAGING_DIRECT_DATABASE_URL }}"}
+        run: pnpm db:migrate:status && pnpm ops:verify-structure
       - name: Sanitized summary
-        run: printf '### Staging migration\n- Change: `%s`\n- Ref: `%s`\n- Structural verification completed.\n' '${{ inputs.change_id }}' '${{ inputs.git_ref }}' >> "$GITHUB_STEP_SUMMARY"
+        env:
+          CHANGE_ID: ${{ needs.validate.outputs.change_id }}
+          MIGRATIONS_DIGEST: ${{ needs.validate.outputs.migrations_digest }}
+          EVENT_SHA: ${{ github.sha }}
+        run: pnpm tsx scripts/staging-migration-summary.ts

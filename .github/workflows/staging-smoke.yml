@@ -1,35 +1,24 @@
 name: Staging smoke
-on:
-  workflow_dispatch:
-permissions:
-  contents: read
-concurrency:
-  group: flipschedule-staging-smoke
-  cancel-in-progress: false
+on: {workflow_dispatch: {}}
+permissions: {contents: read}
+concurrency: {group: flipschedule-staging-smoke, cancel-in-progress: false}
 jobs:
   smoke:
     environment: staging
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      APP_ENV: staging
-      BASE_URL: ${{ vars.STAGING_BASE_URL }}
-      PRODUCTION_HOSTNAME: ${{ vars.PRODUCTION_HOSTNAME }}
-      ALLOW_PREVIEW_SMOKE: "true"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.1
-      - uses: actions/setup-node@v4
+        with: {ref: "${{ github.sha }}", fetch-depth: 1, persist-credentials: false}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with: {node-version: 22, cache: pnpm}
       - run: pnpm install --frozen-lockfile
-      - name: Validate protected target
-        run: node -e 'const u=new URL(process.env.BASE_URL);if(u.protocol!=="https:"||u.hostname===process.env.PRODUCTION_HOSTNAME)process.exit(1)'
-      - run: pnpm ops:smoke
-      - name: Validate staging controls
-        run: |
-          headers=$(curl --silent --show-error --head "$BASE_URL/login")
-          printf '%s' "$headers" | grep -qi '^x-robots-tag:.*noindex'
-          body=$(curl --silent --show-error "$BASE_URL/login")
-          printf '%s' "$body" | grep -q 'AMBIENTE DE HOMOLOGAÇÃO'
+      - name: Protected smoke
+        env:
+          APP_ENV: staging
+          BASE_URL: ${{ vars.STAGING_BASE_URL }}
+          STAGING_ALLOWED_HOSTNAME: ${{ vars.STAGING_ALLOWED_HOSTNAME }}
+          PRODUCTION_HOSTNAME: ${{ vars.PRODUCTION_HOSTNAME }}
+        run: pnpm ops:smoke

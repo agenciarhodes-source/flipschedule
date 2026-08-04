@@ -1,3 +1,1 @@
-import {getReleaseMetadata} from "../lib/runtime/release";
-export function releaseManifest(env:Record<string,string|undefined>=process.env){return JSON.stringify(getReleaseMetadata(env),null,2)+"\n"}
-if(import.meta.url===`file://${process.argv[1]}`)process.stdout.write(releaseManifest());
+import{appendFileSync}from"node:fs";import{createReleaseManifest}from"../lib/runtime/release";export function releaseManifest(env:Record<string,string|undefined>=process.env){return JSON.stringify(createReleaseManifest(env),null,2)+"\n"}if(import.meta.url===`file://${process.argv[1]}`){const manifest=createReleaseManifest();if(process.argv.includes("--github-output")&&process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,`migrations_digest=${manifest.migrationsDigest}\nrelease_id=${manifest.releaseId}\n`);process.stdout.write(JSON.stringify(manifest,null,2)+"\n")}

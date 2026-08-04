@@ -52,8 +52,9 @@ describe("lazy Better Auth initialization", () => {
 
   it("keeps public signup disabled when authentication is created", async () => {
     vi.stubEnv("APP_ENV", "production");
-    vi.stubEnv("BETTER_AUTH_SECRET", "configured-secret");
+    vi.stubEnv("BETTER_AUTH_SECRET", "configured-secret-0123456789abcdef");
     vi.stubEnv("BETTER_AUTH_URL", "https://auth.example.test");
+    vi.stubEnv("BETTER_AUTH_TRUSTED_ORIGINS", "https://auth.example.test");
     betterAuthMock.mockReturnValue({ handler: vi.fn() });
     const { getAuth } = await import("@/lib/auth/server");
 

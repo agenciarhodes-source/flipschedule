@@ -1,20 +1,5 @@
-import { AuthConfigurationError } from "./errors";
-
-export function readAuthConfig(environment: Record<string, string | undefined> = process.env) {
-  const appEnv = environment.APP_ENV ?? environment.NODE_ENV ?? "development";
-  const isProduction = appEnv === "production";
-  const secret = environment.BETTER_AUTH_SECRET?.trim();
-  const baseURL = environment.BETTER_AUTH_URL?.trim();
-  const trustedOrigins = environment.BETTER_AUTH_TRUSTED_ORIGINS?.split(",").map((value) => value.trim()).filter(Boolean);
-
-  if (isProduction && (!secret || !baseURL)) {
-    throw new AuthConfigurationError();
-  }
-
-  return {
-    secret: secret ?? (isProduction ? undefined : "dev-only-secret"),
-    baseURL: baseURL ?? (isProduction ? undefined : "http://localhost:3000"),
-    trustedOrigins: trustedOrigins ?? [],
-    isProduction,
-  };
-}
+import {getRuntimeEnvironment,isSecureRuntimeEnvironment} from "@/lib/runtime/environment";
+import {AuthConfigurationError} from "./errors";
+const forbidden=new Set(["dev-only-secret","change-me","example-secret","your-secret-here"]);
+function origin(raw:string,secure:boolean){try{const u=new URL(raw);if((secure&&u.protocol!=="https:")||u.username||u.password||u.pathname!=="/"||u.search||u.hash||raw.includes("*")||(secure&&["localhost","127.0.0.1","::1"].includes(u.hostname)))throw 0;return u.origin}catch{throw new AuthConfigurationError()}}
+export function readAuthConfig(env:Record<string,string|undefined>=process.env){const runtime=getRuntimeEnvironment(env),isSecureRuntime=isSecureRuntimeEnvironment(env),secret=env.BETTER_AUTH_SECRET?.trim();if(isSecureRuntime&&(!secret||secret.length<32||forbidden.has(secret.toLowerCase())||secret===env.FIELD_ENCRYPTION_KEY?.trim()||secret===env.RATE_LIMIT_HASH_KEY?.trim()))throw new AuthConfigurationError();const baseURL=origin(env.BETTER_AUTH_URL?.trim()??"http://localhost:3000",isSecureRuntime);const values=env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",").map(x=>x.trim()).filter(Boolean)??[];if(isSecureRuntime&&!values.length)throw new AuthConfigurationError();const trustedOrigins=[...new Set(values.map(x=>origin(x,isSecureRuntime)))];if(isSecureRuntime&&!trustedOrigins.includes(baseURL))throw new AuthConfigurationError();return{secret:secret??"dev-only-secret",baseURL,trustedOrigins,isProduction:runtime==="production",isSecureRuntime}}
