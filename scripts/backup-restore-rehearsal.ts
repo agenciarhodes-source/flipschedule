@@ -23,4 +23,15 @@ export async function runBackupRestoreRehearsal(env = process.env) {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) runBackupRestoreRehearsal().then((x) => console.info(JSON.stringify({ ...x, dumpRemoved: true }))).catch(() => { console.error("Ensaio descartável de backup/restore falhou."); process.exitCode = 1; });
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runBackupRestoreRehearsal()
+    .then((result) => console.info(JSON.stringify({ ...result, dumpRemoved: true })))
+    .catch((error: unknown) => {
+      const errorCode =
+        error instanceof Error && /^[A-Z0-9_]+$/.test(error.message)
+          ? error.message
+          : "BACKUP_RESTORE_REHEARSAL_FAILED";
+      console.error(`Ensaio descartável de backup/restore falhou: ${errorCode}`);
+      process.exitCode = 1;
+    });
+}
