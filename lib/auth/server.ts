@@ -5,19 +5,21 @@ import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 
+import type { PrismaClient } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/client";
 import { readAuthConfig } from "./config";
 import { normalizeEmail } from "./utils";
 
-export function createAuth() {
+export function createAuth(prisma?: PrismaClient) {
   const authConfig = readAuthConfig();
+  const database = prisma ?? getPrismaClient();
 
   return betterAuth({
     appName: "FlipSchedule",
     baseURL: authConfig.baseURL!,
     secret: authConfig.secret!,
     trustedOrigins: authConfig.trustedOrigins,
-    database: prismaAdapter(getPrismaClient(), { provider: "postgresql" }),
+    database: prismaAdapter(database, { provider: "postgresql" }),
     plugins: [nextCookies()],
     emailAndPassword: {
       enabled: true,
