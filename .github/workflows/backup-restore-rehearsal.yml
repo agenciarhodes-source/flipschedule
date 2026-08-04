@@ -44,6 +44,7 @@ jobs:
           echo "CHECKED_OUT_SHA=$sha" >> "$GITHUB_ENV"
           echo "BUILD_SHA=$sha" >> "$GITHUB_ENV"
           echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "BACKUP_RESTORE_TEMP_ROOT=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "BACKUP_RESTORE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
           echo "BACKUP_RESTORE_STATE_PATH=$RUNNER_TEMP/backup-restore-state.json" >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
@@ -65,6 +66,7 @@ jobs:
             *) echo "POSTGRES_COMMAND_DENIED" >&2; exit 127 ;;
           esac
 
+          temp_root=${BACKUP_RESTORE_TEMP_ROOT:?BACKUP_RESTORE_TEMP_ROOT_REQUIRED}
           docker_args=(run --rm --network host --user "$(id -u):$(id -g)")
           for variable in PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE; do
             docker_args+=(-e "$variable")
@@ -75,7 +77,7 @@ jobs:
             if [[ "$argument" = /* ]]; then
               directory=$(realpath -e -- "$(dirname -- "$argument")")
               case "$directory" in
-                "$RUNNER_TEMP"|"$RUNNER_TEMP"/*) ;;
+                "$temp_root"|"$temp_root"/*) ;;
                 *) echo "POSTGRES_CLIENT_PATH_DENIED" >&2; exit 1 ;;
               esac
               if [[ -z "${mounted[$directory]:-}" ]]; then
