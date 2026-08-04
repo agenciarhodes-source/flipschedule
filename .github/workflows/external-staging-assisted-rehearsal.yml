@@ -56,8 +56,37 @@ jobs:
       - run: pnpm db:migrate:deploy && pnpm db:migrate:status && pnpm ops:verify-structure
       - run: SEED_CONFIRMATION=SEED_SYNTHETIC_EXTERNAL_STAGING pnpm ops:seed-external-staging-pilot && SEED_CONFIRMATION=SEED_SYNTHETIC_EXTERNAL_STAGING pnpm ops:seed-external-staging-pilot
       - run: pnpm ops:verify-external-staging
-      - run: pnpm vitest run tests/pilot-data-policy.test.ts tests/external-staging-controls.test.ts tests/authenticated-staging-smoke.test.ts tests/staging-controls.test.tsx
-      - run: CLINIC=true LEGAL=true TRAINING=true SUPPORT=true INCIDENT=true SYNTHETIC=true pnpm ops:validate-human-pilot-attestations
-      - run: test "$(CLINIC=false LEGAL=true TRAINING=true SUPPORT=true INCIDENT=true SYNTHETIC=true pnpm -s ops:validate-human-pilot-attestations >/dev/null 2>&1; echo $?)" != 0
+      - run: pnpm vitest run tests/pilot-data-policy.test.ts tests/external-staging-controls.test.ts tests/external-staging-assisted.test.ts tests/authenticated-staging-smoke.test.ts tests/staging-controls.test.tsx
+      - name: Validate complete positive human attestations
+        env:
+          CLINIC_APPROVED: 'true'
+          CONTRACT_APPROVED: 'true'
+          LGPD_APPROVED: 'true'
+          TRAINING_COMPLETED: 'true'
+          SUPPORT_READY: 'true'
+          INCIDENT_CONTACTS_READY: 'true'
+          PILOT_WINDOW_APPROVED: 'true'
+          OWNERS_ASSIGNED: 'true'
+          PAUSE_CRITERIA_ACCEPTED: 'true'
+          GO_LIVE_ACCEPTED: 'true'
+          SYNTHETIC_DATA_ONLY_CONFIRMED: 'true'
+        run: pnpm ops:validate-human-pilot-attestations
+      - name: Reject incomplete human attestations
+        env:
+          CLINIC_APPROVED: 'true'
+          CONTRACT_APPROVED: 'true'
+          LGPD_APPROVED: 'true'
+          TRAINING_COMPLETED: 'true'
+          SUPPORT_READY: 'true'
+          INCIDENT_CONTACTS_READY: 'true'
+          PILOT_WINDOW_APPROVED: 'true'
+          OWNERS_ASSIGNED: 'true'
+          PAUSE_CRITERIA_ACCEPTED: 'true'
+          GO_LIVE_ACCEPTED: 'false'
+          SYNTHETIC_DATA_ONLY_CONFIRMED: 'true'
+        run: |
+          if pnpm ops:validate-human-pilot-attestations; then
+            exit 1
+          fi
       - run: pnpm lint && pnpm typecheck && pnpm build
       - run: CHECKED_OUT_SHA="$BUILD_SHA" pnpm ops:staging-assisted-report
