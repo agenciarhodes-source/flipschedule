@@ -23,3 +23,7 @@ A fundação de billing separa cobrança da assinatura FlipSchedule de pagamento
 ## Administração e billing
 
 O registry de produção é único para ingress e worker e só inclui Asaas com token de webhook disponível. Evento sem efeito ou desconhecido não é processado como sucesso. Reconciliação continua após falha individual e reporta resumo sanitizado.
+
+## Recuperação de leases
+
+`pnpm ops:cleanup-expired-leases` recupera, em lote limitado, WebhookEvents e Messages em PROCESSING há mais de dez minutos e revoga grants vencidos. Não é daemon, não inicia no import/build e não remove payload/histórico. Antes de production exige aprovação e diagnóstico de workers concorrentes.

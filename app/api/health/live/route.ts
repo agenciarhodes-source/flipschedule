@@ -1,0 +1,2 @@
+import { NextResponse,type NextRequest } from "next/server";import { resolveCorrelationId,correlationHeaders } from "@/lib/observability/correlation";
+export const dynamic="force-dynamic";export function GET(request:NextRequest){const id=resolveCorrelationId(request.headers.get("x-request-id"));return NextResponse.json({status:"ok"},{headers:{"Cache-Control":"no-store",...correlationHeaders(id)}})}

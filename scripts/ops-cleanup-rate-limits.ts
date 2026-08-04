@@ -1,0 +1,1 @@
+import { getPrismaClient } from "../lib/db/client";import { DurableRateLimiter } from "../lib/security/rate-limit";const prisma=getPrismaClient();try{const result=await new DurableRateLimiter(prisma).cleanup(new Date(Date.now()-86_400_000),Number(process.env.BATCH_LIMIT??500));console.info(`Buckets removidos: ${result.count}`)}finally{await prisma.$disconnect()}

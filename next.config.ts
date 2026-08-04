@@ -1,7 +1,3 @@
 import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  reactStrictMode: true,
-};
-
-export default nextConfig;
+const baseHeaders=[{key:"X-Content-Type-Options",value:"nosniff"},{key:"Referrer-Policy",value:"strict-origin-when-cross-origin"},{key:"X-Frame-Options",value:"DENY"},{key:"Permissions-Policy",value:"camera=(), microphone=(), geolocation=(), payment=()"},{key:"Cross-Origin-Opener-Policy",value:"same-origin"},{key:"Content-Security-Policy",value:"default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'"}];if((process.env.APP_ENV??process.env.NODE_ENV)==="production"&&(process.env.PUBLIC_APP_ORIGIN??process.env.BETTER_AUTH_URL)?.startsWith("https://"))baseHeaders.push({key:"Strict-Transport-Security",value:"max-age=31536000; includeSubDomains"});
+const nextConfig:NextConfig={reactStrictMode:true,async headers(){return [{source:"/:path*",headers:baseHeaders},{source:"/admin/:path*",headers:[{key:"Cache-Control",value:"private, no-store"}]},{source:"/plano",headers:[{key:"Cache-Control",value:"no-store"},{key:"Referrer-Policy",value:"no-referrer"}]},{source:"/convite",headers:[{key:"Cache-Control",value:"no-store"},{key:"Referrer-Policy",value:"no-referrer"}]}]}};export default nextConfig;
