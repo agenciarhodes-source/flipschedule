@@ -1,0 +1,25 @@
+name: Staging restore validation
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation: {required: true, type: string}
+      changeId: {required: true, type: string}
+permissions: {contents: read}
+concurrency: {group: staging-restore-validation, cancel-in-progress: false}
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: "${{ github.sha }}", fetch-depth: 1, persist-credentials: false}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile && pnpm db:validate && pnpm db:generate
+      - name: Validate previously restored isolated database
+        env: {CONFIRMATION: "${{ inputs.confirmation }}", CHANGE_ID: "${{ inputs.changeId }}", SOURCE_DATABASE_URL: "${{ secrets.STAGING_SOURCE_DATABASE_URL }}", RESTORED_DATABASE_URL: "${{ secrets.STAGING_RESTORED_DATABASE_URL }}", CONFIRM_ISOLATED_RESTORE: 'yes'}
+        run: node -e 'if(process.env.CONFIRMATION!=="VERIFY_STAGING_RESTORE"||!/^[-A-Za-z0-9_.]{1,64}$/.test(process.env.CHANGE_ID)||process.env.SOURCE_DATABASE_URL===process.env.RESTORED_DATABASE_URL)process.exit(1)' && pnpm ops:verify-restored-db

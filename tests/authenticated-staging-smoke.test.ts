@@ -1,0 +1,3 @@
+import {describe,expect,it,vi} from "vitest";
+import {assertSameOriginRedirect,assertSessionCookie} from "@/scripts/ops-authenticated-staging-smoke";
+describe("authenticated staging smoke guards",()=>{it("requires secure HttpOnly cookie",()=>{expect(assertSessionCookie("session=opaque; Path=/; Secure; HttpOnly; SameSite=Lax")).toBe("session=opaque");expect(()=>assertSessionCookie("session=secret; Secure")).toThrow()});it("allows only same-origin redirects",()=>{const base=new URL("https://staging.example.test");expect(assertSameOriginRedirect(base,"/login").origin).toBe(base.origin);expect(()=>assertSameOriginRedirect(base,"https://production.example.test")).toThrow()})});

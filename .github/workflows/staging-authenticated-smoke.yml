@@ -1,0 +1,24 @@
+name: Staging authenticated smoke
+on: {workflow_dispatch: {}}
+permissions: {contents: read}
+concurrency: {group: staging-authenticated-smoke, cancel-in-progress: false}
+jobs:
+  smoke:
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: "${{ github.sha }}", fetch-depth: 1, persist-credentials: false}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - name: Public smoke
+        env: {BASE_URL: "${{ vars.STAGING_BASE_URL }}", STAGING_ALLOWED_HOSTNAME: "${{ vars.STAGING_ALLOWED_HOSTNAME }}", PRODUCTION_HOSTNAME: "${{ vars.PRODUCTION_HOSTNAME }}"}
+        run: pnpm ops:smoke
+      - name: Protected authenticated smoke
+        env: {BASE_URL: "${{ vars.STAGING_BASE_URL }}", STAGING_ALLOWED_HOSTNAME: "${{ vars.STAGING_ALLOWED_HOSTNAME }}", PRODUCTION_HOSTNAME: "${{ vars.PRODUCTION_HOSTNAME }}", PILOT_TENANT_SLUG: "${{ vars.PILOT_TENANT_SLUG }}", STAGING_CONTROL_TENANT_SLUG: "${{ vars.STAGING_CONTROL_TENANT_SLUG }}", STAGING_SYNTHETIC_USER_EMAIL: "${{ secrets.STAGING_SYNTHETIC_USER_EMAIL }}", STAGING_SYNTHETIC_USER_PASSWORD: "${{ secrets.STAGING_SYNTHETIC_USER_PASSWORD }}"}
+        run: pnpm ops:authenticated-staging-smoke

@@ -76,3 +76,6 @@ Ambiente inválido falha fechado; staging exige HTTPS e configuração explícit
 > PR 38 — Ensaio técnico sintético do piloto: PostgreSQL descartável, dois tenants fictícios, SHA real, migration count dinâmico e efeitos externos bloqueados. Não conclui staging externo, LGPD, piloto humano ou produção.
 
 > PR 39 — O rehearsal de backup/restore aceita somente loopback e nomes reservados, usa processos sem shell, dump `0600` temporário, fingerprints sem PII e relatório posterior a todos os gates. Não comprova controles de backup do provider nem reduz bloqueios de staging/production.
+
+## Preparação PR 40
+A execução externa futura deve seguir [ativação de staging](EXTERNAL_STAGING_ACTIVATION.md), [política sintética](PILOT_DATA_POLICY.md) e [critérios de início/pausa](PILOT_START_STOP_CRITERIA.md). Neste PR, infraestrutura, secrets, deploy, migration/seed/smoke/restore remotos, treinamento, aceite humano, piloto e produção permanecem **não executados**.

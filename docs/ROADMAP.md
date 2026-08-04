@@ -75,3 +75,6 @@ Contratos, guards, workflows manuais, rehearsal descartável, seed sintético e 
 > PR 38 — Ensaio técnico sintético do piloto: PostgreSQL descartável, dois tenants fictícios, SHA real, migration count dinâmico e efeitos externos bloqueados. Não conclui staging externo, LGPD, piloto humano ou produção.
 
 > PR 39 — Backup/restore técnico reproduzível em dois bancos PostgreSQL 17 descartáveis, com dump efêmero, fingerprints sanitizados e gates fail-closed. Backup gerenciado, staging/production, RPO/RTO, retenção e go-live permanecem pendentes.
+
+## Preparação PR 40
+A execução externa futura deve seguir [ativação de staging](EXTERNAL_STAGING_ACTIVATION.md), [política sintética](PILOT_DATA_POLICY.md) e [critérios de início/pausa](PILOT_START_STOP_CRITERIA.md). Neste PR, infraestrutura, secrets, deploy, migration/seed/smoke/restore remotos, treinamento, aceite humano, piloto e produção permanecem **não executados**.

@@ -9,3 +9,6 @@
 7. Fazer post-mortem, ações, responsável e prazo.
 
 Contatos, severidades, canal seguro, obrigação de notificação LGPD e autoridade decisória continuam bloqueantes humanos. Não houve simulação nem pentest neste PR.
+
+## Preparação PR 40
+A execução externa futura deve seguir [ativação de staging](EXTERNAL_STAGING_ACTIVATION.md), [política sintética](PILOT_DATA_POLICY.md) e [critérios de início/pausa](PILOT_START_STOP_CRITERIA.md). Neste PR, infraestrutura, secrets, deploy, migration/seed/smoke/restore remotos, treinamento, aceite humano, piloto e produção permanecem **não executados**.

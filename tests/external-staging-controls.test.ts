@@ -1,0 +1,7 @@
+import {describe,expect,it,vi} from "vitest";vi.mock("server-only",()=>({}));
+import {resolveExternalStagingIdentity} from "@/lib/runtime/external-staging";
+const env={APP_ENV:"staging",PILOT_MODE:"true",PILOT_DATA_MODE:"SYNTHETIC_ONLY",EXTERNAL_EFFECTS_MODE:"DISABLED",STAGING_BASE_URL:"https://staging.example.test",STAGING_ALLOWED_HOSTNAME:"staging.example.test",PRODUCTION_HOSTNAME:"app.example.test",DATABASE_URL:"postgresql://user:pass@db-staging.example.test/staging",STAGING_DATABASE_HOSTNAME:"db-staging.example.test",STAGING_DATABASE_NAME:"staging",BUILD_SHA:"a".repeat(40),RELEASE_ID:"release-40",MIGRATIONS_DIGEST:"b".repeat(64)};
+describe("external staging identity",()=>{
+ it("accepts exact safe identity without exposing credentials",()=>{const identity=resolveExternalStagingIdentity(env);expect(identity.applicationHostname).toBe("staging.example.test");expect(JSON.stringify(identity)).not.toContain("user:pass")});
+ it.each([{STAGING_BASE_URL:"http://staging.example.test"},{STAGING_BASE_URL:"https://user:pass@staging.example.test"},{STAGING_BASE_URL:"https://staging.example.test/path"},{STAGING_BASE_URL:"https://staging.example.test?x=1"},{STAGING_BASE_URL:"https://staging.example.test#x"},{STAGING_BASE_URL:"https://staging.example.test.evil"},{STAGING_BASE_URL:"https://app.example.test"},{STAGING_DATABASE_HOSTNAME:"other.example.test"},{STAGING_DATABASE_NAME:"other"}])("rejects unsafe identity %#",override=>expect(()=>resolveExternalStagingIdentity({...env,...override})).toThrow());
+});
