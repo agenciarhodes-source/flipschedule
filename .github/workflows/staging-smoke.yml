@@ -18,9 +18,12 @@ jobs:
       ALLOW_PREVIEW_SMOKE: "true"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
       - uses: actions/setup-node@v4
         with: {node-version: 22, cache: pnpm}
-      - run: corepack enable && corepack prepare pnpm@10.28.1 --activate && pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - name: Validate protected target
         run: node -e 'const u=new URL(process.env.BASE_URL);if(u.protocol!=="https:"||u.hostname===process.env.PRODUCTION_HOSTNAME)process.exit(1)'
       - run: pnpm ops:smoke
