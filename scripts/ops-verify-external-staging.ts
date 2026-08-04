@@ -5,8 +5,9 @@ import { validateRuntimeConfiguration } from "../lib/runtime/config";
 import { verifyStaging } from "./ops-verify-staging";
 
 export async function verifyExternalStaging(prisma:PrismaClient,env:Record<string,string|undefined>=process.env){
-  const identity=resolveExternalStagingIdentity(env),base=await verifyStaging(prisma,env),pilotSlug=env.PILOT_TENANT_SLUG?.trim();
-  const blockers=[...(!validateRuntimeConfiguration(env).valid?["RUNTIME_CONFIGURATION_INVALID"]:[]),...(identity.externalEffectsMode!=="DISABLED"?["EXTERNAL_EFFECTS_NOT_DISABLED"]:[]),...(base.platformOwners<1?["PLATFORM_OWNER_MISSING"]:[]),...(base.expiredLeases>0?["CRITICAL_EXPIRED_LEASES"]:[])];
+  const identity=resolveExternalStagingIdentity(env),base=await verifyStaging(prisma,env),rawPilotSlug=env.PILOT_TENANT_SLUG, pilotSlug=rawPilotSlug?.trim();
+  const allowlistRaw=env.PILOT_TENANT_SLUGS??""; const allowlist=allowlistRaw.split(",").map(x=>x.trim()).filter(Boolean); const pilotAllowlistValid=Boolean(pilotSlug && rawPilotSlug===pilotSlug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(pilotSlug) && allowlist.length===1 && allowlist[0]===pilotSlug && new Set(allowlist).size===allowlist.length && allowlistRaw===pilotSlug);
+  const blockers=[...(!pilotAllowlistValid?["PILOT_ALLOWLIST_INVALID"]:[]),...(!validateRuntimeConfiguration(env).valid?["RUNTIME_CONFIGURATION_INVALID"]:[]),...(identity.externalEffectsMode!=="DISABLED"?["EXTERNAL_EFFECTS_NOT_DISABLED"]:[]),...(base.platformOwners<1?["PLATFORM_OWNER_MISSING"]:[]),...(base.expiredLeases>0?["CRITICAL_EXPIRED_LEASES"]:[])];
   if(!pilotSlug)blockers.push("PILOT_TENANT_REQUIRED");
   const tenant=pilotSlug?await prisma.tenant.findUnique({where:{slug:pilotSlug},select:{id:true,memberships:{where:{role:"OWNER",status:"ACTIVE"},select:{id:true}},patients:{select:{name:true,phoneE164:true,emailNormalized:true}},leads:{select:{name:true,phoneE164:true,emailNormalized:true}}}}):null;
   if(!tenant)blockers.push("PILOT_TENANT_NOT_FOUND");else {if(!tenant.memberships.length)blockers.push("PILOT_OWNER_MISSING");for(const row of [...tenant.patients,...tenant.leads])if(!/sint[eé]tic/i.test(row.name)||row.phoneE164||(row.emailNormalized&&!row.emailNormalized.endsWith("@example.test")))blockers.push("NON_SYNTHETIC_CLINICAL_DATA");}

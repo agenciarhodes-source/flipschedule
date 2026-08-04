@@ -21,5 +21,5 @@ jobs:
         with: {node-version: 22, cache: pnpm}
       - run: pnpm install --frozen-lockfile && pnpm db:validate && pnpm db:generate
       - name: Validate previously restored isolated database
-        env: {CONFIRMATION: "${{ inputs.confirmation }}", CHANGE_ID: "${{ inputs.changeId }}", SOURCE_DATABASE_URL: "${{ secrets.STAGING_SOURCE_DATABASE_URL }}", RESTORED_DATABASE_URL: "${{ secrets.STAGING_RESTORED_DATABASE_URL }}", CONFIRM_ISOLATED_RESTORE: 'yes'}
-        run: node -e 'if(process.env.CONFIRMATION!=="VERIFY_STAGING_RESTORE"||!/^[-A-Za-z0-9_.]{1,64}$/.test(process.env.CHANGE_ID)||process.env.SOURCE_DATABASE_URL===process.env.RESTORED_DATABASE_URL)process.exit(1)' && pnpm ops:verify-restored-db
+        env: {CONFIRMATION: "${{ inputs.confirmation }}", CHANGE_ID: "${{ inputs.changeId }}", STAGING_SOURCE_DATABASE_URL: "${{ secrets.STAGING_SOURCE_DATABASE_URL }}", STAGING_RESTORED_DATABASE_URL: "${{ secrets.STAGING_RESTORED_DATABASE_URL }}", SOURCE_DATABASE_URL: "${{ secrets.STAGING_SOURCE_DATABASE_URL }}", RESTORED_DATABASE_URL: "${{ secrets.STAGING_RESTORED_DATABASE_URL }}", CONFIRM_ISOLATED_RESTORE: 'yes'}
+        run: pnpm ops:validate-staging-restore-identity && pnpm ops:verify-restored-db

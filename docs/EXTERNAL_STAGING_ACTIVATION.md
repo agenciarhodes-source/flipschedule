@@ -8,3 +8,7 @@ Exigem branch `main`, SHA imutável, Environment `staging`, HTTPS/hostname/banco
 
 ## Não executado
 Nenhum staging, banco, GitHub Environment, secret, deploy, migration, seed, smoke remoto, restore, treinamento, piloto ou produção foi criado, acessado ou ativado por este PR.
+
+## PR 41 — ensaio assistido
+
+Implementados e testáveis localmente: fechamento fail-closed dos blockers P1, política sintética server-side, seed/perfil externo, workflows protegidos, plano e evidência sanitizada. Não executados: Environment/secrets reais, banco ou migration de staging, seed/deploy/smoke/restore externos, revisão ou treinamento humano, piloto e produção.

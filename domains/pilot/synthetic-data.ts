@@ -1,5 +1,8 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 
+export type SyntheticDatasetProfile = "DISPOSABLE_REHEARSAL" | "EXTERNAL_STAGING_PILOT";
+export const SYNTHETIC_DATASET_PROFILES = { DISPOSABLE_REHEARSAL: "DISPOSABLE_REHEARSAL", EXTERNAL_STAGING_PILOT: "EXTERNAL_STAGING_PILOT" } as const;
+
 export const SYNTHETIC_NOW = new Date("2030-06-17T12:00:00.000Z");
 export const SYNTHETIC_DATASET_VERSION = "1.0.0";
 export const SYNTHETIC_MARKER = "[SINTÉTICO]";
