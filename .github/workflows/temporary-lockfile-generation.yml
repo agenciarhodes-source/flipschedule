@@ -5,16 +5,17 @@ on:
       - package.json
       - .github/workflows/temporary-lockfile-generation.yml
 permissions:
-  contents: read
+  contents: write
 jobs:
   generate:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: true
           fetch-depth: 1
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
         with:
@@ -24,9 +25,14 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --lockfile-only --no-frozen-lockfile
-      - uses: actions/upload-artifact@v4
-        with:
-          name: generated-pnpm-lock
-          path: pnpm-lock.yaml
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit lockfile and remove temporary workflow
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml
+          git rm .github/workflows/temporary-lockfile-generation.yml
+          git commit -m "chore: update pnpm lockfile"
+          git push origin "HEAD:refs/heads/$BRANCH_NAME"
