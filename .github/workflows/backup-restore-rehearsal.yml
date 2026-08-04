@@ -1,7 +1,7 @@
 name: Backup restore rehearsal
 on:
   pull_request:
-    paths: ["domains/backup-restore/**", "scripts/ops-*backup*", "scripts/ops-*restore*", "scripts/backup-restore-rehearsal.ts", "prisma/**", "tests/backup-restore-*", ".github/workflows/backup-restore-rehearsal.yml", "package.json", "pnpm-lock.yaml"]
+    paths: ["domains/backup-restore/**", "scripts/ops-*backup*", "scripts/ops-*restore*", "scripts/backup-restore-rehearsal.ts", "scripts/seed-backup-restore-source.ts", "prisma/**", "tests/backup-restore-*", ".github/workflows/backup-restore-rehearsal.yml", "package.json", "pnpm-lock.yaml"]
   workflow_dispatch:
 permissions: {contents: read}
 concurrency:
@@ -101,7 +101,11 @@ jobs:
       - name: Migrate disposable source
         run: pnpm db:migrate:deploy && pnpm db:migrate:status && pnpm ops:verify-structure
       - name: Seed source twice and verify
-        run: pnpm ops:seed-synthetic-pilot && pnpm ops:seed-synthetic-pilot && pnpm ops:run-synthetic-pilot && pnpm ops:verify-synthetic-pilot
+        run: |
+          NODE_OPTIONS=--conditions=react-server pnpm exec tsx scripts/seed-backup-restore-source.ts
+          NODE_OPTIONS=--conditions=react-server pnpm exec tsx scripts/seed-backup-restore-source.ts
+          pnpm ops:run-synthetic-pilot
+          pnpm ops:verify-synthetic-pilot
       - name: Real backup, restore, fingerprint and application verification
         run: pnpm ops:backup-restore-rehearsal
       - name: Reject an invalid dump safely
