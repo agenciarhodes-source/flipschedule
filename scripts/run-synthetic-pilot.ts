@@ -1,84 +1,13 @@
 import { writeFileSync } from "node:fs";
-import { verifyPassword } from "better-auth/crypto";
 
 import { runPilotScenarios } from "../domains/pilot/scenario-runner";
-import {
-  SYNTHETIC_NOW,
-  SYNTHETIC_OWNER_EMAIL,
-} from "../domains/pilot/synthetic-data";
-import { createAuth } from "../lib/auth/server";
+import { SYNTHETIC_NOW } from "../domains/pilot/synthetic-data";
 import { createCliPrismaClient } from "../lib/db/cli-client";
-
-function sanitizedAuthError(error: unknown) {
-  if (!error || typeof error !== "object") {
-    return { name: "UnknownError", code: null, status: null };
-  }
-  const record = error as Record<string, unknown>;
-  return {
-    name: typeof record.name === "string" ? record.name : "UnknownError",
-    code: typeof record.code === "string" ? record.code : null,
-    status:
-      typeof record.status === "number" || typeof record.status === "string"
-        ? record.status
-        : typeof record.statusCode === "number"
-          ? record.statusCode
-          : null,
-  };
-}
 
 export async function main() {
   const prisma = createCliPrismaClient();
   const externalCalls = { count: 0 };
   try {
-    const owner = await prisma.user.findUnique({
-      where: { emailNormalized: SYNTHETIC_OWNER_EMAIL },
-      select: {
-        id: true,
-        authAccounts: {
-          where: { providerId: "credential" },
-          select: { password: true },
-          take: 1,
-        },
-      },
-    });
-    const passwordHash = owner?.authAccounts[0]?.password ?? null;
-    const password = process.env.SYNTHETIC_PILOT_PASSWORD ?? "";
-    const passwordVerified = Boolean(
-      passwordHash && password &&
-      await verifyPassword({ hash: passwordHash, password }),
-    );
-    console.info(JSON.stringify({
-      credentialPreflight: {
-        ownerPresent: Boolean(owner),
-        credentialPresent: Boolean(passwordHash),
-        passwordVerified,
-      },
-    }));
-
-    try {
-      const auth = createAuth(prisma);
-      const result = await auth.api.signInEmail({
-        returnHeaders: true,
-        body: { email: SYNTHETIC_OWNER_EMAIL, password },
-      });
-      console.info(JSON.stringify({
-        authEndpointPreflight: {
-          completed: true,
-          setCookiePresent: Boolean(result.headers.get("set-cookie")),
-        },
-      }));
-      if (owner?.id) {
-        await prisma.authSession.deleteMany({ where: { userId: owner.id } });
-      }
-    } catch (error) {
-      console.info(JSON.stringify({
-        authEndpointPreflight: {
-          completed: false,
-          error: sanitizedAuthError(error),
-        },
-      }));
-    }
-
     const results = await runPilotScenarios({
       prisma,
       now: SYNTHETIC_NOW,
