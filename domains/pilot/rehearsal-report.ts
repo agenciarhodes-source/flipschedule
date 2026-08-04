@@ -1,0 +1,10 @@
+import { createHash } from "node:crypto";
+import type { PilotScenarioResult } from "./scenario-runner";
+import { SYNTHETIC_DATASET_VERSION } from "./synthetic-data";
+export const FINAL_MESSAGE = "Ensaio técnico sintético concluído. Nenhum piloto humano, staging externo ou ambiente de produção foi validado.";
+export function createSyntheticPilotReport(input: { checkedOutSha: string; releaseId: string; migrationsDigest: string; lockfileDigest: string; migrationCount: number; startedAt: Date; completedAt: Date; results: PilotScenarioResult[]; externalCallsAttempted: number }) {
+  if (!/^[a-f0-9]{40}$/i.test(input.checkedOutSha)) throw new Error("CHECKED_OUT_SHA_INVALID");
+  const passedCount=input.results.filter(x=>x.status==="PASSED").length,failedCount=input.results.filter(x=>x.status==="FAILED").length,blockedCount=input.results.filter(x=>x.status==="BLOCKED").length;
+  return { schemaVersion: 1, runId: createHash("sha256").update(`${input.checkedOutSha}:${input.startedAt.toISOString()}`).digest("hex").slice(0, 16), environment: "staging-rehearsal", checkedOutSha: input.checkedOutSha.toLowerCase(), releaseId: input.releaseId, migrationsDigest: input.migrationsDigest, lockfileDigest: input.lockfileDigest, migrationCount: input.migrationCount, startedAt: input.startedAt.toISOString(), completedAt: input.completedAt.toISOString(), durationMs: input.completedAt.getTime()-input.startedAt.getTime(), datasetVersion: SYNTHETIC_DATASET_VERSION, tenantCount: 2, personaCount: 7, scenarioCount: input.results.length, passedCount, failedCount, blockedCount, externalCallsAttempted: input.externalCallsAttempted, results: input.results, limitations: ["Sem piloto humano", "Sem staging externo", "Sem produção", "Sem validação jurídica LGPD"], technicalRehearsalOnly: true as const };
+}
+export function assertSanitizedReport(report: unknown) { const serialized=JSON.stringify(report); if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|\+55\d{10,11}|\d{3}\.\d{3}\.\d{3}-\d{2}|postgres(?:ql)?:\/\/|(?:password|secret|token)\s*[=:]\s*[^,}\s]+/i.test(serialized)) throw new Error("REPORT_NOT_SANITIZED"); }

@@ -44,7 +44,12 @@
     "ops:seed-staging": "NODE_OPTIONS=--conditions=react-server tsx scripts/seed-staging.ts",
     "ops:verify-staging": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-verify-staging.ts",
     "ops:verify-structure": "prisma db execute --file prisma/verification/essential-structure.sql",
-    "ops:staging-rehearsal-report": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-staging-rehearsal-report.ts"
+    "ops:staging-rehearsal-report": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-staging-rehearsal-report.ts",
+    "ops:seed-synthetic-pilot": "NODE_OPTIONS=--conditions=react-server tsx scripts/seed-synthetic-pilot.ts",
+    "ops:run-synthetic-pilot": "NODE_OPTIONS=--conditions=react-server tsx scripts/run-synthetic-pilot.ts",
+    "ops:verify-synthetic-pilot": "NODE_OPTIONS=--conditions=react-server tsx scripts/verify-synthetic-pilot.ts",
+    "ops:report-synthetic-pilot": "NODE_OPTIONS=--conditions=react-server tsx scripts/report-synthetic-pilot.ts",
+    "ops:pilot-rehearsal": "NODE_OPTIONS=--conditions=react-server tsx scripts/pilot-rehearsal.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "5.3.0",

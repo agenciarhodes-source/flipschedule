@@ -11,3 +11,5 @@ A fundação de billing separa cobrança da assinatura FlipSchedule de pagamento
 ## Contexto administrativo da plataforma
 
 `PlatformOperator` e `PlatformSupportGrant` não pertencem ao RBAC de tenant. `PlatformContext` deriva da identidade autenticada sem `tenantSlug`; grants temporários não criam Membership. A FK composta de `BillingCheckout(createdByMembershipId, tenantId)` garante autoria no mesmo tenant.
+
+> PR 38 — Ensaio técnico sintético do piloto: PostgreSQL descartável, dois tenants fictícios, SHA real, migration count dinâmico e efeitos externos bloqueados. Não conclui staging externo, LGPD, piloto humano ou produção.

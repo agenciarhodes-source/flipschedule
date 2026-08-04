@@ -1,0 +1,3 @@
+import{describe,expect,it}from"vitest";import{validateRootRedirect}from"@/scripts/ops-smoke";
+const base=new URL("https://staging.example.test/");
+describe("canonical smoke redirect",()=>{it("accepts only canonical login",()=>expect(validateRootRedirect(base,"/login").href).toBe("https://staging.example.test/login"));it.each(["https://evil.example.test/login","https://production.example.test/login","https://user:pass@staging.example.test/login","/login?next=/","/login#fragment","/login/","/"])("rejects %s",value=>expect(()=>validateRootRedirect(base,value,"production.example.test")).toThrow("SMOKE_REDIRECT_DENIED"));it("requires Location",()=>expect(()=>validateRootRedirect(base,null)).toThrow("SMOKE_REDIRECT_LOCATION_REQUIRED"))});
