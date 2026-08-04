@@ -27,3 +27,7 @@ Não há production, preços comerciais, cobrança clínica, nota fiscal, split,
 ## Hardening do PR 34
 
 A leitura exige `subscription.read`. Ingress e worker compartilham registry Asaas configurado em runtime. Eventos suportados atualizam checkout, assinatura, pagamento e entitlement em transação; desconhecidos exigem revisão. Reconciliação preserva estado diante de status desconhecido e isola falhas por item.
+
+## Correções tenant-safe do PR 35
+
+`SUBSCRIPTION_CREATED` pode materializar Subscription idempotentemente a partir do BillingCheckout local do mesmo tenant; plano/ciclo vêm do checkout, nunca do payload. Payment e IDs de assinatura/checkout adotam unicidade tenant+provider; conflitos não são reconciliados silenciosamente. O SQL aborta diante de duplicidades. Migration não aplicada e Asaas production continua desativado.

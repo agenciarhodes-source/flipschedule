@@ -63,3 +63,7 @@ A fundação de billing separa cobrança da assinatura FlipSchedule de pagamento
 ## Administração da plataforma (PR 34)
 
 `/admin` usa sessão + User verificada/ativa + PlatformOperator ativo, nunca role de Membership. Não há impersonação. Grants de suporte são temporários, tenant-scoped e somente para visão sanitizada; último PLATFORM_OWNER é protegido.
+
+## Hardening de prontidão do PR 35
+
+Foram preparados configuração runtime lazy, health checks mínimos, headers, correlation IDs limitados, logger por allowlist, rate limiter PostgreSQL/HMAC, modos operacionais, contenção tenant e runbooks. A migration não foi aplicada. Cobertura integral dos pontos de abuso, restore real, threat-model review, pentest e revisão jurídica continuam bloqueantes conforme `PILOT_READINESS_CHECKLIST.md`.

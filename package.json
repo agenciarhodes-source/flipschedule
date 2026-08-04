@@ -33,7 +33,13 @@
     "worker:reconcile": "tsx scripts/reconcile-integrations.ts",
     "worker:billing": "tsx scripts/reconcile-billing.ts",
     "worker:once": "pnpm worker:webhooks && pnpm worker:messages && pnpm worker:reconcile",
-    "auth:bootstrap-platform-owner": "tsx scripts/bootstrap-platform-owner.ts"
+    "auth:bootstrap-platform-owner": "tsx scripts/bootstrap-platform-owner.ts",
+    "ops:preflight": "tsx scripts/ops-preflight.ts",
+    "ops:smoke": "tsx scripts/ops-smoke.ts",
+    "ops:db-status": "tsx scripts/ops-db-status.ts",
+    "ops:verify-restored-db": "tsx scripts/ops-verify-restored-db.ts",
+    "ops:cleanup-expired-leases": "tsx scripts/ops-cleanup-expired-leases.ts",
+    "ops:cleanup-rate-limits": "tsx scripts/ops-cleanup-rate-limits.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "5.3.0",

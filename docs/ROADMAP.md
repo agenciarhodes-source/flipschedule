@@ -62,3 +62,7 @@ A fundação de billing separa cobrança da assinatura FlipSchedule de pagamento
 ## Administração segura da plataforma (PR 34)
 
 Foi implementada a base real e separada de `/admin`, com operadores, RBAC próprio, readers sanitizados, grants temporários e hardening de billing/webhooks. Isso não conclui observabilidade externa, tickets, feature flags, impersonação (deliberadamente ausente), Asaas production, piloto ou go-live.
+
+## PR 35 — prontidão operacional (preparação, não go-live)
+
+Configuração, health, hardening HTTP, rate-limit durável, contenção e runbooks foram preparados. Piloto e produção permanecem bloqueados pelo checklist explícito; esta fase não configura infraestrutura nem ativa integrações production.

@@ -326,6 +326,7 @@ model Tenant {
   payments                     Payment[]
   billingCheckouts             BillingCheckout[]
   webhookEvents                WebhookEvent[]
+  securityRateLimitBuckets     SecurityRateLimitBucket[]
   auditLogs                    AuditLog[]
   invitations                  TenantInvitation[]
   platformSupportGrants        PlatformSupportGrant[]
@@ -911,7 +912,7 @@ model Subscription {
   billingType            String?
   gracePeriodEndsAt      DateTime?          @db.Timestamptz(3)
   lastSyncedAt           DateTime?          @db.Timestamptz(3)
-  externalReference      String?            @unique
+  externalReference      String?
   cancelledAt            DateTime?          @db.Timestamptz(3)
   createdAt              DateTime           @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime           @updatedAt @db.Timestamptz(3)
@@ -919,7 +920,8 @@ model Subscription {
   payments               Payment[]
 
   @@unique([id, tenantId])
-  @@unique([provider, externalSubscriptionId])
+  @@unique([tenantId, provider, externalSubscriptionId])
+  @@unique([tenantId, provider, externalReference])
   @@index([tenantId, status])
 }
 
@@ -943,7 +945,7 @@ model Payment {
   subscription      Subscription?   @relation(fields: [subscriptionId], references: [id])
 
   @@unique([id, tenantId])
-  @@unique([provider, externalPaymentId])
+  @@unique([tenantId, provider, externalPaymentId])
   @@index([tenantId, status, dueAt])
 }
 
@@ -952,8 +954,8 @@ model BillingCheckout {
   tenantId              String                @db.Uuid
   provider              BillingProvider
   planCode              String
-  externalReference     String                @unique
-  externalCheckoutId    String?               @unique
+  externalReference     String
+  externalCheckoutId    String?
   status                BillingCheckoutStatus @default(CREATED)
   amountCents           Int
   cycle                 String
@@ -968,6 +970,8 @@ model BillingCheckout {
   createdBy             Membership            @relation("BillingCheckoutCreatedBy", fields: [createdByMembershipId], references: [id], onDelete: Restrict)
 
   @@unique([id, tenantId])
+  @@unique([tenantId, provider, externalReference])
+  @@unique([tenantId, provider, externalCheckoutId])
   @@index([tenantId, status, createdAt])
 }
 
@@ -1048,4 +1052,21 @@ model AuditLog {
   @@index([tenantId, occurredAt])
   @@index([correlationId])
   @@index([resourceType, resourceId])
+}
+
+model SecurityRateLimitBucket {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String?   @db.Uuid
+  scope           String
+  keyHash         String
+  windowStartedAt DateTime  @db.Timestamptz(3)
+  count           Int       @default(0)
+  blockedUntil    DateTime? @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+  tenant          Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([scope, keyHash, windowStartedAt])
+  @@index([blockedUntil])
+  @@index([tenantId, scope, updatedAt])
 }
