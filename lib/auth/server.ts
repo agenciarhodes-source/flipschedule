@@ -35,6 +35,7 @@ export function createAuth(prisma?: PrismaClient) {
       },
     },
     user: {
+      modelName: "User",
       fields: {
         name: "displayName",
         email: "emailNormalized",
@@ -42,10 +43,17 @@ export function createAuth(prisma?: PrismaClient) {
       },
     },
     session: {
+      modelName: "AuthSession",
       expiresIn: 60 * 60 * 24 * 14,
       updateAge: 60 * 60 * 24,
       storeSessionInDatabase: true,
       cookieCache: { enabled: false },
+    },
+    account: {
+      modelName: "AuthAccount",
+    },
+    verification: {
+      modelName: "AuthVerification",
     },
     advanced: {
       useSecureCookies: authConfig.isSecureRuntime,
