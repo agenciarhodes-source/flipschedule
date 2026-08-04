@@ -20,7 +20,7 @@ jobs:
           POSTGRES_DB: flipschedule_rehearsal
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U rehearsal" --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U rehearsal -d flipschedule_rehearsal" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       APP_ENV: test
       DATABASE_URL: postgresql://rehearsal:rehearsal@localhost:5432/flipschedule_rehearsal
@@ -29,9 +29,11 @@ jobs:
       RATE_LIMIT_HASH_KEY: rehearsal-only-not-a-secret-00000000
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
       - uses: actions/setup-node@v4
         with: {node-version: 22, cache: pnpm}
-      - run: corepack enable && corepack prepare pnpm@10.28.1 --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:validate && pnpm db:generate
       - run: pnpm db:migrate:deploy && pnpm db:migrate:status && pnpm ops:verify-structure
