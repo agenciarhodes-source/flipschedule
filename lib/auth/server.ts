@@ -15,6 +15,7 @@ import { normalizeEmail } from "./utils";
 export function createAuth(prisma?: PrismaClient) {
   const authConfig = readAuthConfig();
   const database = prisma ?? getPrismaClient();
+  const generateAuthId = () => randomUUID();
 
   return betterAuth({
     appName: "FlipSchedule",
@@ -58,9 +59,12 @@ export function createAuth(prisma?: PrismaClient) {
       modelName: "AuthVerification",
     },
     advanced: {
+      // Better Auth 1.2 reads generateId at this level. The nested option is
+      // kept for forward compatibility with the current configuration shape.
+      generateId: generateAuthId,
       useSecureCookies: authConfig.isSecureRuntime,
       database: {
-        generateId: () => randomUUID(),
+        generateId: generateAuthId,
       },
     },
     databaseHooks: {
