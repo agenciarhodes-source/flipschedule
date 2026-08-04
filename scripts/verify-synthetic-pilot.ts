@@ -16,12 +16,14 @@ export async function main() {
     if (tenantCount !== 2 || externalSent || checkouts) {
       throw new Error("SYNTHETIC_PILOT_INTEGRITY_FAILED");
     }
-    console.info(JSON.stringify({
+    const result = {
       migrationCount,
       tenantCount,
       externalCallsAttempted: 0,
-      integrity: true,
-    }));
+      integrity: true as const,
+    };
+    console.info(JSON.stringify(result));
+    return result;
   } finally {
     await prisma.$disconnect();
   }
