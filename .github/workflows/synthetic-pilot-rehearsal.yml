@@ -1,0 +1,68 @@
+name: Synthetic pilot rehearsal
+on:
+  pull_request:
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: synthetic-pilot-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  rehearse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: {POSTGRES_USER: ephemeral, POSTGRES_PASSWORD: ephemeral, POSTGRES_DB: synthetic_pilot}
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U ephemeral -d synthetic_pilot" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: staging
+      EXTERNAL_EFFECTS_MODE: DISABLED
+      ASAAS_ENVIRONMENT: sandbox
+      OPERATIONAL_MODE: NORMAL
+      PILOT_MODE: true
+      PILOT_TENANT_SLUGS: piloto-sintetico
+      NEXT_PUBLIC_APP_URL: https://pilot-rehearsal.example.test
+      BETTER_AUTH_URL: https://pilot-rehearsal.example.test
+      BETTER_AUTH_TRUSTED_ORIGINS: https://pilot-rehearsal.example.test
+      DATABASE_URL: postgresql://ephemeral:ephemeral@localhost:5432/synthetic_pilot
+      DIRECT_DATABASE_URL: postgresql://ephemeral:ephemeral@localhost:5432/synthetic_pilot
+      SYNTHETIC_PILOT_DATABASE_ID: DISPOSABLE_LOCAL_POSTGRES
+      EXPECTED_ENVIRONMENT: staging
+      SEED_CONFIRMATION: SEED_SYNTHETIC_PILOT
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: "${{ github.sha }}", persist-credentials: false, fetch-depth: 1}
+      - name: Capture checked out SHA
+        run: |
+          sha=$(git rev-parse HEAD); [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          echo "CHECKED_OUT_SHA=$sha" >> "$GITHUB_ENV"; echo "BUILD_SHA=$sha" >> "$GITHUB_ENV"
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - name: Generate ephemeral secrets
+        run: |
+          for key in BETTER_AUTH_SECRET FIELD_ENCRYPTION_KEY RATE_LIMIT_HASH_KEY SYNTHETIC_PILOT_PASSWORD; do value=$(openssl rand -hex 32); echo "::add-mask::$value"; echo "$key=$value" >> "$GITHUB_ENV"; done
+      - run: pnpm ops:preflight
+      - run: pnpm db:validate && pnpm db:generate
+      - run: pnpm db:migrate:deploy && pnpm db:migrate:status && pnpm ops:verify-structure
+      - name: Calculate migration count
+        run: |
+          artifacts=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sed -nE '/^[0-9]+_[a-zA-Z0-9_]+$/p' | wc -l)
+          applied=$(psql "$DIRECT_DATABASE_URL" -Atc 'SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL')
+          test "$artifacts" = "$applied"; echo "MIGRATION_COUNT=$applied" >> "$GITHUB_ENV"
+      - run: pnpm ops:release-manifest
+      - run: pnpm ops:seed-synthetic-pilot && pnpm ops:seed-synthetic-pilot
+      - run: pnpm ops:run-synthetic-pilot
+      - run: pnpm ops:verify-synthetic-pilot
+      - run: pnpm vitest run tests/synthetic-pilot.test.ts tests/ops-smoke-redirect.test.ts
+      - run: pnpm lint && pnpm typecheck
+      - run: pnpm build
+      - name: Mark all rehearsal gates successful
+        run: |
+          echo "REHEARSAL_GATES_PASSED=true" >> "$GITHUB_ENV"
+          echo "REHEARSAL_COMPLETED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - run: pnpm ops:report-synthetic-pilot

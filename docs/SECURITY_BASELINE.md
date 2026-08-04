@@ -72,3 +72,5 @@ Foram preparados configuração runtime lazy, health checks mínimos, headers, c
 Ambiente inválido falha fechado; staging exige HTTPS e configuração explícita, começa sem efeitos externos, rejeita Asaas production, usa banner/noindex e separa migration de deploy. Workflows e scripts estão preparados, mas nenhuma infraestrutura foi criada ou validada.
 
 > PR 37: o rehearsal efêmero valida somente controles técnicos locais. Environment/secrets, banco, deploy, migration, backup/restore, smoke remoto, piloto e production externos permanecem pendentes de execução e aprovação humanas. Consulte `STAGING_RELEASE_REHEARSAL.md`, `PROTECTED_STAGING_WORKFLOWS.md`, `STAGING_AUTHENTICATION_SECURITY.md` e `STAGING_REHEARSAL_EVIDENCE.md`.
+
+> PR 38 — Ensaio técnico sintético do piloto: PostgreSQL descartável, dois tenants fictícios, SHA real, migration count dinâmico e efeitos externos bloqueados. Não conclui staging externo, LGPD, piloto humano ou produção.
