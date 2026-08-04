@@ -1,0 +1,92 @@
+name: External staging assisted rehearsal
+on: [pull_request, workflow_dispatch]
+permissions: {contents: read}
+concurrency: {group: "external-staging-assisted-${{ github.ref }}", cancel-in-progress: true}
+jobs:
+  rehearsal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: {POSTGRES_USER: ephemeral, POSTGRES_PASSWORD: ephemeral, POSTGRES_DB: external_staging_rehearsal}
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U ephemeral -d external_staging_rehearsal"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: staging
+      DATABASE_URL: postgresql://ephemeral:ephemeral@localhost:5432/external_staging_rehearsal
+      DIRECT_DATABASE_URL: postgresql://ephemeral:ephemeral@localhost:5432/external_staging_rehearsal
+      NEXT_PUBLIC_APP_URL: https://assisted-staging.example.test
+      BETTER_AUTH_URL: https://assisted-staging.example.test
+      BETTER_AUTH_TRUSTED_ORIGINS: https://assisted-staging.example.test
+      PILOT_MODE: 'true'
+      PILOT_DATA_MODE: SYNTHETIC_ONLY
+      EXTERNAL_EFFECTS_MODE: DISABLED
+      ASAAS_ENVIRONMENT: sandbox
+      OPERATIONAL_MODE: NORMAL
+      STAGING_BASE_URL: https://assisted-staging.example.test
+      STAGING_ALLOWED_HOSTNAME: assisted-staging.example.test
+      PRODUCTION_HOSTNAME: app.example.test
+      STAGING_DATABASE_HOSTNAME: localhost
+      STAGING_DATABASE_NAME: external_staging_rehearsal
+      PILOT_TENANT_SLUG: piloto-sintetico
+      PILOT_TENANT_SLUGS: piloto-sintetico
+      STAGING_SYNTHETIC_USER_EMAIL: operator@example.test
+      BUILD_SHA: "${{ github.sha }}"
+      RELEASE_ID: assisted-rehearsal
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: "${{ github.sha }}", fetch-depth: 1, persist-credentials: false}
+      - run: test "$(git rev-parse HEAD)" = "$BUILD_SHA"
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - name: Generate and mask ephemeral secrets
+        run: |
+          for key in BETTER_AUTH_SECRET FIELD_ENCRYPTION_KEY RATE_LIMIT_HASH_KEY STAGING_SYNTHETIC_USER_PASSWORD; do
+            value=$(openssl rand -hex 32)
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done
+      - run: pnpm ops:preflight && pnpm db:validate && pnpm db:generate
+      - run: pnpm db:migrate:deploy && pnpm db:migrate:status && pnpm ops:verify-structure
+      - run: SEED_CONFIRMATION=SEED_SYNTHETIC_EXTERNAL_STAGING pnpm ops:seed-external-staging-pilot && SEED_CONFIRMATION=SEED_SYNTHETIC_EXTERNAL_STAGING pnpm ops:seed-external-staging-pilot
+      - run: pnpm ops:verify-external-staging
+      - run: pnpm vitest run tests/pilot-data-policy.test.ts tests/external-staging-controls.test.ts tests/external-staging-assisted.test.ts tests/authenticated-staging-smoke.test.ts tests/staging-controls.test.tsx
+      - name: Validate complete positive human attestations
+        env:
+          CLINIC_APPROVED: 'true'
+          CONTRACT_APPROVED: 'true'
+          LGPD_APPROVED: 'true'
+          TRAINING_COMPLETED: 'true'
+          SUPPORT_READY: 'true'
+          INCIDENT_CONTACTS_READY: 'true'
+          PILOT_WINDOW_APPROVED: 'true'
+          OWNERS_ASSIGNED: 'true'
+          PAUSE_CRITERIA_ACCEPTED: 'true'
+          GO_LIVE_ACCEPTED: 'true'
+          SYNTHETIC_DATA_ONLY_CONFIRMED: 'true'
+        run: pnpm ops:validate-human-pilot-attestations
+      - name: Reject incomplete human attestations
+        env:
+          CLINIC_APPROVED: 'true'
+          CONTRACT_APPROVED: 'true'
+          LGPD_APPROVED: 'true'
+          TRAINING_COMPLETED: 'true'
+          SUPPORT_READY: 'true'
+          INCIDENT_CONTACTS_READY: 'true'
+          PILOT_WINDOW_APPROVED: 'true'
+          OWNERS_ASSIGNED: 'true'
+          PAUSE_CRITERIA_ACCEPTED: 'true'
+          GO_LIVE_ACCEPTED: 'false'
+          SYNTHETIC_DATA_ONLY_CONFIRMED: 'true'
+        run: |
+          if pnpm ops:validate-human-pilot-attestations; then
+            exit 1
+          fi
+      - run: pnpm lint && pnpm typecheck && pnpm build
+      - run: CHECKED_OUT_SHA="$BUILD_SHA" pnpm ops:staging-assisted-report

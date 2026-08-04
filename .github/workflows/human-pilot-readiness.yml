@@ -5,10 +5,15 @@ on:
       confirmation: {required: true, type: string}
       reviewId: {required: true, type: string}
       clinicApproved: {required: true, type: boolean}
-      legalApproved: {required: true, type: boolean}
+      contractApproved: {required: true, type: boolean}
+      lgpdApproved: {required: true, type: boolean}
       trainingCompleted: {required: true, type: boolean}
       supportReady: {required: true, type: boolean}
       incidentContactsReady: {required: true, type: boolean}
+      pilotWindowApproved: {required: true, type: boolean}
+      ownersAssigned: {required: true, type: boolean}
+      pauseCriteriaAccepted: {required: true, type: boolean}
+      goLiveAccepted: {required: true, type: boolean}
       syntheticDataOnlyConfirmed: {required: true, type: boolean}
 permissions: {contents: read}
 concurrency: {group: human-pilot-readiness, cancel-in-progress: false}
@@ -34,8 +39,19 @@ jobs:
         with: {node-version: 22, cache: pnpm}
       - run: pnpm install --frozen-lockfile
       - name: Technical checks (never activates pilot)
-        env: {APP_ENV: staging, DATABASE_URL: "${{ secrets.STAGING_DATABASE_URL }}", BUILD_SHA: "${{ github.sha }}", BASE_URL: "${{ vars.STAGING_BASE_URL }}", STAGING_BASE_URL: "${{ vars.STAGING_BASE_URL }}", STAGING_ALLOWED_HOSTNAME: "${{ vars.STAGING_ALLOWED_HOSTNAME }}", STAGING_DATABASE_HOSTNAME: "${{ vars.STAGING_DATABASE_HOSTNAME }}", STAGING_DATABASE_NAME: "${{ vars.STAGING_DATABASE_NAME }}", PRODUCTION_HOSTNAME: "${{ vars.PRODUCTION_HOSTNAME }}", PILOT_MODE: 'true', PILOT_DATA_MODE: SYNTHETIC_ONLY, PILOT_TENANT_SLUG: "${{ vars.PILOT_TENANT_SLUG }}", PILOT_TENANT_SLUGS: "${{ vars.PILOT_TENANT_SLUGS }}", EXTERNAL_EFFECTS_MODE: DISABLED, STAGING_SYNTHETIC_USER_EMAIL: "${{ secrets.STAGING_SYNTHETIC_USER_EMAIL }}", STAGING_SYNTHETIC_USER_PASSWORD: "${{ secrets.STAGING_SYNTHETIC_USER_PASSWORD }}"}
+        env: {APP_ENV: staging, DATABASE_URL: "${{ secrets.STAGING_DATABASE_URL }}", DIRECT_DATABASE_URL: "${{ secrets.STAGING_DIRECT_DATABASE_URL }}", BETTER_AUTH_SECRET: "${{ secrets.BETTER_AUTH_SECRET }}", FIELD_ENCRYPTION_KEY: "${{ secrets.FIELD_ENCRYPTION_KEY }}", RATE_LIMIT_HASH_KEY: "${{ secrets.RATE_LIMIT_HASH_KEY }}", RELEASE_ID: "${{ vars.RELEASE_ID }}", OPERATIONAL_MODE: NORMAL, ASAAS_ENVIRONMENT: sandbox, BUILD_SHA: "${{ github.sha }}", BASE_URL: "${{ vars.STAGING_BASE_URL }}", STAGING_BASE_URL: "${{ vars.STAGING_BASE_URL }}", STAGING_ALLOWED_HOSTNAME: "${{ vars.STAGING_ALLOWED_HOSTNAME }}", STAGING_DATABASE_HOSTNAME: "${{ vars.STAGING_DATABASE_HOSTNAME }}", STAGING_DATABASE_NAME: "${{ vars.STAGING_DATABASE_NAME }}", PRODUCTION_HOSTNAME: "${{ vars.PRODUCTION_HOSTNAME }}", PILOT_MODE: 'true', PILOT_DATA_MODE: SYNTHETIC_ONLY, PILOT_TENANT_SLUG: "${{ vars.PILOT_TENANT_SLUG }}", PILOT_TENANT_SLUGS: "${{ vars.PILOT_TENANT_SLUGS }}", EXTERNAL_EFFECTS_MODE: DISABLED, STAGING_SYNTHETIC_USER_EMAIL: "${{ secrets.STAGING_SYNTHETIC_USER_EMAIL }}", STAGING_SYNTHETIC_USER_PASSWORD: "${{ secrets.STAGING_SYNTHETIC_USER_PASSWORD }}"}
         run: pnpm ops:verify-external-staging && pnpm ops:smoke && pnpm ops:authenticated-staging-smoke && pnpm ops:pilot-technical-readiness
       - name: Record sanitized human attestations
-        env: {CLINIC: "${{ inputs.clinicApproved }}", LEGAL: "${{ inputs.legalApproved }}", TRAINING: "${{ inputs.trainingCompleted }}", SUPPORT: "${{ inputs.supportReady }}", INCIDENT: "${{ inputs.incidentContactsReady }}", SYNTHETIC: "${{ inputs.syntheticDataOnlyConfirmed }}"}
-        run: node -e 'const ready=Object.values(process.env).filter(Boolean).every(v=>v==="true"); console.log(ready?"READY_FOR_HUMAN_REVIEW":"BLOCKED")'
+        env:
+          CLINIC_APPROVED: "${{ inputs.clinicApproved }}"
+          CONTRACT_APPROVED: "${{ inputs.contractApproved }}"
+          LGPD_APPROVED: "${{ inputs.lgpdApproved }}"
+          TRAINING_COMPLETED: "${{ inputs.trainingCompleted }}"
+          SUPPORT_READY: "${{ inputs.supportReady }}"
+          INCIDENT_CONTACTS_READY: "${{ inputs.incidentContactsReady }}"
+          PILOT_WINDOW_APPROVED: "${{ inputs.pilotWindowApproved }}"
+          OWNERS_ASSIGNED: "${{ inputs.ownersAssigned }}"
+          PAUSE_CRITERIA_ACCEPTED: "${{ inputs.pauseCriteriaAccepted }}"
+          GO_LIVE_ACCEPTED: "${{ inputs.goLiveAccepted }}"
+          SYNTHETIC_DATA_ONLY_CONFIRMED: "${{ inputs.syntheticDataOnlyConfirmed }}"
+        run: pnpm ops:validate-human-pilot-attestations

@@ -41,3 +41,7 @@ Esta fase é exclusivamente documental. Não foram instalados Next.js, Prisma ou
 ## PR 40 — preparação de staging externo e piloto humano sintético
 
 Os contratos operacionais estão em [`EXTERNAL_STAGING_ACTIVATION.md`](EXTERNAL_STAGING_ACTIVATION.md), [`EXTERNAL_STAGING_VALIDATION_RUNBOOK.md`](EXTERNAL_STAGING_VALIDATION_RUNBOOK.md), [`SYNTHETIC_HUMAN_PILOT_PLAN.md`](SYNTHETIC_HUMAN_PILOT_PLAN.md) e documentos `PILOT_*`. São preparação; nenhuma infraestrutura ou aprovação foi executada.
+
+## PR 41 — fechamento de blockers e ensaio assistido
+
+Consulte [`EXTERNAL_STAGING_ASSISTED_EXECUTION.md`](EXTERNAL_STAGING_ASSISTED_EXECUTION.md), [`EXTERNAL_STAGING_WORKFLOW_MATRIX.md`](EXTERNAL_STAGING_WORKFLOW_MATRIX.md), [`STAGING_BLOCKER_REGISTER.md`](STAGING_BLOCKER_REGISTER.md), [`STAGING_ASSISTED_EVIDENCE.md`](STAGING_ASSISTED_EVIDENCE.md) e [`EXTERNAL_STAGING_SYNTHETIC_DATASET.md`](EXTERNAL_STAGING_SYNTHETIC_DATASET.md). O rehearsal é descartável e não aprova staging ou piloto.

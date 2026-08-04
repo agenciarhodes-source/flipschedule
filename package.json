@@ -58,7 +58,11 @@
     "ops:verify-external-staging": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-verify-external-staging.ts",
     "ops:seed-external-staging-pilot": "NODE_OPTIONS=--conditions=react-server tsx scripts/seed-external-staging-pilot.ts",
     "ops:authenticated-staging-smoke": "tsx scripts/ops-authenticated-staging-smoke.ts",
-    "ops:pilot-technical-readiness": "tsx scripts/ops-pilot-technical-readiness.ts"
+    "ops:pilot-technical-readiness": "tsx scripts/ops-pilot-technical-readiness.ts",
+    "ops:validate-human-pilot-attestations": "tsx scripts/validate-human-pilot-attestations.ts",
+    "ops:validate-staging-restore-identity": "tsx scripts/validate-staging-restore-identity.ts",
+    "ops:staging-assisted-plan": "tsx scripts/ops-staging-assisted-plan.ts",
+    "ops:staging-assisted-report": "tsx scripts/ops-staging-assisted-report.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "5.3.0",

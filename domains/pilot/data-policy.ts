@@ -33,14 +33,21 @@ const marked = (value: string) => SYNTHETIC_MARKERS.some((marker) => value.toLoc
 
 export type SyntheticClinicalInput = { name?: unknown; emailNormalized?: unknown; email?: unknown; phoneE164?: unknown; phone?: unknown; cpf?: unknown; address?: unknown; notes?: unknown; reason?: unknown; source?: unknown; title?: unknown; description?: unknown; preview?: unknown; [key: string]: unknown };
 
+const HUMAN_TEXT_FIELDS = ["name", "emailNormalized", "email", "address", "notes", "reason", "source", "title", "description", "preview"] as const;
+const MARKED_TEXT_FIELDS = ["address", "notes", "reason", "source", "title", "description", "preview"] as const;
+
 export function validateSyntheticClinicalInput(input: SyntheticClinicalInput, env: Record<string, string | undefined> = process.env) {
   if (!isSyntheticPilotRuntime(env)) return input;
   const email = input.emailNormalized ?? input.email;
   if (input.cpf || input.phoneE164 || input.phone || (typeof email === "string" && !email.toLowerCase().endsWith("@example.test"))) throw new PilotSyntheticDataError();
   if (typeof input.name === "string" && !marked(input.name)) throw new PilotSyntheticDataError();
-  const texts = Object.values(input).filter((value): value is string => typeof value === "string");
-  if (texts.some((value) => cpf.test(value) || phone.test(value) || publicEmail.test(value))) throw new PilotSyntheticDataError();
-  for (const key of ["address", "notes", "reason", "source", "title", "description", "preview"]) {
+
+  const humanTexts = HUMAN_TEXT_FIELDS
+    .map((key) => input[key])
+    .filter((value): value is string => typeof value === "string");
+  if (humanTexts.some((value) => cpf.test(value) || phone.test(value) || publicEmail.test(value))) throw new PilotSyntheticDataError();
+
+  for (const key of MARKED_TEXT_FIELDS) {
     const value = input[key];
     if (typeof value === "string" && value.trim() && !marked(value)) throw new PilotSyntheticDataError();
   }
