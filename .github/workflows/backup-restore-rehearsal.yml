@@ -35,6 +35,7 @@ jobs:
       NEXT_PUBLIC_APP_URL: https://backup-rehearsal.example.test
       BETTER_AUTH_URL: https://backup-rehearsal.example.test
       BETTER_AUTH_TRUSTED_ORIGINS: https://backup-rehearsal.example.test
+      TMPDIR: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with: {ref: "${{ github.sha }}", persist-credentials: false, fetch-depth: 1}
@@ -50,11 +51,47 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with: {node-version: 22, cache: pnpm}
       - run: pnpm install --frozen-lockfile
-      - name: Install PostgreSQL 17 client
+      - name: Prepare PostgreSQL 17 client wrappers
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client-17
-          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          set -euo pipefail
+          client_dir="$RUNNER_TEMP/postgresql-17-bin"
+          mkdir -p "$client_dir"
+          cat > "$client_dir/postgres-client" <<'WRAPPER'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          command_name=$(basename "$0")
+          case "$command_name" in
+            pg_dump|pg_restore|createdb|dropdb) ;;
+            *) echo "POSTGRES_COMMAND_DENIED" >&2; exit 127 ;;
+          esac
+
+          docker_args=(run --rm --network host --user "$(id -u):$(id -g)")
+          for variable in PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE; do
+            docker_args+=(-e "$variable")
+          done
+
+          declare -A mounted=()
+          for argument in "$@"; do
+            if [[ "$argument" = /* ]]; then
+              directory=$(realpath -e -- "$(dirname -- "$argument")")
+              case "$directory" in
+                "$RUNNER_TEMP"|"$RUNNER_TEMP"/*) ;;
+                *) echo "POSTGRES_CLIENT_PATH_DENIED" >&2; exit 1 ;;
+              esac
+              if [[ -z "${mounted[$directory]:-}" ]]; then
+                docker_args+=(--mount "type=bind,src=$directory,dst=$directory")
+                mounted[$directory]=1
+              fi
+            fi
+          done
+
+          exec docker "${docker_args[@]}" postgres:17-alpine "$command_name" "$@"
+          WRAPPER
+          chmod 700 "$client_dir/postgres-client"
+          for command_name in pg_dump pg_restore createdb dropdb; do
+            ln -s postgres-client "$client_dir/$command_name"
+          done
+          echo "$client_dir" >> "$GITHUB_PATH"
       - name: Generate masked ephemeral secrets
         run: |
           for key in BETTER_AUTH_SECRET FIELD_ENCRYPTION_KEY RATE_LIMIT_HASH_KEY SYNTHETIC_PILOT_PASSWORD; do value=$(openssl rand -hex 32); echo "::add-mask::$value"; echo "$key=$value" >> "$GITHUB_ENV"; done
