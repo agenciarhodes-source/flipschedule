@@ -28,6 +28,7 @@ jobs:
       BETTER_AUTH_TRUSTED_ORIGINS: https://pilot-rehearsal.example.test
       DATABASE_URL: postgresql://ephemeral:ephemeral@localhost:5432/synthetic_pilot
       DIRECT_DATABASE_URL: postgresql://ephemeral:ephemeral@localhost:5432/synthetic_pilot
+      SYNTHETIC_PILOT_DATABASE_ID: DISPOSABLE_LOCAL_POSTGRES
       EXPECTED_ENVIRONMENT: staging
       SEED_CONFIRMATION: SEED_SYNTHETIC_PILOT
     steps:
@@ -57,7 +58,11 @@ jobs:
       - run: pnpm ops:seed-synthetic-pilot && pnpm ops:seed-synthetic-pilot
       - run: pnpm ops:run-synthetic-pilot
       - run: pnpm ops:verify-synthetic-pilot
-      - run: pnpm ops:report-synthetic-pilot
       - run: pnpm vitest run tests/synthetic-pilot.test.ts tests/ops-smoke-redirect.test.ts
       - run: pnpm lint && pnpm typecheck
       - run: pnpm build
+      - name: Mark all rehearsal gates successful
+        run: |
+          echo "REHEARSAL_GATES_PASSED=true" >> "$GITHUB_ENV"
+          echo "REHEARSAL_COMPLETED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - run: pnpm ops:report-synthetic-pilot
