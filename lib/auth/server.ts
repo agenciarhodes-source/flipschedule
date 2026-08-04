@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { betterAuth } from "better-auth";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -57,6 +59,9 @@ export function createAuth(prisma?: PrismaClient) {
     },
     advanced: {
       useSecureCookies: authConfig.isSecureRuntime,
+      database: {
+        generateId: () => randomUUID(),
+      },
     },
     databaseHooks: {
       user: {
