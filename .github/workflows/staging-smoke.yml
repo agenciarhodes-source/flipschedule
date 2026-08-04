@@ -18,7 +18,7 @@ jobs:
       ALLOW_PREVIEW_SMOKE: "true"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/setup-node@1e60f620b9541dca1515f7c7e403b2abf220188
+      - uses: actions/setup-node@v4
         with: {node-version: 22, cache: pnpm}
       - run: corepack enable && corepack prepare pnpm@10.28.1 --activate && pnpm install --frozen-lockfile
       - name: Validate protected target
