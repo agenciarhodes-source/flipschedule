@@ -20,7 +20,10 @@ export function createAuth(prisma?: PrismaClient) {
     secret: authConfig.secret!,
     trustedOrigins: authConfig.trustedOrigins,
     database: prismaAdapter(database, { provider: "postgresql" }),
-    plugins: [nextCookies()],
+    // An injected Prisma client is used only by bounded CLI rehearsals. Those
+    // callers capture Set-Cookie headers directly and do not have a Next.js
+    // request scope in which nextCookies() can operate.
+    plugins: prisma ? [] : [nextCookies()],
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
