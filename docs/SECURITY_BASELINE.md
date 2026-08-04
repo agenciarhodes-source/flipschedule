@@ -67,3 +67,6 @@ A fundação de billing separa cobrança da assinatura FlipSchedule de pagamento
 ## Hardening de prontidão do PR 35
 
 Foram preparados configuração runtime lazy, health checks mínimos, headers, correlation IDs limitados, logger por allowlist, rate limiter PostgreSQL/HMAC, modos operacionais, contenção tenant e runbooks. A migration não foi aplicada. Cobertura integral dos pontos de abuso, restore real, threat-model review, pentest e revisão jurídica continuam bloqueantes conforme `PILOT_READINESS_CHECKLIST.md`.
+
+## Staging controlado (PR 36)
+Ambiente inválido falha fechado; staging exige HTTPS e configuração explícita, começa sem efeitos externos, rejeita Asaas production, usa banner/noindex e separa migration de deploy. Workflows e scripts estão preparados, mas nenhuma infraestrutura foi criada ou validada.

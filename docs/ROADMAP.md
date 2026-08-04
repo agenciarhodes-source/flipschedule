@@ -66,3 +66,6 @@ Foi implementada a base real e separada de `/admin`, com operadores, RBAC própr
 ## PR 35 — prontidão operacional (preparação, não go-live)
 
 Configuração, health, hardening HTTP, rate-limit durável, contenção e runbooks foram preparados. Piloto e produção permanecem bloqueados pelo checklist explícito; esta fase não configura infraestrutura nem ativa integrações production.
+
+## PR 36 — contrato de staging preparado
+Contratos, guards, workflows manuais, rehearsal descartável, seed sintético e runbooks foram implementados. Staging externo, banco, secrets, snapshot, migrations, deploy, domínio, smoke e aprovação permanecem bloqueados e não executados. Produção permanece integralmente fora do escopo.

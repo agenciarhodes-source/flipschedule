@@ -1,0 +1,32 @@
+name: Staging smoke
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: flipschedule-staging-smoke
+  cancel-in-progress: false
+jobs:
+  smoke:
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_ENV: staging
+      BASE_URL: ${{ vars.STAGING_BASE_URL }}
+      PRODUCTION_HOSTNAME: ${{ vars.PRODUCTION_HOSTNAME }}
+      ALLOW_PREVIEW_SMOKE: "true"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@1e60f620b9541dca1515f7c7e403b2abf220188
+        with: {node-version: 22, cache: pnpm}
+      - run: corepack enable && corepack prepare pnpm@10.28.1 --activate && pnpm install --frozen-lockfile
+      - name: Validate protected target
+        run: node -e 'const u=new URL(process.env.BASE_URL);if(u.protocol!=="https:"||u.hostname===process.env.PRODUCTION_HOSTNAME)process.exit(1)'
+      - run: pnpm ops:smoke
+      - name: Validate staging controls
+        run: |
+          headers=$(curl --silent --show-error --head "$BASE_URL/login")
+          printf '%s' "$headers" | grep -qi '^x-robots-tag:.*noindex'
+          body=$(curl --silent --show-error "$BASE_URL/login")
+          printf '%s' "$body" | grep -q 'AMBIENTE DE HOMOLOGAÇÃO'

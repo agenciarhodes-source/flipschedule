@@ -9,3 +9,5 @@ Logs operacionais seguem allowlist central e redaction; payload, PII, ciphertext
 ## Preparado, não ativado
 
 Não há coletor, dashboard, alerta, trace, SLO ou serviço externo. Antes do piloto devem ser definidos responsáveis, retenção, acesso aos logs e alertas. Correlation ID não autentica nem autoriza.
+
+No PR 36 readiness retorna 200 exclusivamente para `ready`; estados `degraded` e `unavailable` retornam 503. O smoke exige simultaneamente HTTP 2xx e payload `status=ready`. Release detalhada não integra health público.

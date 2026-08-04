@@ -1,0 +1,44 @@
+name: Database migration — staging
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref: {description: Commit SHA or approved ref, required: true, type: string}
+      confirmation: {description: Type MIGRATE_STAGING, required: true, type: string}
+      change_id: {description: Reviewed change identifier, required: true, type: string}
+      backup_confirmed: {description: External snapshot completed, required: true, type: boolean}
+permissions:
+  contents: read
+concurrency:
+  group: flipschedule-staging-database-migration
+  cancel-in-progress: false
+jobs:
+  migrate:
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_ENV: staging
+      DIRECT_DATABASE_URL: ${{ secrets.STAGING_DIRECT_DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      NEXT_PUBLIC_APP_URL: ${{ vars.STAGING_BASE_URL }}
+      BETTER_AUTH_URL: ${{ vars.STAGING_BASE_URL }}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${{ vars.STAGING_BASE_URL }}
+      FIELD_ENCRYPTION_KEY: ${{ secrets.FIELD_ENCRYPTION_KEY }}
+      RATE_LIMIT_HASH_KEY: ${{ secrets.RATE_LIMIT_HASH_KEY }}
+      OPERATIONAL_MODE: MAINTENANCE
+      EXTERNAL_EFFECTS_MODE: DISABLED
+      ASAAS_ENVIRONMENT: sandbox
+    steps:
+      - name: Validate gates
+        run: test '${{ inputs.confirmation }}' = MIGRATE_STAGING && test '${{ inputs.backup_confirmed }}' = true && test -n '${{ inputs.change_id }}'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: "${{ inputs.git_ref }}"}
+      - uses: actions/setup-node@1e60f620b9541dca1515f7c7e403b2abf220188
+        with: {node-version: 22, cache: pnpm}
+      - run: corepack enable && corepack prepare pnpm@10.28.1 --activate && pnpm install --frozen-lockfile
+      - run: pnpm ops:preflight && pnpm db:validate && pnpm db:generate
+      - run: pnpm db:migrate:status
+      - run: pnpm db:migrate:deploy
+      - run: pnpm db:migrate:status && pnpm ops:verify-structure
+      - name: Sanitized summary
+        run: printf '### Staging migration\n- Change: `%s`\n- Ref: `%s`\n- Structural verification completed.\n' '${{ inputs.change_id }}' '${{ inputs.git_ref }}' >> "$GITHUB_STEP_SUMMARY"

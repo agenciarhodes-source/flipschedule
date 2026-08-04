@@ -29,3 +29,9 @@ Este PR prepara controles; não autoriza piloto nem produção.
 ## Bloqueios de produção
 
 Todos os itens humanos acima; pentest; tratamento de vulnerabilidades críticas; observabilidade externa; Asaas production; DNS/Vercel/Neon production; restore comprovado; cobertura completa de rate limit e operational guards. Nada disso foi marcado como concluído.
+
+## Staging preparado no PR 36, não executado
+- [ ] criar Environment/secrets/banco staging
+- [ ] executar rehearsal e snapshot
+- [ ] executar migration/deploy/smoke/seed/verificação remotos
+- [ ] registrar aprovação humana; preparation no código não equivale a staging ativo
