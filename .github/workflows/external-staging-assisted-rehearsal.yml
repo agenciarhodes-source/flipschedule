@@ -45,12 +45,13 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with: {node-version: 22, cache: pnpm}
       - run: pnpm install --frozen-lockfile
-      - name: Generate ephemeral secrets
+      - name: Generate and mask ephemeral secrets
         run: |
-          echo "BETTER_AUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-          echo "FIELD_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-          echo "RATE_LIMIT_HASH_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-          echo "STAGING_SYNTHETIC_USER_PASSWORD=$(openssl rand -base64 36)" >> "$GITHUB_ENV"
+          for key in BETTER_AUTH_SECRET FIELD_ENCRYPTION_KEY RATE_LIMIT_HASH_KEY STAGING_SYNTHETIC_USER_PASSWORD; do
+            value=$(openssl rand -hex 32)
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done
       - run: pnpm ops:preflight && pnpm db:validate && pnpm db:generate
       - run: pnpm db:migrate:deploy && pnpm db:migrate:status && pnpm ops:verify-structure
       - run: SEED_CONFIRMATION=SEED_SYNTHETIC_EXTERNAL_STAGING pnpm ops:seed-external-staging-pilot && SEED_CONFIRMATION=SEED_SYNTHETIC_EXTERNAL_STAGING pnpm ops:seed-external-staging-pilot
