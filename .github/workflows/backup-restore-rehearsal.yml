@@ -1,0 +1,96 @@
+name: Backup restore rehearsal
+on:
+  pull_request:
+    paths: ["domains/backup-restore/**", "scripts/ops-*backup*", "scripts/ops-*restore*", "scripts/backup-restore-rehearsal.ts", "prisma/**", "tests/backup-restore-*", ".github/workflows/backup-restore-rehearsal.yml", "package.json", "pnpm-lock.yaml"]
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: backup-restore-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  rehearse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: {POSTGRES_USER: ephemeral, POSTGRES_PASSWORD: ephemeral, POSTGRES_DB: flipschedule_backup_source}
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U ephemeral -d flipschedule_backup_source" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: staging
+      EXTERNAL_EFFECTS_MODE: DISABLED
+      BACKUP_RESTORE_CONFIRMATION: REHEARSE_DISPOSABLE_BACKUP_RESTORE
+      BACKUP_RESTORE_DATABASE_ID: DISPOSABLE_LOCAL_POSTGRES
+      SOURCE_DATABASE_URL: postgresql://ephemeral:ephemeral@127.0.0.1:5432/flipschedule_backup_source
+      RESTORE_DATABASE_URL: postgresql://ephemeral:ephemeral@127.0.0.1:5432/flipschedule_backup_restore
+      DATABASE_URL: postgresql://ephemeral:ephemeral@127.0.0.1:5432/flipschedule_backup_source
+      DIRECT_DATABASE_URL: postgresql://ephemeral:ephemeral@127.0.0.1:5432/flipschedule_backup_source
+      SEED_CONFIRMATION: SEED_SYNTHETIC_PILOT
+      SYNTHETIC_PILOT_DATABASE_ID: DISPOSABLE_LOCAL_POSTGRES
+      PILOT_MODE: true
+      PILOT_TENANT_SLUGS: piloto-sintetico
+      OPERATIONAL_MODE: NORMAL
+      ASAAS_ENVIRONMENT: sandbox
+      NEXT_PUBLIC_APP_URL: https://backup-rehearsal.example.test
+      BETTER_AUTH_URL: https://backup-rehearsal.example.test
+      BETTER_AUTH_TRUSTED_ORIGINS: https://backup-rehearsal.example.test
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: "${{ github.sha }}", persist-credentials: false, fetch-depth: 1}
+      - name: Capture checked out SHA
+        run: |
+          sha=$(git rev-parse HEAD); [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          echo "CHECKED_OUT_SHA=$sha" >> "$GITHUB_ENV"
+          echo "BUILD_SHA=$sha" >> "$GITHUB_ENV"
+          echo "BACKUP_RESTORE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          echo "BACKUP_RESTORE_STATE_PATH=$RUNNER_TEMP/backup-restore-state.json" >> "$GITHUB_ENV"
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: {version: 10.28.1}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: Generate masked ephemeral secrets
+        run: |
+          for key in BETTER_AUTH_SECRET FIELD_ENCRYPTION_KEY RATE_LIMIT_HASH_KEY SYNTHETIC_PILOT_PASSWORD; do value=$(openssl rand -hex 32); echo "::add-mask::$value"; echo "$key=$value" >> "$GITHUB_ENV"; done
+      - run: pnpm db:validate && pnpm db:generate
+      - name: PostgreSQL 17 client compatibility
+        run: pg_dump --version | sed -nE '/17\./p' >/dev/null && pg_restore --version | sed -nE '/17\./p' >/dev/null
+      - name: Migrate disposable source
+        run: pnpm db:migrate:deploy && pnpm db:migrate:status && pnpm ops:verify-structure
+      - name: Seed source twice and verify
+        run: pnpm ops:seed-synthetic-pilot && pnpm ops:seed-synthetic-pilot && pnpm ops:run-synthetic-pilot && pnpm ops:verify-synthetic-pilot
+      - name: Real backup, restore, fingerprint and application verification
+        run: pnpm ops:backup-restore-rehearsal
+      - name: Reject an invalid dump safely
+        run: |
+          d=$(mktemp -d); trap 'rm -rf "$d"' EXIT; printf invalid > "$d/flipschedule-rehearsal.dump"; chmod 600 "$d/flipschedule-rehearsal.dump"
+          if pnpm ops:restore-postgres "$d" "$d/flipschedule-rehearsal.dump"; then exit 1; fi
+          pnpm ops:backup-restore-rehearsal
+      - name: Focused tests
+        run: pnpm vitest run tests/backup-restore-rehearsal.test.ts tests/backup-restore-workflow.test.ts tests/synthetic-pilot.test.ts
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+      - name: Confirm dump cleanup and remove disposable databases
+        run: |
+          test ! -e "$RUNNER_TEMP/flipschedule-rehearsal.dump"
+          PGHOST=127.0.0.1 PGPORT=5432 PGUSER=ephemeral PGPASSWORD=ephemeral PGSSLMODE=disable dropdb --if-exists flipschedule_backup_restore
+          PGHOST=127.0.0.1 PGPORT=5432 PGUSER=ephemeral PGPASSWORD=ephemeral PGSSLMODE=disable dropdb --if-exists flipschedule_backup_source
+      - name: Mark all gates successful
+        run: |
+          echo "BACKUP_RESTORE_GATES_PASSED=true" >> "$GITHUB_ENV"
+          echo "BACKUP_RESTORE_PASSED_GATES=restore,verification,focused-tests,lint,typecheck,build,cleanup" >> "$GITHUB_ENV"
+          echo "BACKUP_RESTORE_COMPLETED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - name: Publish sanitized report after every gate
+        run: pnpm ops:report-backup-restore
+      - name: Cleanup disposable resources
+        if: always()
+        run: |
+          PGHOST=127.0.0.1 PGPORT=5432 PGUSER=ephemeral PGPASSWORD=ephemeral PGSSLMODE=disable dropdb --if-exists flipschedule_backup_restore
+          rm -f "$RUNNER_TEMP/backup-restore-state.json"

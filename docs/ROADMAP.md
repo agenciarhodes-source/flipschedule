@@ -73,3 +73,5 @@ Contratos, guards, workflows manuais, rehearsal descartável, seed sintético e 
 > PR 37: o rehearsal efêmero valida somente controles técnicos locais. Environment/secrets, banco, deploy, migration, backup/restore, smoke remoto, piloto e production externos permanecem pendentes de execução e aprovação humanas. Consulte `STAGING_RELEASE_REHEARSAL.md`, `PROTECTED_STAGING_WORKFLOWS.md`, `STAGING_AUTHENTICATION_SECURITY.md` e `STAGING_REHEARSAL_EVIDENCE.md`.
 
 > PR 38 — Ensaio técnico sintético do piloto: PostgreSQL descartável, dois tenants fictícios, SHA real, migration count dinâmico e efeitos externos bloqueados. Não conclui staging externo, LGPD, piloto humano ou produção.
+
+> PR 39 — Backup/restore técnico reproduzível em dois bancos PostgreSQL 17 descartáveis, com dump efêmero, fingerprints sanitizados e gates fail-closed. Backup gerenciado, staging/production, RPO/RTO, retenção e go-live permanecem pendentes.

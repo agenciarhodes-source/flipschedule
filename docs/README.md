@@ -33,3 +33,7 @@ Esta fase é exclusivamente documental. Não foram instalados Next.js, Prisma ou
 - [`INTEGRATIONS_AND_ASYNC_PROCESSING.md`](INTEGRATIONS_AND_ASYNC_PROCESSING.md): fundação segura de integrações, filas e operação assíncrona.
 - [`INTEGRATION_PROVIDER_CONTRACT.md`](INTEGRATION_PROVIDER_CONTRACT.md): contrato deny-by-default para adapters.
 - [`ASYNC_OPERATIONS_RUNBOOK.md`](ASYNC_OPERATIONS_RUNBOOK.md): execução pontual, diagnóstico e dead-letter.
+
+## PR 39 — rehearsal descartável de backup/restore
+
+[`BACKUP_RESTORE_REHEARSAL.md`](BACKUP_RESTORE_REHEARSAL.md) e [`BACKUP_RESTORE_REHEARSAL_EVIDENCE.md`](BACKUP_RESTORE_REHEARSAL_EVIDENCE.md) definem contrato e evidência do backup/restore técnico em PostgreSQL 17 exclusivamente descartável; não representam backup Neon ou restore externo.
