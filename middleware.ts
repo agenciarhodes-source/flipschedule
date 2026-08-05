@@ -11,7 +11,7 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
   for (const [name, value] of Object.entries(
-    securityHeaders({ secureTransport: isSecureRequest(request) }),
+    securityHeaders(process.env, { secureTransport: isSecureRequest(request) }),
   )) {
     response.headers.set(name, value);
   }
