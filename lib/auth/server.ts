@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
@@ -87,6 +88,25 @@ export function createAuth(prisma?: PrismaClient) {
         generateId: generateAuthId,
       },
     },
+    hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/send-verification-email") return;
+
+      const session = await getSessionFromCtx(ctx);
+      if (!session) {
+        throw new APIError("UNAUTHORIZED", {
+          message: "Authentication required",
+        });
+      }
+
+      const requestedEmail = typeof ctx.body?.email === "string" ? normalizeEmail(ctx.body.email) : "";
+      if (!requestedEmail || requestedEmail !== normalizeEmail(session.user.email)) {
+        throw new APIError("FORBIDDEN", {
+          message: "Email verification request not allowed",
+        });
+      }
+    }),
+  },
     databaseHooks: {
       user: {
         create: {

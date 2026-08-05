@@ -4,6 +4,7 @@ O PR 44 habilita a verificação manual e opcional do e-mail principal da conta 
 
 ## Comportamento
 
+- o endpoint manual exige uma sessão válida e aceita somente o e-mail da própria conta autenticada;
 - contas existentes continuam podendo entrar sem e-mail verificado;
 - a solicitação parte da tela de configurações autenticada;
 - o link expira em 60 minutos e é consumido pelo Better Auth;

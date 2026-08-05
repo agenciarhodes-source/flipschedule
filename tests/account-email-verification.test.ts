@@ -52,4 +52,13 @@ describe("account email verification", () => {
     const schema = readFileSync("prisma/schema.prisma", "utf8");
     expect(schema).toMatch(/enum TransactionalEmailKind[\s\S]*EMAIL_VERIFICATION/);
   });
+  it("protege o endpoint manual com sessão e e-mail correspondente", () => {
+    const source = readFileSync("lib/auth/server.ts", "utf8");
+    expect(source).toContain('ctx.path !== "/send-verification-email"');
+    expect(source).toContain("getSessionFromCtx(ctx)");
+    expect(source).toContain("requestedEmail !== normalizeEmail(session.user.email)");
+    expect(source).toContain('new APIError("UNAUTHORIZED"');
+    expect(source).toContain('new APIError("FORBIDDEN"');
+  });
+
 });
