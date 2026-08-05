@@ -46,7 +46,7 @@ export function SessionInactivityGuard() {
       try {
         await authClient.signOut();
       } catch {
-        // The redirect still clears access to protected UI when the API is unavailable.
+        // The redirect still removes access to protected UI when the API is unavailable.
       }
 
       window.location.replace(`/login?reason=${reason}`);
@@ -89,15 +89,14 @@ export function SessionInactivityGuard() {
 
       if (now - storedActivity >= SESSION_IDLE_TIMEOUT_MS) {
         void closeSession("inactive");
-        return;
       }
+    }
 
-      if (
-        document.visibilityState === "visible" &&
-        now - lastServerRefreshAt >= SESSION_REFRESH_INTERVAL_MS
-      ) {
-        lastServerRefreshAt = now;
-        void refreshServerSession();
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        recordActivity();
+      } else {
+        evaluateSession();
       }
     }
 
@@ -105,8 +104,8 @@ export function SessionInactivityGuard() {
       window.addEventListener(eventName, recordActivity, { passive: true });
     }
     window.addEventListener("storage", evaluateSession);
-    window.addEventListener("focus", evaluateSession);
-    document.addEventListener("visibilitychange", evaluateSession);
+    window.addEventListener("focus", recordActivity);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     evaluateSession();
     const interval = window.setInterval(evaluateSession, SESSION_CHECK_INTERVAL_MS);
@@ -117,8 +116,8 @@ export function SessionInactivityGuard() {
         window.removeEventListener(eventName, recordActivity);
       }
       window.removeEventListener("storage", evaluateSession);
-      window.removeEventListener("focus", evaluateSession);
-      document.removeEventListener("visibilitychange", evaluateSession);
+      window.removeEventListener("focus", recordActivity);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
