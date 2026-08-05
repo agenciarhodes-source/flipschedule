@@ -1,0 +1,166 @@
+name: Finalize PR 48 platform governance
+
+on:
+  push:
+    branches:
+      - feat/platform-customer-access-governance
+    paths:
+      - .github/workflows/pr48-finalize-platform-governance.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr48-finalize-platform-governance
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/platform-customer-access-governance
+          fetch-depth: 1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Complete Prisma schema and roadmap
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          schema_path = Path("prisma/schema.prisma")
+          schema = schema_path.read_text()
+
+          enum_anchor = "enum TransactionalEmailKind {"
+          enums = '''enum CommercialPlanStatus {
+            ACTIVE
+            INACTIVE
+            ARCHIVED
+          }
+
+          enum CommercialPlanCycle {
+            MONTHLY
+            YEARLY
+            CUSTOM
+          }
+
+          '''
+          if "enum CommercialPlanStatus" not in schema:
+              if enum_anchor not in schema:
+                  raise SystemExit("Transactional email enum anchor not found")
+              schema = schema.replace(enum_anchor, enums + enum_anchor, 1)
+
+          subscription_anchor = "model Subscription {"
+          plan_model = '''model CommercialPlan {
+            id            String               @id @default(uuid()) @db.Uuid
+            code          String               @unique
+            name          String
+            status        CommercialPlanStatus @default(ACTIVE)
+            cycle         CommercialPlanCycle
+            priceCents    Int
+            trialDays     Int                  @default(0)
+            maxClinics    Int?
+            maxUsers      Int?
+            features      Json?
+            createdAt     DateTime             @default(now()) @db.Timestamptz(3)
+            updatedAt     DateTime             @updatedAt @db.Timestamptz(3)
+            subscriptions Subscription[]
+
+            @@index([status, priceCents])
+          }
+
+          '''
+          if "model CommercialPlan" not in schema:
+              if subscription_anchor not in schema:
+                  raise SystemExit("Subscription model anchor not found")
+              schema = schema.replace(subscription_anchor, plan_model + subscription_anchor, 1)
+
+          field_anchor = "  tenantId               String             @db.Uuid\n  provider"
+          if "commercialPlanId" not in schema:
+              if field_anchor not in schema:
+                  raise SystemExit("Subscription field anchor not found")
+              schema = schema.replace(
+                  field_anchor,
+                  "  tenantId               String             @db.Uuid\n  commercialPlanId       String?            @db.Uuid\n  provider",
+                  1,
+              )
+
+          relation_anchor = "  tenant                 Tenant             @relation(fields: [tenantId], references: [id])\n  payments"
+          if "commercialPlan   CommercialPlan?" not in schema:
+              if relation_anchor not in schema:
+                  raise SystemExit("Subscription relation anchor not found")
+              schema = schema.replace(
+                  relation_anchor,
+                  "  tenant                 Tenant             @relation(fields: [tenantId], references: [id])\n  commercialPlan         CommercialPlan?    @relation(fields: [commercialPlanId], references: [id], onDelete: SetNull)\n  payments",
+                  1,
+              )
+
+          index_anchor = "  @@index([tenantId, status])\n}\n\nmodel Payment"
+          if "@@index([commercialPlanId, status])" not in schema:
+              if index_anchor not in schema:
+                  raise SystemExit("Subscription index anchor not found")
+              schema = schema.replace(
+                  index_anchor,
+                  "  @@index([tenantId, status])\n  @@index([commercialPlanId, status])\n}\n\nmodel Payment",
+                  1,
+              )
+
+          schema_path.write_text(schema)
+
+          roadmap_path = Path("docs/ROADMAP.md")
+          roadmap = roadmap_path.read_text()
+          heading = "## PR 48 — governança de clientes e acessos"
+          if heading not in roadmap:
+              roadmap_path.write_text(
+                  roadmap.rstrip()
+                  + "\n\n"
+                  + heading
+                  + "\n\nImplementado no código: distinção entre operador da plataforma e usuário tenant-scoped, entrada de operadores em `/admin`, estado de acesso pendente, catálogo comercial, cadastro transacional de clínicas-clientes, proprietário com senha temporária, atribuição manual de plano, entitlement, suspensão e arquivamento auditados, além de workflow manual para promover o primeiro PLATFORM_OWNER. Não executados: promoção em production, migration externa, criação de clientes reais, cobrança Asaas ou envio de credenciais.\n"
+              )
+          PY
+
+      - name: Format and validate Prisma
+        run: |
+          pnpm db:format
+          pnpm db:validate
+          pnpm db:generate
+
+      - name: Verify frozen installation
+        run: pnpm install --frozen-lockfile
+
+      - name: Run targeted governance tests
+        run: pnpm exec vitest run tests/platform-customer-governance.test.ts tests/platform-administration.test.ts tests/auth-guards.test.ts
+
+      - name: Run full quality gate
+        run: pnpm check
+
+      - name: Remove temporary workflow
+        run: rm .github/workflows/pr48-finalize-platform-governance.yml
+
+      - name: Commit finalized PR 48
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: add platform customer access governance"
+          git push origin HEAD:feat/platform-customer-access-governance
