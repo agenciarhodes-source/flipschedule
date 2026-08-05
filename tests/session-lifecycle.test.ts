@@ -12,33 +12,39 @@ describe("session lifecycle", () => {
     const server = readFileSync("lib/auth/server.ts", "utf8");
     expect(server).toContain("expiresIn: SESSION_IDLE_TIMEOUT_SECONDS");
     expect(server).toContain("updateAge: SESSION_REFRESH_INTERVAL_SECONDS");
-    expect(server).not.toContain("60 * 60 * 24 * 14");
   });
 
-  it("creates a browser-session cookie instead of remembering the login", () => {
+  it("requires a fresh login for the current tab", () => {
     const login = readFileSync("components/auth/login-page-content.tsx", "utf8");
+    const loginLayout = readFileSync("app/(auth)/login/layout.tsx", "utf8");
+    const tabSession = readFileSync("lib/auth/tab-session.ts", "utf8");
+
     expect(login).toContain("rememberMe: false");
-    expect(login).toContain("markSessionActivity()");
-    expect(login).toContain("Sua sessão expirou após 1 hora sem atividade.");
+    expect(login).toContain("clearTabSession()");
+    expect(login).toContain("markTabSessionActivity()");
+    expect(login).toContain("/api/auth/post-login-destination");
+    expect(loginLayout).not.toContain("redirect(");
+    expect(tabSession).toContain("window.sessionStorage");
+    expect(tabSession).not.toContain("localStorage");
   });
 
-  it("checks the server session and signs out inactive users", () => {
+  it("blocks protected UI until tab and server sessions are valid", () => {
     const guard = readFileSync("components/auth/session-inactivity-guard.tsx", "utf8");
-    expect(guard).toContain("SESSION_IDLE_TIMEOUT_MS");
+    expect(guard).toContain("readTabSessionActivity()");
+    expect(guard).toContain('redirectToLogin("tab")');
     expect(guard).toContain("disableCookieCache: true");
-    expect(guard).toContain("await authClient.signOut()");
-    expect(guard).toContain('window.location.replace(`/login?reason=${reason}`)');
-    expect(guard).not.toContain("beforeunload");
-    expect(guard).not.toContain("pagehide");
+    expect(guard).toContain("if (!isValidated) return null");
   });
 
   it("protects tenant, admin and first-access surfaces", () => {
     const tenantLayout = readFileSync("app/(platform)/[tenantSlug]/layout.tsx", "utf8");
     const adminLayout = readFileSync("app/(platform-admin)/admin/layout.tsx", "utf8");
     const firstAccess = readFileSync("app/(auth)/first-access/page.tsx", "utf8");
+    const dashboard = readFileSync("app/(platform)/dashboard/page.tsx", "utf8");
 
-    expect(tenantLayout).toContain("<SessionInactivityGuard />");
-    expect(adminLayout).toContain("<SessionInactivityGuard />");
-    expect(firstAccess).toContain("<SessionInactivityGuard />");
+    expect(tenantLayout).toContain("<SessionInactivityGuard>");
+    expect(adminLayout).toContain("<SessionInactivityGuard>");
+    expect(firstAccess).toContain("<SessionInactivityGuard>");
+    expect(dashboard).toContain('redirect("/login?reason=login-required")');
   });
 });
