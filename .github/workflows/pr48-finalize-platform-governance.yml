@@ -147,7 +147,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run targeted governance tests
-        run: pnpm exec vitest run tests/platform-customer-governance.test.ts tests/platform-administration.test.ts tests/auth-guards.test.ts
+        run: pnpm exec vitest run tests/platform-customer-governance.test.ts tests/platform-administration.test.ts tests/post-login-routing.test.ts
 
       - name: Run full quality gate
         run: pnpm check
