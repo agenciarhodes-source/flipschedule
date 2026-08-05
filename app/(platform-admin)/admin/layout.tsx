@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 
+import { SessionInactivityGuard } from "@/components/auth/session-inactivity-guard";
 import { StagingBanner } from "@/components/layout/staging-banner";
 import {
   PlatformAccessDeniedError,
@@ -27,6 +28,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const context = await getPlatformContext();
     return (
       <div className="min-h-screen bg-canvas">
+        <SessionInactivityGuard />
         <StagingBanner />
         <header className="border-b border-line bg-surface px-6 py-4">
           <strong className="font-display text-xl">FlipSchedule · Administração</strong>
