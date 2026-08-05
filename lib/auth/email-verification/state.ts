@@ -9,8 +9,8 @@ export type PersistEmailVerifiedAtInput = {
     id: string;
     emailVerified: boolean;
   };
-  contextPath?: string;
-  verifiedAt?: Date;
+  contextPath?: string | undefined;
+  verifiedAt?: Date | undefined;
 };
 
 export async function persistEmailVerifiedAt(input: PersistEmailVerifiedAtInput) {
