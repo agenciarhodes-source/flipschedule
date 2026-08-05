@@ -51,3 +51,8 @@ Política de branches Neon, retenção de previews, provedores de autenticação
 
 ## Preparação PR 40
 A execução externa futura deve seguir [ativação de staging](EXTERNAL_STAGING_ACTIVATION.md), [política sintética](PILOT_DATA_POLICY.md) e [critérios de início/pausa](PILOT_START_STOP_CRITERIA.md). Neste PR, infraestrutura, secrets, deploy, migration/seed/smoke/restore remotos, treinamento, aceite humano, piloto e produção permanecem **não executados**.
+
+## E-mail transacional
+
+`EMAIL_PROVIDER` permanece `disabled` em local, preview e CI. A futura ativação controlada do Resend exige variáveis server-only separadas por ambiente, `EXTERNAL_EFFECTS_MODE=SANDBOX`, destinatário controlado e aprovação operacional. Build e import não exigem API key nem realizam rede.
+

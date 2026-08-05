@@ -59,3 +59,8 @@ Rollback de código deve desabilitar as server actions e retornar a página prep
 ## Limitações atuais
 
 Nenhum provedor real foi ativado, nenhum secret foi configurado, nenhum scheduler de limpeza de produção foi criado, nenhum ambiente externo foi acessado e nenhuma migration foi aplicada fora do checkout local.
+
+## Entrega transacional — PR 43
+
+O fluxo usa a camada provider-neutral de e-mail. Com `EMAIL_PROVIDER=resend`, configuração válida e efeitos externos explicitamente liberados em sandbox, o template local é enviado com idempotência. Com provider desabilitado, falha de entrega ou suppression, o token recém-criado é revogado e a resposta pública permanece genérica. E-mail, token e link não são persistidos nos registros de entrega nem escritos em logs.
+
