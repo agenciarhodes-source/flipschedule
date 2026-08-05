@@ -13,6 +13,10 @@ import { getPrismaClient } from "@/lib/db/client";
 import { readAuthConfig } from "./config";
 import { deliverAccountEmailVerification } from "./email-verification/delivery";
 import { persistEmailVerifiedAt } from "./email-verification/state";
+import {
+  SESSION_IDLE_TIMEOUT_SECONDS,
+  SESSION_REFRESH_INTERVAL_SECONDS,
+} from "./session-policy";
 import { normalizeEmail } from "./utils";
 
 export function createAuth(prisma?: PrismaClient) {
@@ -59,8 +63,8 @@ export function createAuth(prisma?: PrismaClient) {
     },
     session: {
       modelName: "AuthSession",
-      expiresIn: 60 * 60 * 24 * 14,
-      updateAge: 60 * 60 * 24,
+      expiresIn: SESSION_IDLE_TIMEOUT_SECONDS,
+      updateAge: SESSION_REFRESH_INTERVAL_SECONDS,
       storeSessionInDatabase: true,
       cookieCache: { enabled: false },
     },
