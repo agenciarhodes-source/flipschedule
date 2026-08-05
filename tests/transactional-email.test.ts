@@ -48,10 +48,17 @@ describe("transactional email", () => {
   });
 
   it("envia pelo endpoint Resend com idempotência e fetch injetado", async () => {
-    const fetchImplementation = vi.fn(async () => new Response(JSON.stringify({ id: "email_123" }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    }));
+    let capturedRequest: RequestInit | undefined;
+    const fetchImplementation = vi.fn(async (
+      _input: string | URL | Request,
+      request?: RequestInit,
+    ) => {
+      capturedRequest = request;
+      return new Response(JSON.stringify({ id: "email_123" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
     const { ResendTransactionalEmailProvider } = await import("@/lib/email/providers/resend");
     const provider = new ResendTransactionalEmailProvider({
       provider: "resend",
@@ -72,11 +79,8 @@ describe("transactional email", () => {
     })).resolves.toEqual({ provider: "resend", providerMessageId: "email_123" });
 
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
-    const call = fetchImplementation.mock.calls[0];
-    expect(call).toBeDefined();
-    const request = call?.[1];
-    expect(request?.headers).toMatchObject({ "idempotency-key": "password-reset/prt-1" });
-    expect(String(request?.body)).toContain("owner@example.test");
+    expect(capturedRequest?.headers).toMatchObject({ "idempotency-key": "password-reset/prt-1" });
+    expect(String(capturedRequest?.body)).toContain("owner@example.test");
   });
 
   it("bloqueia efeitos externos quando o modo está desabilitado", async () => {
