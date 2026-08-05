@@ -218,6 +218,7 @@ enum AuditOutcome {
 
 enum TransactionalEmailKind {
   PASSWORD_RESET
+  EMAIL_VERIFICATION
 }
 
 enum TransactionalEmailStatus {

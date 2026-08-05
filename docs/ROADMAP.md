@@ -92,3 +92,6 @@ Implementação local de recuperação segura de senha com token hashed, uso ún
 
 Implementados no código: contrato provider-neutral, adapter Resend protegido por efeitos externos, template local de recuperação, idempotência, persistência minimizada, webhook assinado, deduplicação e suppression. Não executados: conta Resend, verificação de domínio, DNS, API key real, registro externo do webhook, envio real, staging externo ou production.
 
+## PR 44 — verificação do e-mail principal
+
+Implementado no código: verificação manual e opcional do e-mail principal por Better Auth, template local, entrega transacional idempotente, timestamp de confirmação, interface de conta e testes. O login continua permitido para contas ainda não verificadas. Não executados: ativação do Resend, envio real, configuração de domínio, DNS, webhook externo, staging externo ou production.

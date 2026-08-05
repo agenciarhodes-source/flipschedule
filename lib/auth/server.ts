@@ -9,7 +9,9 @@ import { nextCookies } from "better-auth/next-js";
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/client";
+import { structuredLog } from "@/lib/observability/logger";
 import { readAuthConfig } from "./config";
+import { deliverAccountEmailVerification } from "./email-verification/delivery";
 import { normalizeEmail } from "./utils";
 
 export function createAuth(prisma?: PrismaClient) {
@@ -23,10 +25,30 @@ export function createAuth(prisma?: PrismaClient) {
     secret: authConfig.secret!,
     trustedOrigins: authConfig.trustedOrigins,
     database: prismaAdapter(database, { provider: "postgresql" }),
-    // An injected Prisma client is used only by bounded CLI rehearsals. Those
-    // callers capture Set-Cookie headers directly and do not have a Next.js
-    // request scope in which nextCookies() can operate.
     plugins: prisma ? [] : [nextCookies()],
+    emailVerification: {
+      expiresIn: 60 * 60,
+      sendOnSignUp: false,
+      autoSignInAfterVerification: false,
+      sendVerificationEmail: async ({ user, url, token }) => {
+        await deliverAccountEmailVerification({
+          recipientEmail: user.email,
+          verificationUrl: url,
+          token,
+        });
+      },
+      afterEmailVerification: async (user: { id: string }) => {
+        await database.user.update({
+          where: { id: user.id },
+          data: { emailVerifiedAt: new Date() },
+        });
+        structuredLog("info", "auth.email_verification.completed", {
+          resourceType: "User",
+          resourceId: user.id,
+          status: "SUCCESS",
+        });
+      },
+    },
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
@@ -59,8 +81,6 @@ export function createAuth(prisma?: PrismaClient) {
       modelName: "AuthVerification",
     },
     advanced: {
-      // Better Auth 1.2 reads generateId at this level. The nested option is
-      // kept for forward compatibility with the current configuration shape.
       generateId: generateAuthId,
       useSecureCookies: authConfig.isSecureRuntime,
       database: {
