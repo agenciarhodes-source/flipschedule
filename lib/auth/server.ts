@@ -10,9 +10,9 @@ import { nextCookies } from "better-auth/next-js";
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/client";
-import { structuredLog } from "@/lib/observability/logger";
 import { readAuthConfig } from "./config";
 import { deliverAccountEmailVerification } from "./email-verification/delivery";
+import { persistEmailVerifiedAt } from "./email-verification/state";
 import { normalizeEmail } from "./utils";
 
 export function createAuth(prisma?: PrismaClient) {
@@ -36,17 +36,6 @@ export function createAuth(prisma?: PrismaClient) {
           recipientEmail: user.email,
           verificationUrl: url,
           token,
-        });
-      },
-      afterEmailVerification: async (user: { id: string }) => {
-        await database.user.update({
-          where: { id: user.id },
-          data: { emailVerifiedAt: new Date() },
-        });
-        structuredLog("info", "auth.email_verification.completed", {
-          resourceType: "User",
-          resourceId: user.id,
-          status: "SUCCESS",
         });
       },
     },
@@ -89,24 +78,24 @@ export function createAuth(prisma?: PrismaClient) {
       },
     },
     hooks: {
-    before: createAuthMiddleware(async (ctx) => {
-      if (ctx.path !== "/send-verification-email") return;
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/send-verification-email") return;
 
-      const session = await getSessionFromCtx(ctx);
-      if (!session) {
-        throw new APIError("UNAUTHORIZED", {
-          message: "Authentication required",
-        });
-      }
+        const session = await getSessionFromCtx(ctx);
+        if (!session) {
+          throw new APIError("UNAUTHORIZED", {
+            message: "Authentication required",
+          });
+        }
 
-      const requestedEmail = typeof ctx.body?.email === "string" ? normalizeEmail(ctx.body.email) : "";
-      if (!requestedEmail || requestedEmail !== normalizeEmail(session.user.email)) {
-        throw new APIError("FORBIDDEN", {
-          message: "Email verification request not allowed",
-        });
-      }
-    }),
-  },
+        const requestedEmail = typeof ctx.body?.email === "string" ? normalizeEmail(ctx.body.email) : "";
+        if (!requestedEmail || requestedEmail !== normalizeEmail(session.user.email)) {
+          throw new APIError("FORBIDDEN", {
+            message: "Email verification request not allowed",
+          });
+        }
+      }),
+    },
     databaseHooks: {
       user: {
         create: {
@@ -117,6 +106,18 @@ export function createAuth(prisma?: PrismaClient) {
               emailVerified: false,
             },
           }),
+        },
+        update: {
+          after: async (user, context) => {
+            await persistEmailVerifiedAt({
+              database,
+              user: {
+                id: user.id,
+                emailVerified: user.emailVerified,
+              },
+              contextPath: context?.path,
+            });
+          },
         },
       },
     },
