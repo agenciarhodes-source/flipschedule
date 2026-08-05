@@ -12,10 +12,15 @@ describe("post-login routing", () => {
     expect(buildTenantDashboardPath("clinica central")).toBe("/clinica%20central/dashboard");
   });
 
-  it("keeps /dashboard as a server-side tenant resolver", () => {
+  it("keeps /dashboard as a server-side platform and tenant resolver", () => {
     const source = readFileSync("app/(platform)/dashboard/page.tsx", "utf8");
-    expect(source).toContain("requireAccessForRoute");
-    expect(source).toContain("buildTenantDashboardPath(context.tenantSlug)");
+    const resolver = readFileSync("lib/auth/post-login-destination.ts", "utf8");
+    expect(source).toContain("resolvePostLoginDestination");
+    expect(source).toContain("redirect(await resolvePostLoginDestination())");
     expect(source).toContain('export const dynamic = "force-dynamic"');
+    expect(resolver).toContain('return "/admin"');
+    expect(resolver).toContain("getAuthenticatedSessionContext()");
+    expect(resolver).toContain("buildTenantDashboardPath(input.tenantSlug)");
+    expect(resolver).not.toContain("searchParams");
   });
 });
