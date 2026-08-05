@@ -23,3 +23,5 @@ pnpm db:generate
 pnpm exec vitest run tests/platform-customer-governance.test.ts tests/post-login-routing.test.ts
 pnpm check
 ```
+
+O gate dedicado executou todos os comandos acima com sucesso antes da remoção automática do workflow temporário. Os checks oficiais do head da branch são a validação final para merge.
