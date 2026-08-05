@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { FirstAccessForm } from "@/components/auth/first-access-form";
+import { SessionInactivityGuard } from "@/components/auth/session-inactivity-guard";
 import { Eyebrow } from "@/components/shared/eyebrow";
 import { getFirstAccessSession } from "@/lib/auth/session";
 
@@ -13,6 +14,7 @@ export default async function FirstAccessPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-bg px-5 py-12 text-ink">
+      <SessionInactivityGuard />
       <section className="w-full max-w-md">
         <Eyebrow className="mb-4">Primeiro acesso da clínica</Eyebrow>
         <h1 className="font-display text-4xl">Crie sua senha definitiva</h1>
