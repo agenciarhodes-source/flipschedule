@@ -1,0 +1,226 @@
+name: Finalize PR 43 once
+
+on:
+  push:
+    branches:
+      - feat/transactional-email-resend
+    paths:
+      - .github/workflows/pr43-finalize-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalize-pr43-once
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: feat/transactional-email-resend
+          fetch-depth: 1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: 10.28.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install current dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Finalize schema, configuration and documentation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          schema_path = Path("prisma/schema.prisma")
+          schema = schema_path.read_text()
+          if "enum TransactionalEmailKind" not in schema:
+              marker = "model User {"
+              enums = '''enum TransactionalEmailKind {
+            PASSWORD_RESET
+          }
+
+          enum TransactionalEmailStatus {
+            PENDING
+            SENT
+            DELIVERED
+            DELIVERY_DELAYED
+            BOUNCED
+            COMPLAINED
+            SUPPRESSED
+            FAILED
+          }
+
+          '''
+              schema = schema.replace(marker, enums + marker, 1)
+
+          if "transactionalEmailDelivery TransactionalEmailDelivery?" not in schema:
+              start = schema.index("model PasswordResetToken {")
+              end = schema.index("\n}", start)
+              schema = schema[:end] + "\n  transactionalEmailDelivery TransactionalEmailDelivery?" + schema[end:]
+
+          if "model TransactionalEmailDelivery" not in schema:
+              schema += '''
+
+          model TransactionalEmailDelivery {
+            id                    String                   @id @default(uuid()) @db.Uuid
+            passwordResetTokenId  String?                  @unique @db.Uuid
+            kind                  TransactionalEmailKind
+            provider              String
+            providerMessageId     String?                  @unique
+            idempotencyKey        String                   @unique
+            recipientFingerprint  String
+            status                TransactionalEmailStatus @default(PENDING)
+            failureCode           String?
+            lastEventAt           DateTime?                @db.Timestamptz(3)
+            sentAt                DateTime?                @db.Timestamptz(3)
+            deliveredAt           DateTime?                @db.Timestamptz(3)
+            delayedAt             DateTime?                @db.Timestamptz(3)
+            bouncedAt             DateTime?                @db.Timestamptz(3)
+            complainedAt          DateTime?                @db.Timestamptz(3)
+            suppressedAt          DateTime?                @db.Timestamptz(3)
+            failedAt              DateTime?                @db.Timestamptz(3)
+            createdAt             DateTime                 @default(now()) @db.Timestamptz(3)
+            updatedAt             DateTime                 @updatedAt @db.Timestamptz(3)
+            passwordResetToken    PasswordResetToken?      @relation(fields: [passwordResetTokenId], references: [id], onDelete: SetNull)
+
+            @@index([recipientFingerprint, status])
+            @@index([status, createdAt])
+          }
+
+          model TransactionalEmailWebhookEvent {
+            id                    String    @id @default(uuid()) @db.Uuid
+            provider              String
+            providerEventId       String    @unique
+            eventType             String
+            providerMessageId     String?
+            eventOccurredAt       DateTime? @db.Timestamptz(3)
+            processedAt           DateTime? @db.Timestamptz(3)
+            failureCode           String?
+            createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+
+            @@index([providerMessageId, eventOccurredAt])
+          }
+
+          model EmailSuppression {
+            id                    String    @id @default(uuid()) @db.Uuid
+            recipientFingerprint  String
+            provider              String
+            reason                String
+            createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+            liftedAt              DateTime? @db.Timestamptz(3)
+
+            @@unique([recipientFingerprint, provider])
+            @@index([provider, liftedAt])
+          }
+          '''
+          schema_path.write_text(schema)
+
+          package_path = Path("package.json")
+          package = json.loads(package_path.read_text())
+          package["scripts"]["ops:email-preflight"] = "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-email-preflight.ts"
+          package_path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + "\n")
+
+          env_path = Path(".env.example")
+          env = env_path.read_text()
+          old = "# Email\nEMAIL_PROVIDER_API_KEY=\nEMAIL_WEBHOOK_SECRET=\n"
+          new = "# Transactional email (disabled by default)\nEMAIL_PROVIDER=disabled\nRESEND_API_KEY=\nEMAIL_FROM=\nEMAIL_REPLY_TO=\nRESEND_WEBHOOK_SECRET=\nEMAIL_RECIPIENT_HASH_KEY=\n"
+          if old in env:
+              env = env.replace(old, new, 1)
+          elif "EMAIL_RECIPIENT_HASH_KEY=" not in env:
+              env += "\n" + new
+          env_path.write_text(env)
+
+          additions = {
+              "docs/PASSWORD_RECOVERY.md": """
+
+          ## Entrega transacional — PR 43
+
+          O fluxo usa a camada provider-neutral de e-mail. Com `EMAIL_PROVIDER=resend`, configuração válida e efeitos externos explicitamente liberados em sandbox, o template local é enviado com idempotência. Com provider desabilitado, falha de entrega ou suppression, o token recém-criado é revogado e a resposta pública permanece genérica. E-mail, token e link não são persistidos nos registros de entrega nem escritos em logs.
+          """,
+              "docs/INTEGRATIONS_AND_ASYNC_PROCESSING.md": """
+
+          ## E-mail transacional — PR 43
+
+          O adapter Resend foi implementado para recuperação de senha com provider desabilitado por padrão, envio idempotente, webhook assinado, deduplicação, ordenação defensiva e suppression por fingerprint HMAC. Nenhuma conta, credencial, domínio, webhook externo ou envio real foi configurado neste PR.
+          """,
+              "docs/ROADMAP.md": """
+
+          ## PR 43 — entrega transacional de e-mail
+
+          Implementados no código: contrato provider-neutral, adapter Resend protegido por efeitos externos, template local de recuperação, idempotência, persistência minimizada, webhook assinado, deduplicação e suppression. Não executados: conta Resend, verificação de domínio, DNS, API key real, registro externo do webhook, envio real, staging externo ou production.
+          """,
+              "docs/ENVIRONMENTS.md": """
+
+          ## E-mail transacional
+
+          `EMAIL_PROVIDER` permanece `disabled` em local, preview e CI. A futura ativação controlada do Resend exige variáveis server-only separadas por ambiente, `EXTERNAL_EFFECTS_MODE=SANDBOX`, destinatário controlado e aprovação operacional. Build e import não exigem API key nem realizam rede.
+          """,
+              "docs/README.md": """
+          - [`TRANSACTIONAL_EMAIL_DELIVERY.md`](TRANSACTIONAL_EMAIL_DELIVERY.md): contrato provider-neutral, Resend, webhook, idempotência e suppression do PR 43.
+          """,
+          }
+          for filename, addition in additions.items():
+              path = Path(filename)
+              text = path.read_text()
+              heading = addition.strip().splitlines()[0]
+              if heading not in text:
+                  if filename == "docs/README.md":
+                      text = text.rstrip() + "\n" + addition.strip() + "\n"
+                  else:
+                      text = text.rstrip() + addition + "\n"
+                  path.write_text(text)
+          PY
+
+      - name: Add webhook verification dependency
+        run: pnpm add --save-exact svix
+
+      - name: Format and validate Prisma
+        run: |
+          pnpm db:format
+          pnpm db:validate
+          pnpm db:generate
+
+      - name: Verify frozen installation
+        run: pnpm install --frozen-lockfile
+
+      - name: Targeted tests
+        run: pnpm exec vitest run tests/transactional-email.test.ts tests/password-recovery.test.ts
+
+      - name: Email preflight with provider disabled
+        env:
+          EMAIL_PROVIDER: disabled
+        run: pnpm ops:email-preflight
+
+      - name: Full quality gate
+        env:
+          EMAIL_PROVIDER: disabled
+        run: pnpm check
+
+      - name: Remove temporary workflow
+        run: rm .github/workflows/pr43-finalize-once.yml
+
+      - name: Commit finalized PR 43
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "feat: add secure transactional email delivery with Resend"
+          git push origin HEAD:feat/transactional-email-resend
