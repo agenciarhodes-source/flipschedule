@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { readAuthConfig } from "@/lib/auth/config";
@@ -12,7 +13,7 @@ describe("auth configuration", () => {
     expect(typeof readAuthConfig).toBe("function");
   });
 
-  it("uses the environment supplied by the caller", () => {
+  it("uses the explicit environment supplied by the caller", () => {
     const config = readAuthConfig({
       APP_ENV: "production",
       BETTER_AUTH_SECRET: "configured-secret-0123456789abcdef",
@@ -23,15 +24,61 @@ describe("auth configuration", () => {
     expect(config).toMatchObject({
       secret: "configured-secret-0123456789abcdef",
       baseURL: "https://auth.example.test",
+      trustedOrigins: ["https://auth.example.test"],
       isProduction: true,
     });
   });
 
-  it("never supplies the development secret in production", () => {
+  it("derives the production origin from Vercel system variables", () => {
+    const config = readAuthConfig({
+      APP_ENV: "production",
+      BETTER_AUTH_SECRET: "configured-secret-0123456789abcdef",
+      VERCEL_ENV: "production",
+      VERCEL_PROJECT_PRODUCTION_URL: "flipschedule.vercel.app",
+      VERCEL_URL: "flipschedule-build-hash.vercel.app",
+    });
+
+    expect(config).toMatchObject({
+      baseURL: "https://flipschedule.vercel.app",
+      trustedOrigins: ["https://flipschedule.vercel.app"],
+    });
+  });
+
+  it("uses the current Vercel deployment URL outside the production target", () => {
+    const config = readAuthConfig({
+      APP_ENV: "staging",
+      BETTER_AUTH_SECRET: "configured-secret-0123456789abcdef",
+      VERCEL_ENV: "preview",
+      VERCEL_URL: "flipschedule-preview.vercel.app",
+      VERCEL_PROJECT_PRODUCTION_URL: "flipschedule.vercel.app",
+    });
+
+    expect(config).toMatchObject({
+      baseURL: "https://flipschedule-preview.vercel.app",
+      trustedOrigins: ["https://flipschedule-preview.vercel.app"],
+    });
+  });
+
+  it("supports the existing AUTH_SECRET during the environment migration", () => {
+    const config = readAuthConfig({
+      APP_ENV: "production",
+      AUTH_SECRET: "legacy-compatible-secret-0123456789abcdef",
+      VERCEL_ENV: "production",
+      VERCEL_PROJECT_PRODUCTION_URL: "flipschedule.vercel.app",
+    });
+
+    expect(config.secret).toBe("legacy-compatible-secret-0123456789abcdef");
+  });
+
+  it("never supplies a development secret in production", () => {
     expect(() => readAuthConfig({ NODE_ENV: "production" })).toThrow(AuthConfigurationError);
-    expect(() => readAuthConfig({ APP_ENV: "production", NODE_ENV: "development" })).toThrow(
-      AuthConfigurationError,
-    );
+    expect(() =>
+      readAuthConfig({
+        APP_ENV: "production",
+        VERCEL_ENV: "production",
+        VERCEL_PROJECT_PRODUCTION_URL: "flipschedule.vercel.app",
+      }),
+    ).toThrow(AuthConfigurationError);
   });
 
   it("uses development defaults only outside production", () => {
@@ -40,5 +87,13 @@ describe("auth configuration", () => {
       baseURL: "http://localhost:3000",
       isProduction: false,
     });
+  });
+
+  it("keeps the browser client on the current origin", () => {
+    const source = readFileSync("lib/auth/client.ts", "utf8");
+
+    expect(source).toContain("createAuthClient()");
+    expect(source).not.toContain("localhost:3000");
+    expect(source).not.toContain("process.env");
   });
 });
