@@ -46,7 +46,14 @@ export function getTransactionalEmailConfiguration(
   });
 
   if (!parsed.success) throw new TransactionalEmailError("EMAIL_PROVIDER_MISCONFIGURED");
-  return { provider: "resend", ...parsed.data };
+  return {
+    provider: "resend",
+    apiKey: parsed.data.apiKey,
+    from: parsed.data.from,
+    recipientHashKey: parsed.data.recipientHashKey,
+    ...(parsed.data.replyTo ? { replyTo: parsed.data.replyTo } : {}),
+    ...(parsed.data.webhookSecret ? { webhookSecret: parsed.data.webhookSecret } : {}),
+  };
 }
 
 export function getResendWebhookConfiguration(
