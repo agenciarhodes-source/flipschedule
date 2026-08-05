@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
@@ -10,6 +11,8 @@ import { nextCookies } from "better-auth/next-js";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/client";
 import { readAuthConfig } from "./config";
+import { deliverAccountEmailVerification } from "./email-verification/delivery";
+import { persistEmailVerifiedAt } from "./email-verification/state";
 import { normalizeEmail } from "./utils";
 
 export function createAuth(prisma?: PrismaClient) {
@@ -23,10 +26,19 @@ export function createAuth(prisma?: PrismaClient) {
     secret: authConfig.secret!,
     trustedOrigins: authConfig.trustedOrigins,
     database: prismaAdapter(database, { provider: "postgresql" }),
-    // An injected Prisma client is used only by bounded CLI rehearsals. Those
-    // callers capture Set-Cookie headers directly and do not have a Next.js
-    // request scope in which nextCookies() can operate.
     plugins: prisma ? [] : [nextCookies()],
+    emailVerification: {
+      expiresIn: 60 * 60,
+      sendOnSignUp: false,
+      autoSignInAfterVerification: false,
+      sendVerificationEmail: async ({ user, url, token }) => {
+        await deliverAccountEmailVerification({
+          recipientEmail: user.email,
+          verificationUrl: url,
+          token,
+        });
+      },
+    },
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
@@ -59,13 +71,30 @@ export function createAuth(prisma?: PrismaClient) {
       modelName: "AuthVerification",
     },
     advanced: {
-      // Better Auth 1.2 reads generateId at this level. The nested option is
-      // kept for forward compatibility with the current configuration shape.
       generateId: generateAuthId,
       useSecureCookies: authConfig.isSecureRuntime,
       database: {
         generateId: generateAuthId,
       },
+    },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/send-verification-email") return;
+
+        const session = await getSessionFromCtx(ctx);
+        if (!session) {
+          throw new APIError("UNAUTHORIZED", {
+            message: "Authentication required",
+          });
+        }
+
+        const requestedEmail = typeof ctx.body?.email === "string" ? normalizeEmail(ctx.body.email) : "";
+        if (!requestedEmail || requestedEmail !== normalizeEmail(session.user.email)) {
+          throw new APIError("FORBIDDEN", {
+            message: "Email verification request not allowed",
+          });
+        }
+      }),
     },
     databaseHooks: {
       user: {
@@ -77,6 +106,18 @@ export function createAuth(prisma?: PrismaClient) {
               emailVerified: false,
             },
           }),
+        },
+        update: {
+          after: async (user, context) => {
+            await persistEmailVerifiedAt({
+              database,
+              user: {
+                id: user.id,
+                emailVerified: user.emailVerified,
+              },
+              contextPath: context?.path,
+            });
+          },
         },
       },
     },

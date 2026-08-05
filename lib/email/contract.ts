@@ -1,6 +1,6 @@
 import "server-only";
 
-export type TransactionalEmailKind = "PASSWORD_RESET";
+export type TransactionalEmailKind = "PASSWORD_RESET" | "EMAIL_VERIFICATION";
 export type TransactionalEmailProviderName = "resend";
 
 export type TransactionalEmailMessage = {

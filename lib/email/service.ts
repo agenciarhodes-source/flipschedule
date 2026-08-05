@@ -22,10 +22,13 @@ export type SendTransactionalEmailInput = {
 };
 
 const resumableStatuses = new Set(["PENDING", "FAILED"]);
+const namespaces: Record<TransactionalEmailKind, string> = {
+  PASSWORD_RESET: "password-reset",
+  EMAIL_VERIFICATION: "email-verification",
+};
 
 function buildIdempotencyKey(input: Pick<SendTransactionalEmailInput, "kind" | "deliveryReference">) {
-  const namespace = input.kind === "PASSWORD_RESET" ? "password-reset" : "transactional-email";
-  return `${namespace}/${input.deliveryReference}`.slice(0, 256);
+  return `${namespaces[input.kind]}/${input.deliveryReference}`.slice(0, 256);
 }
 
 export async function sendTransactionalEmail(
@@ -70,7 +73,7 @@ export async function sendTransactionalEmail(
   });
 
   if (suppression && !suppression.liftedAt) {
-    structuredLog("warn", "email.password_reset.suppressed", {
+    structuredLog("warn", "email.transactional.suppressed", {
       provider: configuration.provider,
       resourceType: "TransactionalEmailDelivery",
       resourceId: delivery.id,
@@ -83,7 +86,7 @@ export async function sendTransactionalEmail(
     return { provider: configuration.provider, providerMessageId: delivery.providerMessageId } as const;
   }
 
-  structuredLog("info", "email.password_reset.send_started", {
+  structuredLog("info", "email.transactional.send_started", {
     provider: configuration.provider,
     resourceType: "TransactionalEmailDelivery",
     resourceId: delivery.id,
@@ -111,7 +114,7 @@ export async function sendTransactionalEmail(
         failureCode: null,
       },
     });
-    structuredLog("info", "email.password_reset.sent", {
+    structuredLog("info", "email.transactional.sent", {
       provider: result.provider,
       resourceType: "TransactionalEmailDelivery",
       resourceId: delivery.id,
@@ -124,7 +127,7 @@ export async function sendTransactionalEmail(
       where: { id: delivery.id },
       data: { status: "FAILED", failedAt: new Date(), failureCode: errorCode },
     });
-    structuredLog("warn", "email.password_reset.send_failed", {
+    structuredLog("warn", "email.transactional.send_failed", {
       provider: configuration.provider,
       resourceType: "TransactionalEmailDelivery",
       resourceId: delivery.id,
