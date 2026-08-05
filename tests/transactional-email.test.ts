@@ -59,7 +59,7 @@ describe("transactional email", () => {
       from: "FlipSchedule <no-reply@example.test>",
       replyTo: "support@example.test",
       recipientHashKey: "h".repeat(40),
-    }, { APP_ENV: "local", EXTERNAL_EFFECTS_MODE: "SANDBOX" }, fetchImplementation);
+    }, { APP_ENV: "test", EXTERNAL_EFFECTS_MODE: "SANDBOX" }, fetchImplementation);
 
     await expect(provider.send({
       kind: "PASSWORD_RESET",
@@ -85,7 +85,7 @@ describe("transactional email", () => {
       apiKey: `re_${"x".repeat(40)}`,
       from: "no-reply@example.test",
       recipientHashKey: "h".repeat(40),
-    }, { APP_ENV: "local", EXTERNAL_EFFECTS_MODE: "DISABLED" }, fetchImplementation);
+    }, { APP_ENV: "test", EXTERNAL_EFFECTS_MODE: "DISABLED" }, fetchImplementation);
 
     await expect(provider.send({
       kind: "PASSWORD_RESET",
