@@ -82,3 +82,8 @@ A execução externa futura deve seguir [ativação de staging](EXTERNAL_STAGING
 ## PR 41 — ensaio assistido
 
 Implementados e testáveis localmente: fechamento fail-closed dos blockers P1, política sintética server-side, seed/perfil externo, workflows protegidos, plano e evidência sanitizada. Não executados: Environment/secrets reais, banco ou migration de staging, seed/deploy/smoke/restore externos, revisão ou treinamento humano, piloto e produção.
+
+
+## PR 42 — recuperação segura de senha
+
+Implementação local de recuperação segura de senha com token hashed, uso único, expiração, rate limiting durável e revogação de sessões. Entrega externa real permanece pendente de PR futuro de provedor; nenhuma mudança foi aplicada em staging ou production.

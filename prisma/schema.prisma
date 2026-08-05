@@ -217,26 +217,44 @@ enum AuditOutcome {
 }
 
 model User {
-  id                       String              @id @default(uuid()) @db.Uuid
-  emailNormalized          String              @unique
+  id                       String               @id @default(uuid()) @db.Uuid
+  emailNormalized          String               @unique
   displayName              String
-  status                   UserStatus          @default(ACTIVE)
-  emailVerified            Boolean             @default(false)
-  emailVerifiedAt          DateTime?           @db.Timestamptz(3)
-  mustChangePassword       Boolean             @default(false)
-  passwordChangedAt        DateTime?           @db.Timestamptz(3)
-  firstAccessCompletedAt   DateTime?           @db.Timestamptz(3)
-  createdAt                DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt                DateTime            @updatedAt @db.Timestamptz(3)
+  status                   UserStatus           @default(ACTIVE)
+  emailVerified            Boolean              @default(false)
+  emailVerifiedAt          DateTime?            @db.Timestamptz(3)
+  mustChangePassword       Boolean              @default(false)
+  passwordChangedAt        DateTime?            @db.Timestamptz(3)
+  firstAccessCompletedAt   DateTime?            @db.Timestamptz(3)
+  createdAt                DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime             @updatedAt @db.Timestamptz(3)
   memberships              Membership[]
-  entitlementsGranted      AccessEntitlement[] @relation("AccessEntitlementGrantedBy")
-  auditLogs                AuditLog[]          @relation("AuditLogActorUser")
+  entitlementsGranted      AccessEntitlement[]  @relation("AccessEntitlementGrantedBy")
+  auditLogs                AuditLog[]           @relation("AuditLogActorUser")
   authSessions             AuthSession[]
   authAccounts             AuthAccount[]
   authVerifications        AuthVerification[]
-  invitationsAccepted      TenantInvitation[]  @relation("TenantInvitationAcceptedBy")
-  platformOperator         PlatformOperator?   @relation("PlatformOperatorUser")
-  platformOperatorsCreated PlatformOperator[]  @relation("PlatformOperatorCreatedBy")
+  passwordResetTokens      PasswordResetToken[]
+  invitationsAccepted      TenantInvitation[]   @relation("TenantInvitationAcceptedBy")
+  platformOperator         PlatformOperator?    @relation("PlatformOperatorUser")
+  platformOperatorsCreated PlatformOperator[]   @relation("PlatformOperatorCreatedBy")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  purpose    String
+  tokenHash  String    @unique
+  expiresAt  DateTime  @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+  @@index([purpose, expiresAt])
 }
 
 model AuthSession {
