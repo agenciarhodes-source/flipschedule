@@ -5,20 +5,26 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 
+import { markSessionActivity } from "@/components/auth/session-inactivity-guard";
 import { Eyebrow } from "@/components/shared/eyebrow";
 import { authClient } from "@/lib/auth/client";
+import { normalizeEmail, isSafeInternalCallback } from "@/lib/auth/utils";
 import { publicUrls } from "@/lib/config/public-urls";
-import { normalizeEmail } from "@/lib/auth/utils";
-import { isSafeInternalCallback } from "@/lib/auth/utils";
 
 export function LoginPageContent() {
   const router = useRouter();
-  const requestedCallback = useSearchParams().get("callbackURL");
+  const searchParams = useSearchParams();
+  const requestedCallback = searchParams.get("callbackURL");
   const callbackURL = isSafeInternalCallback(requestedCallback) ? requestedCallback! : "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(() => {
+    const reason = searchParams.get("reason");
+    if (reason === "inactive") return "Sua sessão expirou após 1 hora sem atividade.";
+    if (reason === "expired") return "Sua sessão expirou. Entre novamente para continuar.";
+    return null;
+  });
 
   const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
 
@@ -34,6 +40,7 @@ export function LoginPageContent() {
         email: normalizedEmail,
         password,
         callbackURL,
+        rememberMe: false,
       });
 
       if (response.error) {
@@ -41,6 +48,7 @@ export function LoginPageContent() {
         return;
       }
 
+      markSessionActivity();
       router.replace(callbackURL);
     } catch (error) {
       setFeedback("Não foi possível entrar no momento. Tente novamente.");
@@ -84,7 +92,7 @@ export function LoginPageContent() {
               {isSubmitting ? "Entrando…" : "Entrar"}
               <LockKeyhole aria-hidden="true" size={16} />
             </button>
-            <p className="text-center text-xs text-ink-dim" id="login-status">Use seu e-mail e senha cadastrados no ambiente real do FlipSchedule.</p>
+            <p className="text-center text-xs text-ink-dim" id="login-status">A sessão expira após 1 hora sem atividade e não permanece salva ao fechar o navegador.</p>
           </form>
           <div className="mt-8 flex flex-col gap-3 border-t border-line pt-6 text-sm">
             <Link className="inline-flex items-center gap-2 text-primary hover:underline" href="/demo">Conhecer a demonstração <ArrowRight aria-hidden="true" size={14} /></Link>
