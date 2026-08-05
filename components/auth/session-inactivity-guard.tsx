@@ -1,52 +1,50 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { PropsWithChildren } from "react";
 
 import { authClient } from "@/lib/auth/client";
 import {
-  SESSION_ACTIVITY_STORAGE_KEY,
   SESSION_IDLE_TIMEOUT_MS,
   SESSION_REFRESH_INTERVAL_MS,
 } from "@/lib/auth/session-policy";
+import {
+  clearTabSession,
+  markTabSessionActivity,
+  readTabSessionActivity,
+} from "@/lib/auth/tab-session";
 
 const ACTIVITY_WRITE_THROTTLE_MS = 15_000;
 const SESSION_CHECK_INTERVAL_MS = 30_000;
 const activityEvents = ["pointerdown", "keydown", "touchstart", "scroll"] as const;
 
-function readLastActivity() {
-  try {
-    const value = window.localStorage.getItem(SESSION_ACTIVITY_STORAGE_KEY);
-    if (!value) return null;
-    const timestamp = Number(value);
-    return Number.isFinite(timestamp) ? timestamp : null;
-  } catch {
-    return null;
-  }
-}
-
-export function markSessionActivity(timestamp = Date.now()) {
-  try {
-    window.localStorage.setItem(SESSION_ACTIVITY_STORAGE_KEY, String(timestamp));
-  } catch {
-    // Private browsing or storage restrictions must not break authentication.
-  }
-}
-
-export function SessionInactivityGuard() {
+export function SessionInactivityGuard({ children }: PropsWithChildren) {
+  const [isValidated, setIsValidated] = useState(false);
   const logoutStarted = useRef(false);
 
   useEffect(() => {
+    let disposed = false;
+    let interval: number | undefined;
+    let listenersAttached = false;
     let lastActivityWriteAt = 0;
     let lastServerRefreshAt = 0;
 
-    async function closeSession(reason: "inactive" | "expired") {
+    function redirectToLogin(reason: "tab" | "inactive" | "expired") {
       if (logoutStarted.current) return;
       logoutStarted.current = true;
+      clearTabSession();
+      window.location.replace(`/login?reason=${reason}`);
+    }
+
+    async function closeServerSession(reason: "inactive" | "expired") {
+      if (logoutStarted.current) return;
+      logoutStarted.current = true;
+      clearTabSession();
 
       try {
         await authClient.signOut();
       } catch {
-        // The redirect still removes access to protected UI when the API is unavailable.
+        // The redirect still removes access to protected UI if sign-out is unavailable.
       }
 
       window.location.replace(`/login?reason=${reason}`);
@@ -58,14 +56,34 @@ export function SessionInactivityGuard() {
       });
 
       if (result.error || !result.data) {
-        await closeSession("expired");
+        await closeServerSession("expired");
+        return false;
       }
+
+      return true;
+    }
+
+    function evaluateTabSession() {
+      const storedActivity = readTabSessionActivity();
+      if (storedActivity === null) {
+        redirectToLogin("tab");
+        return false;
+      }
+
+      if (Date.now() - storedActivity >= SESSION_IDLE_TIMEOUT_MS) {
+        void closeServerSession("inactive");
+        return false;
+      }
+
+      return true;
     }
 
     function recordActivity() {
+      if (!evaluateTabSession()) return;
+
       const now = Date.now();
       if (now - lastActivityWriteAt >= ACTIVITY_WRITE_THROTTLE_MS) {
-        markSessionActivity(now);
+        markTabSessionActivity(now);
         lastActivityWriteAt = now;
       }
 
@@ -75,51 +93,54 @@ export function SessionInactivityGuard() {
       }
     }
 
-    function evaluateSession() {
-      const now = Date.now();
-      const storedActivity = readLastActivity();
-
-      if (storedActivity === null) {
-        markSessionActivity(now);
-        lastActivityWriteAt = now;
-        lastServerRefreshAt = now;
-        void refreshServerSession();
-        return;
-      }
-
-      if (now - storedActivity >= SESSION_IDLE_TIMEOUT_MS) {
-        void closeSession("inactive");
-      }
-    }
-
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
         recordActivity();
       } else {
-        evaluateSession();
+        evaluateTabSession();
       }
     }
 
-    for (const eventName of activityEvents) {
-      window.addEventListener(eventName, recordActivity, { passive: true });
-    }
-    window.addEventListener("storage", evaluateSession);
-    window.addEventListener("focus", recordActivity);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    function attachListeners() {
+      if (listenersAttached) return;
+      listenersAttached = true;
 
-    evaluateSession();
-    const interval = window.setInterval(evaluateSession, SESSION_CHECK_INTERVAL_MS);
+      for (const eventName of activityEvents) {
+        window.addEventListener(eventName, recordActivity, { passive: true });
+      }
+      window.addEventListener("focus", recordActivity);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      interval = window.setInterval(evaluateTabSession, SESSION_CHECK_INTERVAL_MS);
+    }
+
+    async function initialize() {
+      if (!evaluateTabSession()) return;
+
+      const hasServerSession = await refreshServerSession();
+      if (!hasServerSession || disposed) return;
+
+      const now = Date.now();
+      lastActivityWriteAt = now;
+      lastServerRefreshAt = now;
+      setIsValidated(true);
+      attachListeners();
+    }
+
+    void initialize();
 
     return () => {
-      window.clearInterval(interval);
+      disposed = true;
+      if (interval !== undefined) window.clearInterval(interval);
+      if (!listenersAttached) return;
+
       for (const eventName of activityEvents) {
         window.removeEventListener(eventName, recordActivity);
       }
-      window.removeEventListener("storage", evaluateSession);
       window.removeEventListener("focus", recordActivity);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
-  return null;
+  if (!isValidated) return null;
+  return children;
 }
