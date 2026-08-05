@@ -27,11 +27,28 @@ export async function getFirstAccessSession() {
   const requestHeaders = await headers();
   const session = await getAuth().api.getSession({ headers: requestHeaders });
   if (!session?.user) return null;
+
   const user = await getPrismaClient().user.findUnique({
     where: { id: session.user.id },
-    select: { mustChangePassword: true },
+    select: {
+      mustChangePassword: true,
+      status: true,
+      emailVerified: true,
+      emailVerifiedAt: true,
+      platformOperator: { select: { status: true } },
+    },
   });
-  return user
-    ? { userId: session.user.id, mustChangePassword: user.mustChangePassword }
-    : null;
+  if (!user) return null;
+
+  const hasActivePlatformAccess = Boolean(
+    user.platformOperator?.status === "ACTIVE" &&
+      user.status === "ACTIVE" &&
+      (user.emailVerified || user.emailVerifiedAt),
+  );
+
+  return {
+    userId: session.user.id,
+    mustChangePassword: hasActivePlatformAccess ? false : user.mustChangePassword,
+    destination: hasActivePlatformAccess ? "/admin" : "/dashboard",
+  };
 }
