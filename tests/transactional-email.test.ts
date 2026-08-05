@@ -72,7 +72,9 @@ describe("transactional email", () => {
     })).resolves.toEqual({ provider: "resend", providerMessageId: "email_123" });
 
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
-    const [, request] = fetchImplementation.mock.calls[0];
+    const call = fetchImplementation.mock.calls[0];
+    expect(call).toBeDefined();
+    const request = call?.[1];
     expect(request?.headers).toMatchObject({ "idempotency-key": "password-reset/prt-1" });
     expect(String(request?.body)).toContain("owner@example.test");
   });
