@@ -104,6 +104,7 @@ export async function processResendWebhook(event: VerifiedResendEvent, providerE
   const prisma = getPrismaClient();
   const eventAt = new Date(event.created_at);
   const providerMessageId = event.data.email_id;
+  let duplicate = false;
 
   try {
     await prisma.transactionalEmailWebhookEvent.create({
@@ -117,8 +118,36 @@ export async function processResendWebhook(event: VerifiedResendEvent, providerE
     });
   } catch (error) {
     if (!isUniqueConstraintError(error)) throw error;
-    structuredLog("info", "email.webhook.duplicate", { provider: "resend", status: "DUPLICATE" });
-    return { duplicate: true as const };
+    duplicate = true;
+    const existing = await prisma.transactionalEmailWebhookEvent.findUnique({
+      where: { providerEventId },
+      select: {
+        eventType: true,
+        providerMessageId: true,
+        eventOccurredAt: true,
+        processedAt: true,
+      },
+    });
+    if (!existing) throw error;
+    const sameEvent =
+      existing.eventType === event.type &&
+      existing.providerMessageId === providerMessageId &&
+      existing.eventOccurredAt?.getTime() === eventAt.getTime();
+    if (!sameEvent) {
+      structuredLog("error", "email.webhook.conflict", {
+        provider: "resend",
+        errorCode: "WEBHOOK_EVENT_ID_CONFLICT",
+      });
+      throw new ResendWebhookError("WEBHOOK_PAYLOAD_INVALID");
+    }
+    if (existing.processedAt) {
+      structuredLog("info", "email.webhook.duplicate", { provider: "resend", status: "DUPLICATE" });
+      return { duplicate: true as const };
+    }
+    structuredLog("warn", "email.webhook.retry_pending", {
+      provider: "resend",
+      status: "RETRY_PENDING",
+    });
   }
 
   const transition = mapResendEventType(event.type);
@@ -202,5 +231,5 @@ export async function processResendWebhook(event: VerifiedResendEvent, providerE
     provider: "resend",
     status: transition?.status ?? "IGNORED",
   });
-  return { duplicate: false as const };
+  return { duplicate };
 }
