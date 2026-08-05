@@ -1,6 +1,7 @@
 "use client";
 
-import { PropsWithChildren, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { PropsWithChildren } from "react";
 
 import { authClient } from "@/lib/auth/client";
 import {
