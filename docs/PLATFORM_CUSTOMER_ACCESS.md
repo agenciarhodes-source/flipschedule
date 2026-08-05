@@ -37,6 +37,14 @@ Após autenticação:
 
 Não existe cadastro público.
 
+## Sessões e inatividade
+
+A sessão autenticada usa expiração deslizante de uma hora. Enquanto existe atividade real no navegador, o cliente confirma periodicamente a sessão no servidor. Após uma hora sem interação, o sistema encerra a sessão e redireciona para `/login`.
+
+O login envia `rememberMe: false`, portanto o cookie não é persistido como uma sessão lembrada depois do encerramento do navegador. O sistema não utiliza eventos `beforeunload` ou `pagehide` para tentar detectar o fechamento de uma aba isolada, pois esses eventos também ocorrem em atualizações e navegações e causariam encerramentos indevidos.
+
+A promoção de um operador da plataforma revoga sessões antigas, exigindo uma nova autenticação já sob a política atual.
+
 ## Primeiro acesso
 
 O fluxo `/first-access` pertence apenas aos acessos de clínicas provisionados com senha temporária. Um operador da plataforma não deve ser bloqueado por `mustChangePassword` herdado de um bootstrap antigo.
@@ -93,4 +101,6 @@ A execução revoga as sessões atuais. Depois dela, entre novamente em `/login`
 - e-mails são mascarados nas listagens;
 - alterações de status e plano são auditadas;
 - arquivamento preserva dados;
+- sessão expira após uma hora sem atividade;
+- login não cria cookie persistente de sessão lembrada;
 - workflow de produção é manual, protegido por Environment e confirmação explícita.
