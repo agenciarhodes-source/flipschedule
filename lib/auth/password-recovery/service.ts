@@ -58,8 +58,19 @@ export async function requestPasswordReset(input: unknown, identity: { ip?: stri
     await tx.passwordResetToken.deleteMany({ where: { userId: user.id, OR: [{ expiresAt: { lt: new Date(now.getTime() - CLEANUP_RETENTION_MS) } }, { consumedAt: { lt: new Date(now.getTime() - CLEANUP_RETENTION_MS) } }, { revokedAt: { lt: new Date(now.getTime() - CLEANUP_RETENTION_MS) } }] } });
   });
 
-  try { await getPasswordResetDelivery().sendPasswordReset({ recipientEmail: email, resetUrl: buildPasswordResetUrl(rawToken), expiresAt }); structuredLog("info", "auth.password_reset.delivery_scheduled", { status: "SCHEDULED" }); }
-  catch { if (createdId) await prisma.passwordResetToken.updateMany({ where: { id: createdId, consumedAt: null }, data: { revokedAt: new Date() } }); structuredLog("warn", "auth.password_reset.delivery_failed", { errorCode: "PASSWORD_RESET_UNAVAILABLE" }); }
+  try {
+    if (!createdId) throw new Error("PASSWORD_RESET_TOKEN_NOT_CREATED");
+    await getPasswordResetDelivery().sendPasswordReset({
+      recipientEmail: email,
+      resetUrl: buildPasswordResetUrl(rawToken),
+      expiresAt,
+      deliveryReference: createdId,
+    });
+    structuredLog("info", "auth.password_reset.delivery_scheduled", { status: "SCHEDULED" });
+  } catch {
+    if (createdId) await prisma.passwordResetToken.updateMany({ where: { id: createdId, consumedAt: null }, data: { revokedAt: new Date() } });
+    structuredLog("warn", "auth.password_reset.delivery_failed", { errorCode: "PASSWORD_RESET_UNAVAILABLE" });
+  }
   return { ok: true as const, code: "OK" as const, message: PASSWORD_RESET_PUBLIC_MESSAGE };
 }
 
