@@ -16,8 +16,7 @@ export default async function PlatformLayout({
   if (tenantSlug !== context.tenantSlug) notFound();
 
   return (
-    <>
-      <SessionInactivityGuard />
+    <SessionInactivityGuard>
       <StagingBanner tenantSlug={context.tenantSlug} />
       <PlatformShell
         tenantName={context.tenantName}
@@ -26,6 +25,6 @@ export default async function PlatformLayout({
       >
         {children}
       </PlatformShell>
-    </>
+    </SessionInactivityGuard>
   );
 }
