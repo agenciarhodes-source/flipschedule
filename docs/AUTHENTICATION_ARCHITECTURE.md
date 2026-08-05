@@ -32,3 +32,7 @@ The server context resolves session, user status, membership status and tenant s
 - usuários marcados com `mustChangePassword` somente acessam `/first-access`; a conclusão troca o hash, revoga outras sessões e é auditada;
 - o fluxo de reset-password continua pendente;
 - production secrets must be rotated regularly and must never be committed.
+
+## Recuperação segura de senha
+
+A recuperação de senha está implementada no código com token de uso único, expiração curta, persistência apenas do hash, rate limiting durável, consumo transacional e revogação de todas as sessões anteriores. A entrega é provider-neutral e permanece desabilitada por padrão até PR operacional específico; portanto, nenhum e-mail real é enviado sem configuração futura. Nenhuma alteração foi realizada em staging ou production.
