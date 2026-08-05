@@ -98,7 +98,7 @@ export async function sendTransactionalEmail(
       html: input.html,
       text: input.text,
       idempotencyKey,
-      replyTo: configuration.replyTo,
+      ...(configuration.replyTo ? { replyTo: configuration.replyTo } : {}),
     });
     const sentAt = new Date();
     await prisma.transactionalEmailDelivery.update({
