@@ -216,6 +216,18 @@ enum AuditOutcome {
   FAILED
 }
 
+enum CommercialPlanStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum CommercialPlanCycle {
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
 enum TransactionalEmailKind {
   PASSWORD_RESET
   EMAIL_VERIFICATION
@@ -932,9 +944,28 @@ model Integration {
   @@index([tenantId, status])
 }
 
+model CommercialPlan {
+  id            String               @id @default(uuid()) @db.Uuid
+  code          String               @unique
+  name          String
+  status        CommercialPlanStatus @default(ACTIVE)
+  cycle         CommercialPlanCycle
+  priceCents    Int
+  trialDays     Int                  @default(0)
+  maxClinics    Int?
+  maxUsers      Int?
+  features      Json?
+  createdAt     DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime             @updatedAt @db.Timestamptz(3)
+  subscriptions Subscription[]
+
+  @@index([status, priceCents])
+}
+
 model Subscription {
   id                     String             @id @default(uuid()) @db.Uuid
   tenantId               String             @db.Uuid
+  commercialPlanId       String?            @db.Uuid
   provider               BillingProvider
   externalCustomerId     String?
   externalSubscriptionId String?
@@ -952,12 +983,14 @@ model Subscription {
   createdAt              DateTime           @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime           @updatedAt @db.Timestamptz(3)
   tenant                 Tenant             @relation(fields: [tenantId], references: [id])
+  commercialPlan         CommercialPlan?    @relation(fields: [commercialPlanId], references: [id], onDelete: SetNull)
   payments               Payment[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, provider, externalSubscriptionId])
   @@unique([tenantId, provider, externalReference])
   @@index([tenantId, status])
+  @@index([commercialPlanId, status])
 }
 
 model Payment {

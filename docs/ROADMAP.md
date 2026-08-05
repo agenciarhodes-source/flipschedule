@@ -95,3 +95,7 @@ Implementados no código: contrato provider-neutral, adapter Resend protegido po
 ## PR 44 — verificação do e-mail principal
 
 Implementado no código: verificação manual e opcional do e-mail principal por Better Auth, template local, entrega transacional idempotente, timestamp de confirmação, interface de conta e testes. O login continua permitido para contas ainda não verificadas. Não executados: ativação do Resend, envio real, configuração de domínio, DNS, webhook externo, staging externo ou production.
+
+## PR 48 — governança de clientes e acessos
+
+Implementado no código: distinção entre operador da plataforma e usuário tenant-scoped, entrada de operadores em `/admin`, estado de acesso pendente, catálogo comercial, cadastro transacional de clínicas-clientes, proprietário com senha temporária, atribuição manual de plano, entitlement, suspensão e arquivamento auditados, além de workflow manual para promover o primeiro PLATFORM_OWNER. Não executados: promoção em production, migration externa, criação de clientes reais, cobrança Asaas ou envio de credenciais.
