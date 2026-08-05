@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { SessionInactivityGuard } from "@/components/auth/session-inactivity-guard";
 import { StagingBanner } from "@/components/layout/staging-banner";
@@ -56,17 +57,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     );
   } catch (error) {
     if (error instanceof PlatformAccessDeniedError) {
-      return (
-        <main className="mx-auto max-w-lg p-8">
-          <h1 className="text-2xl font-semibold">Acesso negado</h1>
-          <p className="mt-2 text-ink-muted">
-            Sua sessão não possui autorização para administrar a plataforma.
-          </p>
-          <Link className="mt-5 inline-block text-primary underline" href="/login">
-            Voltar ao login
-          </Link>
-        </main>
-      );
+      redirect("/login?reason=login-required");
     }
     throw error;
   }
