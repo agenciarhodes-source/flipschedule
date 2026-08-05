@@ -2,8 +2,8 @@
 
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Eyebrow } from "@/components/shared/eyebrow";
 import { authClient } from "@/lib/auth/client";
@@ -20,6 +20,7 @@ function getInitialFeedback(reason: string | null) {
 }
 
 export function LoginPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const requestedCallback = searchParams.get("callbackURL");
   const callbackURL =
@@ -28,8 +29,8 @@ export function LoginPageContent() {
       : "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isPreparing, setIsPreparing] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const resetPromiseRef = useRef<Promise<void>>(Promise.resolve());
   const [feedback, setFeedback] = useState<string | null>(() =>
     getInitialFeedback(searchParams.get("reason")),
   );
@@ -37,23 +38,14 @@ export function LoginPageContent() {
   const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
 
   useEffect(() => {
-    let active = true;
     clearTabSession();
-
-    async function resetPreviousSession() {
+    resetPromiseRef.current = (async () => {
       try {
         await authClient.signOut();
       } catch {
         // The login form remains available even when there was no previous session.
-      } finally {
-        if (active) setIsPreparing(false);
       }
-    }
-
-    void resetPreviousSession();
-    return () => {
-      active = false;
-    };
+    })();
   }, []);
 
   async function resolveDestinationAfterLogin() {
@@ -80,12 +72,13 @@ export function LoginPageContent() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isPreparing || isSubmitting) return;
+    if (isSubmitting) return;
 
     setIsSubmitting(true);
     setFeedback(null);
 
     try {
+      await resetPromiseRef.current;
       const response = await authClient.signIn.email({
         email: normalizedEmail,
         password,
@@ -100,7 +93,7 @@ export function LoginPageContent() {
 
       markTabSessionActivity();
       const destination = await resolveDestinationAfterLogin();
-      window.location.replace(destination);
+      router.replace(destination);
     } catch (error) {
       clearTabSession();
       try {
@@ -137,18 +130,18 @@ export function LoginPageContent() {
           <form className="mt-8 space-y-5" onSubmit={handleSubmit} aria-label="Formulário de acesso">
             <label className="block text-sm font-medium" htmlFor="email">
               E-mail
-              <input className="mt-2 min-h-12 w-full rounded-md border border-line bg-bg-alt px-4 text-ink placeholder:text-ink-dim disabled:opacity-60" id="email" name="email" type="email" autoComplete="email" placeholder="voce@clinica.com.br" value={email} onChange={(event) => setEmail(event.target.value)} disabled={isPreparing} required />
+              <input className="mt-2 min-h-12 w-full rounded-md border border-line bg-bg-alt px-4 text-ink placeholder:text-ink-dim" id="email" name="email" type="email" autoComplete="email" placeholder="voce@clinica.com.br" value={email} onChange={(event) => setEmail(event.target.value)} required />
             </label>
             <label className="block text-sm font-medium" htmlFor="password">
               Senha
-              <input className="mt-2 min-h-12 w-full rounded-md border border-line bg-bg-alt px-4 text-ink placeholder:text-ink-dim disabled:opacity-60" id="password" name="password" type="password" autoComplete="current-password" placeholder="Sua senha" value={password} onChange={(event) => setPassword(event.target.value)} disabled={isPreparing} required />
+              <input className="mt-2 min-h-12 w-full rounded-md border border-line bg-bg-alt px-4 text-ink placeholder:text-ink-dim" id="password" name="password" type="password" autoComplete="current-password" placeholder="Sua senha" value={password} onChange={(event) => setPassword(event.target.value)} required />
             </label>
             <div className="flex justify-end">
               <Link className="text-sm text-primary hover:underline" href="/forgot-password">Esqueci minha senha</Link>
             </div>
             {feedback ? <p className="rounded-md border border-warm/20 bg-warm/10 px-3 py-2 text-sm text-warm" role="alert">{feedback}</p> : null}
-            <button className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-70" type="submit" disabled={isPreparing || isSubmitting} aria-describedby="login-status">
-              {isPreparing ? "Preparando acesso…" : isSubmitting ? "Entrando…" : "Entrar"}
+            <button className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-70" type="submit" disabled={isSubmitting} aria-describedby="login-status">
+              {isSubmitting ? "Entrando…" : "Entrar"}
               <LockKeyhole aria-hidden="true" size={16} />
             </button>
             <p className="text-center text-xs text-ink-dim" id="login-status">Ao fechar esta aba, será necessário informar novamente o login e a senha. A sessão também expira após 1 hora sem atividade.</p>
