@@ -216,6 +216,21 @@ enum AuditOutcome {
   FAILED
 }
 
+enum TransactionalEmailKind {
+  PASSWORD_RESET
+}
+
+enum TransactionalEmailStatus {
+  PENDING
+  SENT
+  DELIVERED
+  DELIVERY_DELAYED
+  BOUNCED
+  COMPLAINED
+  SUPPRESSED
+  FAILED
+}
+
 model User {
   id                       String               @id @default(uuid()) @db.Uuid
   emailNormalized          String               @unique
@@ -241,16 +256,17 @@ model User {
 }
 
 model PasswordResetToken {
-  id         String    @id @default(uuid()) @db.Uuid
-  userId     String    @db.Uuid
-  purpose    String
-  tokenHash  String    @unique
-  expiresAt  DateTime  @db.Timestamptz(3)
-  consumedAt DateTime? @db.Timestamptz(3)
-  revokedAt  DateTime? @db.Timestamptz(3)
-  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                         String                      @id @default(uuid()) @db.Uuid
+  userId                     String                      @db.Uuid
+  purpose                    String
+  tokenHash                  String                      @unique
+  expiresAt                  DateTime                    @db.Timestamptz(3)
+  consumedAt                 DateTime?                   @db.Timestamptz(3)
+  revokedAt                  DateTime?                   @db.Timestamptz(3)
+  createdAt                  DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime                    @updatedAt @db.Timestamptz(3)
+  user                       User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactionalEmailDelivery TransactionalEmailDelivery?
 
   @@index([userId, expiresAt])
   @@index([expiresAt])
@@ -1087,4 +1103,56 @@ model SecurityRateLimitBucket {
   @@unique([scope, keyHash, windowStartedAt])
   @@index([blockedUntil])
   @@index([tenantId, scope, updatedAt])
+}
+
+model TransactionalEmailDelivery {
+  id                   String                   @id @default(uuid()) @db.Uuid
+  passwordResetTokenId String?                  @unique @db.Uuid
+  kind                 TransactionalEmailKind
+  provider             String
+  providerMessageId    String?                  @unique
+  idempotencyKey       String                   @unique
+  recipientFingerprint String
+  status               TransactionalEmailStatus @default(PENDING)
+  failureCode          String?
+  lastEventAt          DateTime?                @db.Timestamptz(3)
+  sentAt               DateTime?                @db.Timestamptz(3)
+  deliveredAt          DateTime?                @db.Timestamptz(3)
+  delayedAt            DateTime?                @db.Timestamptz(3)
+  bouncedAt            DateTime?                @db.Timestamptz(3)
+  complainedAt         DateTime?                @db.Timestamptz(3)
+  suppressedAt         DateTime?                @db.Timestamptz(3)
+  failedAt             DateTime?                @db.Timestamptz(3)
+  createdAt            DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                 @updatedAt @db.Timestamptz(3)
+  passwordResetToken   PasswordResetToken?      @relation(fields: [passwordResetTokenId], references: [id], onDelete: SetNull)
+
+  @@index([recipientFingerprint, status])
+  @@index([status, createdAt])
+}
+
+model TransactionalEmailWebhookEvent {
+  id                String    @id @default(uuid()) @db.Uuid
+  provider          String
+  providerEventId   String    @unique
+  eventType         String
+  providerMessageId String?
+  eventOccurredAt   DateTime? @db.Timestamptz(3)
+  processedAt       DateTime? @db.Timestamptz(3)
+  failureCode       String?
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([providerMessageId, eventOccurredAt])
+}
+
+model EmailSuppression {
+  id                   String    @id @default(uuid()) @db.Uuid
+  recipientFingerprint String
+  provider             String
+  reason               String
+  createdAt            DateTime  @default(now()) @db.Timestamptz(3)
+  liftedAt             DateTime? @db.Timestamptz(3)
+
+  @@unique([recipientFingerprint, provider])
+  @@index([provider, liftedAt])
 }

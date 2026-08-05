@@ -62,7 +62,8 @@
     "ops:validate-human-pilot-attestations": "tsx scripts/validate-human-pilot-attestations.ts",
     "ops:validate-staging-restore-identity": "tsx scripts/validate-staging-restore-identity.ts",
     "ops:staging-assisted-plan": "tsx scripts/ops-staging-assisted-plan.ts",
-    "ops:staging-assisted-report": "tsx scripts/ops-staging-assisted-report.ts"
+    "ops:staging-assisted-report": "tsx scripts/ops-staging-assisted-report.ts",
+    "ops:email-preflight": "NODE_OPTIONS=--conditions=react-server tsx scripts/ops-email-preflight.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "5.3.0",
@@ -81,6 +82,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "server-only": "0.0.1",
+    "svix": "1.99.1",
     "tailwind-merge": "2.6.0",
     "zod": "3.24.1"
   },

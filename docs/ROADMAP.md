@@ -87,3 +87,8 @@ Implementados e testáveis localmente: fechamento fail-closed dos blockers P1, p
 ## PR 42 — recuperação segura de senha
 
 Implementação local de recuperação segura de senha com token hashed, uso único, expiração, rate limiting durável e revogação de sessões. Entrega externa real permanece pendente de PR futuro de provedor; nenhuma mudança foi aplicada em staging ou production.
+
+## PR 43 — entrega transacional de e-mail
+
+Implementados no código: contrato provider-neutral, adapter Resend protegido por efeitos externos, template local de recuperação, idempotência, persistência minimizada, webhook assinado, deduplicação e suppression. Não executados: conta Resend, verificação de domínio, DNS, API key real, registro externo do webhook, envio real, staging externo ou production.
+
