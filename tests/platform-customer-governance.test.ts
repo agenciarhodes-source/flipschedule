@@ -92,6 +92,9 @@ describe("platform customer access governance", () => {
     expect(source).toContain("isolationLevel: \"Serializable\"");
     expect(source).toContain("platform.client.created");
     expect(source).not.toContain("password: data.temporaryPassword");
+    expect(source).toContain("endsAt: null");
+    expect(source).toContain('reasonCode: "OPERATOR_PROVIDED"');
+    expect(source).not.toContain("metadata: { reason: data.reason }");
   });
 
   it("adds a real plan catalog and subscription relation", () => {

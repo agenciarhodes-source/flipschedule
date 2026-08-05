@@ -121,7 +121,7 @@ async function assignPlanInTransaction(
       type: "PAID",
       status: "ACTIVE",
       startsAt,
-      endsAt,
+      endsAt: null,
       reason: `Plano ${input.plan.code} atribuído pela administração da plataforma`,
       grantedByUserId: input.actorUserId,
       metadata: { planId: input.plan.id, subscriptionId: subscription.id },
@@ -359,7 +359,7 @@ export class PlatformCustomerAdministrationService {
           resourceType: "Tenant",
           resourceId: tenant.id,
           outcome: "SUCCESS",
-          metadata: { reason: data.reason },
+          metadata: { reasonCode: "OPERATOR_PROVIDED" },
         },
       });
       return tenant;
