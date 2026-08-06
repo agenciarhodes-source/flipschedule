@@ -1,0 +1,63 @@
+name: One-time promote production platform owner
+
+on:
+  push:
+    branches:
+      - ops/promote-platform-owner-20260806
+    paths:
+      - .github/workflows/ops-promote-platform-owner-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flipschedule-production-platform-owner-promotion
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: ${{ github.repository == 'agenciarhodes-source/flipschedule' && github.ref == 'refs/heads/ops/promote-platform-owner-20260806' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Validate required production secrets
+        env:
+          NEON_PRODUCTION_DIRECT_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+          BOOTSTRAP_OWNER_EMAIL: ${{ secrets.BOOTSTRAP_OWNER_EMAIL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for secret_name in NEON_PRODUCTION_DIRECT_URL BOOTSTRAP_OWNER_EMAIL; do
+            if [ -z "${!secret_name}" ]; then
+              echo "Missing required production secret: ${secret_name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Confirm production schema is current
+        env:
+          DIRECT_DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+          DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+        run: pnpm db:migrate:production:status
+
+      - name: Promote configured user to platform owner
+        env:
+          APP_ENV: production
+          DIRECT_DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+          DATABASE_URL: ${{ secrets.NEON_PRODUCTION_DIRECT_URL }}
+          PLATFORM_OWNER_EMAIL: ${{ secrets.BOOTSTRAP_OWNER_EMAIL }}
+          PLATFORM_OWNER_CONFIRMATION: BOOTSTRAP_PLATFORM_OWNER
+        run: pnpm auth:bootstrap-platform-owner
