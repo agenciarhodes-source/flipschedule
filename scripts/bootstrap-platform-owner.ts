@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getPrismaClient } from "../lib/db";
 import { normalizeEmail } from "../lib/auth/utils";
 
+// Operational validation trigger for the isolated production-owner promotion PR.
 const schema = z.object({
   email: z.string().trim().email().transform(normalizeEmail),
   confirmation: z.literal("BOOTSTRAP_PLATFORM_OWNER"),
