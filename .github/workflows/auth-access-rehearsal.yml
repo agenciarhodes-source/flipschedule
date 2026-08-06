@@ -1,0 +1,76 @@
+name: Authentication access rehearsal
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: flipschedule_auth_rehearsal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d flipschedule_auth_rehearsal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      APP_ENV: test
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/flipschedule_auth_rehearsal
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/flipschedule_auth_rehearsal
+      BETTER_AUTH_URL: http://127.0.0.1:3000
+      BETTER_AUTH_TRUSTED_ORIGINS: http://127.0.0.1:3000
+      BETTER_AUTH_SECRET: auth-access-rehearsal-secret-with-more-than-thirty-two-characters
+      EXTERNAL_EFFECTS_MODE: DISABLED
+      EMAIL_PROVIDER: disabled
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate and generate Prisma
+        run: |
+          pnpm db:validate
+          pnpm db:generate
+
+      - name: Apply migrations to disposable database
+        run: pnpm db:migrate:deploy
+
+      - name: Run authentication access rehearsal
+        run: NODE_OPTIONS=--conditions=react-server pnpm exec tsx scripts/auth-access-rehearsal.ts
+
+      - name: Run focused authentication tests
+        run: >-
+          pnpm exec vitest run
+          tests/auth-access-matrix.test.ts
+          tests/auth-foundation.test.tsx
+          tests/session-lifecycle.test.ts
+          tests/password-recovery.test.ts
