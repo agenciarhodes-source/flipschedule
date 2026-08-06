@@ -18,6 +18,7 @@ const nav: ReadonlyArray<readonly [string, string]> = [
   ["/admin/plans", "Planos"],
   ["/admin/users", "Usuários"],
   ["/admin/subscriptions", "Assinaturas"],
+  ["/admin/email", "E-mails"],
   ["/admin/operations", "Operações"],
   ["/admin/audit", "Auditoria"],
   ["/admin/operators", "Operadores"],
