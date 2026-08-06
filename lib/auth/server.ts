@@ -17,6 +17,7 @@ import {
   SESSION_IDLE_TIMEOUT_SECONDS,
   SESSION_REFRESH_INTERVAL_SECONDS,
 } from "./session-policy";
+import { canUserSignIn } from "./sign-in-policy";
 import { normalizeEmail } from "./utils";
 
 export function createAuth(prisma?: PrismaClient) {
@@ -83,6 +84,17 @@ export function createAuth(prisma?: PrismaClient) {
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/sign-in/email") {
+          const requestedEmail =
+            typeof ctx.body?.email === "string" ? normalizeEmail(ctx.body.email) : "";
+          if (requestedEmail && !(await canUserSignIn(database, requestedEmail))) {
+            throw new APIError("UNAUTHORIZED", {
+              message: "Invalid email or password",
+            });
+          }
+          return;
+        }
+
         if (ctx.path !== "/send-verification-email") return;
 
         const session = await getSessionFromCtx(ctx);
