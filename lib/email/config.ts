@@ -22,13 +22,15 @@ export type TransactionalEmailConfiguration = DisabledEmailConfiguration | Resen
 const mailboxPattern = /^(?:[^<>\r\n]{1,100}\s*)?<[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>$|^[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+$/;
 const emailPattern = /^[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+$/;
 
-const resendSchema = z.object({
-  apiKey: z.string().trim().min(20).max(512),
-  from: z.string().trim().min(3).max(320).regex(mailboxPattern),
-  replyTo: z.string().trim().max(254).regex(emailPattern).optional(),
-  webhookSecret: z.string().trim().min(20).max(512).optional(),
-  recipientHashKey: z.string().min(32).max(512),
-}).strict();
+const resendSchema = z
+  .object({
+    apiKey: z.string().trim().min(20).max(512),
+    from: z.string().trim().min(3).max(320).regex(mailboxPattern),
+    replyTo: z.string().trim().max(254).regex(emailPattern).optional(),
+    webhookSecret: z.string().trim().min(20).max(512).optional(),
+    recipientHashKey: z.string().min(32).max(512),
+  })
+  .strict();
 
 export function getTransactionalEmailConfiguration(
   env: Record<string, string | undefined> = process.env,
@@ -82,4 +84,46 @@ export function describeTransactionalEmailConfiguration(
   } catch {
     return { provider: "invalid" as const, valid: false, webhookConfigured: false };
   }
+}
+
+export function describeTransactionalEmailOperationalReadiness(
+  env: Record<string, string | undefined> = process.env,
+) {
+  const providerValue = (env.EMAIL_PROVIDER ?? "disabled").trim().toLowerCase();
+  const senderValue = env.EMAIL_FROM?.trim() ?? "";
+  const replyToValue = env.EMAIL_REPLY_TO?.trim() ?? "";
+  const provider =
+    providerValue === "resend" ? "resend" : providerValue === "disabled" ? "disabled" : "invalid";
+  const apiKeyConfigured = Boolean(env.RESEND_API_KEY?.trim());
+  const senderConfigured = mailboxPattern.test(senderValue);
+  const replyToConfigured = !replyToValue || emailPattern.test(replyToValue);
+  const webhookConfigured = Boolean(env.RESEND_WEBHOOK_SECRET?.trim());
+  const recipientHashConfigured = (env.EMAIL_RECIPIENT_HASH_KEY?.length ?? 0) >= 32;
+  const externalEffectsMode = (env.EXTERNAL_EFFECTS_MODE ?? "DISABLED").trim().toUpperCase();
+  const externalEffectsEnabled = externalEffectsMode !== "DISABLED";
+  const valid =
+    provider === "disabled" ||
+    (provider === "resend" &&
+      apiKeyConfigured &&
+      senderConfigured &&
+      replyToConfigured &&
+      recipientHashConfigured);
+  const readyToSend = provider === "resend" && valid && externalEffectsEnabled;
+  const readyForWebhook = provider === "resend" && valid && webhookConfigured;
+
+  return {
+    provider,
+    valid,
+    readyToSend,
+    readyForWebhook,
+    externalEffectsMode,
+    checks: {
+      apiKeyConfigured,
+      senderConfigured,
+      replyToConfigured,
+      webhookConfigured,
+      recipientHashConfigured,
+      externalEffectsEnabled,
+    },
+  } as const;
 }
