@@ -17,6 +17,7 @@ import {
   SESSION_IDLE_TIMEOUT_SECONDS,
   SESSION_REFRESH_INTERVAL_SECONDS,
 } from "./session-policy";
+import { canUserCreateSession } from "./sign-in-policy";
 import { normalizeEmail } from "./utils";
 
 export function createAuth(prisma?: PrismaClient) {
@@ -121,6 +122,17 @@ export function createAuth(prisma?: PrismaClient) {
               },
               contextPath: context?.path,
             });
+          },
+        },
+      },
+      session: {
+        create: {
+          before: async (session) => {
+            if (!(await canUserCreateSession(database, session.userId))) {
+              throw new APIError("UNAUTHORIZED", {
+                message: "Invalid email or password",
+              });
+            }
           },
         },
       },
