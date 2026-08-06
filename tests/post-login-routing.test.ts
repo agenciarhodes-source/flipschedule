@@ -30,7 +30,9 @@ describe("post-login routing", () => {
     expect(route).toContain('"Cache-Control": "no-store"');
     expect(resolver).toContain('return "/admin"');
     expect(resolver).toContain("getAuth().api.getSession");
-    expect(resolver).toContain("resolveAuthenticatedUserContext(database, userId)");
+    expect(resolver).toContain("resolveAuthenticatedUserContext(");
+    expect(resolver).toContain("preferredTenantSlug");
+    expect(resolver).toContain("ACTIVE_TENANT_COOKIE");
     expect(resolver).toContain("resolvePostLoginDestinationForUser");
     expect(resolver).toContain("buildTenantDashboardPath(input.tenantSlug)");
     expect(resolver).not.toContain("searchParams");
