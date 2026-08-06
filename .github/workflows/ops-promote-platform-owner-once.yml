@@ -1,9 +1,13 @@
 name: One-time promote production platform owner
 
 on:
-  push:
+  pull_request:
     branches:
-      - ops/promote-platform-owner-20260806
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
     paths:
       - .github/workflows/ops-promote-platform-owner-once.yml
 
@@ -16,11 +20,15 @@ concurrency:
 
 jobs:
   promote:
-    if: ${{ github.repository == 'agenciarhodes-source/flipschedule' && github.ref == 'refs/heads/ops/promote-platform-owner-20260806' }}
+    if: ${{ github.repository == 'agenciarhodes-source/flipschedule' && github.head_ref == 'ops/promote-platform-owner-20260806' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     environment: production
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
