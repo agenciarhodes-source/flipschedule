@@ -50,7 +50,6 @@ function auditSearch(q: string): Prisma.AuditLogWhereInput {
     OR: [
       { action: { contains: q, mode: "insensitive" } },
       { resourceType: { contains: q, mode: "insensitive" } },
-      { resourceId: { contains: q, mode: "insensitive" } },
       { correlationId: { contains: q, mode: "insensitive" } },
       { tenant: { name: { contains: q, mode: "insensitive" } } },
       { tenant: { slug: { contains: q, mode: "insensitive" } } },
