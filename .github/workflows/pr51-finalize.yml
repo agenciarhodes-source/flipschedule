@@ -1,0 +1,625 @@
+name: Finalize PR 51 authentication access rehearsal
+
+on:
+  push:
+    branches:
+      - test/auth-access-rehearsal
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: flipschedule_auth_rehearsal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d flipschedule_auth_rehearsal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      APP_ENV: test
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/flipschedule_auth_rehearsal
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/flipschedule_auth_rehearsal
+      BETTER_AUTH_URL: http://127.0.0.1:3000
+      BETTER_AUTH_TRUSTED_ORIGINS: http://127.0.0.1:3000
+      BETTER_AUTH_SECRET: pr51-auth-rehearsal-secret-with-more-than-thirty-two-characters
+      EXTERNAL_EFFECTS_MODE: DISABLED
+      EMAIL_PROVIDER: disabled
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: test/auth-access-rehearsal
+          fetch-depth: 1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Implement PR 51
+        shell: bash
+        run: |
+          cat > lib/auth/sign-in-policy.ts <<'EOF'
+          import "server-only";
+
+          import type { PrismaClient } from "@/generated/prisma/client";
+          import { normalizeEmail } from "./utils";
+
+          type SignInPolicyDatabase = Pick<PrismaClient, "user">;
+
+          export async function canUserSignIn(
+            database: SignInPolicyDatabase,
+            email: string,
+          ) {
+            const normalizedEmail = normalizeEmail(email);
+            if (!normalizedEmail) return true;
+
+            const user = await database.user.findUnique({
+              where: { emailNormalized: normalizedEmail },
+              select: { status: true },
+            });
+
+            // Unknown accounts continue through Better Auth so the public response
+            // remains indistinguishable from an invalid password.
+            return !user || user.status === "ACTIVE";
+          }
+          EOF
+
+          cat > lib/auth/post-login-destination.ts <<'EOF'
+          import "server-only";
+
+          import { headers } from "next/headers";
+
+          import type { PrismaClient } from "@/generated/prisma/client";
+          import { getPrismaClient } from "@/lib/db/client";
+          import { AuthAccessDeniedError } from "./errors";
+          import { buildTenantDashboardPath } from "./post-login";
+          import { getAuth } from "./server";
+          import { resolveAuthenticatedUserContext } from "./session-resolution";
+
+          export type PostLoginDestinationInput = {
+            hasActivePlatformAccess: boolean;
+            firstAccessRequired?: boolean;
+            tenantSlug?: string;
+          };
+
+          export function selectPostLoginDestination(input: PostLoginDestinationInput) {
+            if (input.hasActivePlatformAccess) return "/admin";
+            if (input.firstAccessRequired) return "/first-access";
+            if (input.tenantSlug) return buildTenantDashboardPath(input.tenantSlug);
+            return "/access-pending";
+          }
+
+          export async function resolvePostLoginDestinationForUser(
+            database: PrismaClient,
+            userId: string,
+          ) {
+            const operator = await database.platformOperator.findUnique({
+              where: { userId },
+              select: {
+                status: true,
+                user: {
+                  select: {
+                    status: true,
+                    emailVerified: true,
+                    emailVerifiedAt: true,
+                  },
+                },
+              },
+            });
+            const hasActivePlatformAccess = Boolean(
+              operator &&
+                operator.status === "ACTIVE" &&
+                operator.user.status === "ACTIVE" &&
+                (operator.user.emailVerified || operator.user.emailVerifiedAt),
+            );
+            if (hasActivePlatformAccess) {
+              return selectPostLoginDestination({ hasActivePlatformAccess: true });
+            }
+
+            try {
+              const context = await resolveAuthenticatedUserContext(database, userId);
+              return selectPostLoginDestination({
+                hasActivePlatformAccess: false,
+                firstAccessRequired: context.firstAccessRequired,
+                ...(!context.firstAccessRequired ? { tenantSlug: context.tenantSlug } : {}),
+              });
+            } catch (error) {
+              if (error instanceof AuthAccessDeniedError) {
+                return selectPostLoginDestination({ hasActivePlatformAccess: false });
+              }
+              throw error;
+            }
+          }
+
+          export async function resolvePostLoginDestination() {
+            const session = await getAuth().api.getSession({ headers: await headers() });
+            if (!session?.user) return "/login";
+
+            return resolvePostLoginDestinationForUser(getPrismaClient(), session.user.id);
+          }
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('lib/auth/server.ts')
+          source = path.read_text()
+          source = source.replace(
+              'import { persistEmailVerifiedAt } from "./email-verification/state";\n',
+              'import { persistEmailVerifiedAt } from "./email-verification/state";\nimport { canUserSignIn } from "./sign-in-policy";\n',
+          )
+          old = '''      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/send-verification-email") return;
+
+        const session = await getSessionFromCtx(ctx);'''
+          new = '''      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/sign-in/email") {
+          const requestedEmail =
+            typeof ctx.body?.email === "string" ? normalizeEmail(ctx.body.email) : "";
+          if (requestedEmail && !(await canUserSignIn(database, requestedEmail))) {
+            throw new APIError("UNAUTHORIZED", {
+              message: "Invalid email or password",
+            });
+          }
+          return;
+        }
+
+        if (ctx.path !== "/send-verification-email") return;
+
+        const session = await getSessionFromCtx(ctx);'''
+          if old not in source:
+              raise SystemExit('Better Auth before hook block not found')
+          path.write_text(source.replace(old, new, 1))
+          PY
+
+          cat > scripts/auth-access-rehearsal.ts <<'EOF'
+          import "server-only";
+
+          import { PrismaPg } from "@prisma/adapter-pg";
+          import { hashPassword } from "better-auth/crypto";
+
+          import { PrismaClient } from "@/generated/prisma/client";
+          import { resolvePostLoginDestinationForUser } from "@/lib/auth/post-login-destination";
+          import { createAuth } from "@/lib/auth/server";
+
+          const baseUrl = "http://127.0.0.1:3000";
+          const testPassword = "Synthetic!Access51";
+
+          type Fixture = {
+            email: string;
+            expectedDestination?: string;
+            expectLoginDenied?: boolean;
+          };
+
+          function requireDatabaseUrl() {
+            const value = process.env.DATABASE_URL?.trim();
+            if (!value?.startsWith("postgresql://")) {
+              throw new Error("AUTH_REHEARSAL_DATABASE_REQUIRED");
+            }
+            return value;
+          }
+
+          function firstCookie(response: Response) {
+            const value = response.headers.get("set-cookie");
+            if (!value) throw new Error("AUTH_REHEARSAL_SESSION_COOKIE_MISSING");
+            return value.split(";", 1)[0]!;
+          }
+
+          async function createCredentialUser(
+            database: PrismaClient,
+            input: {
+              email: string;
+              name: string;
+              status?: "ACTIVE" | "SUSPENDED" | "DISABLED";
+              mustChangePassword?: boolean;
+            },
+          ) {
+            const user = await database.user.create({
+              data: {
+                emailNormalized: input.email,
+                displayName: input.name,
+                status: input.status ?? "ACTIVE",
+                emailVerified: true,
+                emailVerifiedAt: new Date(),
+                mustChangePassword: input.mustChangePassword ?? false,
+                ...(!input.mustChangePassword
+                  ? { firstAccessCompletedAt: new Date(), passwordChangedAt: new Date() }
+                  : {}),
+              },
+            });
+            await database.authAccount.create({
+              data: {
+                accountId: user.id,
+                providerId: "credential",
+                userId: user.id,
+                password: await hashPassword(testPassword),
+              },
+            });
+            return user;
+          }
+
+          async function attachTenant(
+            database: PrismaClient,
+            userId: string,
+            slug: string,
+            status: "ACTIVE" | "SUSPENDED" | "ARCHIVED" = "ACTIVE",
+          ) {
+            const tenant = await database.tenant.create({
+              data: {
+                name: `Clínica ${slug}`,
+                slug,
+                status,
+                timezone: "America/Sao_Paulo",
+              },
+            });
+            await database.clinic.create({
+              data: { tenantId: tenant.id, name: `Clínica ${slug}`, slug },
+            });
+            await database.membership.create({
+              data: {
+                tenantId: tenant.id,
+                userId,
+                role: "OWNER",
+                status: "ACTIVE",
+                acceptedAt: new Date(),
+              },
+            });
+            return tenant;
+          }
+
+          async function seed(database: PrismaClient): Promise<Fixture[]> {
+            const admin = await createCredentialUser(database, {
+              email: "admin-auth-51@example.test",
+              name: "Admin Sintético",
+            });
+            await database.platformOperator.create({
+              data: { userId: admin.id, role: "PLATFORM_OWNER", status: "ACTIVE" },
+            });
+
+            const tenantOwner = await createCredentialUser(database, {
+              email: "tenant-auth-51@example.test",
+              name: "Proprietário Sintético",
+            });
+            await attachTenant(database, tenantOwner.id, "clinica-auth-51");
+
+            const firstAccess = await createCredentialUser(database, {
+              email: "first-access-51@example.test",
+              name: "Primeiro Acesso Sintético",
+              mustChangePassword: true,
+            });
+            await attachTenant(database, firstAccess.id, "primeiro-acesso-51");
+
+            const suspendedUser = await createCredentialUser(database, {
+              email: "suspended-user-51@example.test",
+              name: "Usuário Suspenso",
+              status: "SUSPENDED",
+            });
+            await attachTenant(database, suspendedUser.id, "usuario-suspenso-51");
+
+            const suspendedTenantUser = await createCredentialUser(database, {
+              email: "suspended-tenant-51@example.test",
+              name: "Cliente Suspenso",
+            });
+            await attachTenant(database, suspendedTenantUser.id, "tenant-suspenso-51", "SUSPENDED");
+
+            const archivedTenantUser = await createCredentialUser(database, {
+              email: "archived-tenant-51@example.test",
+              name: "Cliente Arquivado",
+            });
+            await attachTenant(database, archivedTenantUser.id, "tenant-arquivado-51", "ARCHIVED");
+
+            return [
+              { email: admin.emailNormalized, expectedDestination: "/admin" },
+              { email: tenantOwner.emailNormalized, expectedDestination: "/clinica-auth-51/dashboard" },
+              { email: firstAccess.emailNormalized, expectedDestination: "/first-access" },
+              { email: suspendedUser.emailNormalized, expectLoginDenied: true },
+              { email: suspendedTenantUser.emailNormalized, expectedDestination: "/access-pending" },
+              { email: archivedTenantUser.emailNormalized, expectedDestination: "/access-pending" },
+            ];
+          }
+
+          async function callAuth(
+            auth: ReturnType<typeof createAuth>,
+            path: string,
+            init: RequestInit = {},
+            cookie?: string,
+          ) {
+            const headers = new Headers(init.headers);
+            headers.set("origin", baseUrl);
+            if (cookie) headers.set("cookie", cookie);
+            return auth.handler(
+              new Request(`${baseUrl}/api/auth${path}`, {
+                ...init,
+                headers,
+              }),
+            );
+          }
+
+          async function signIn(
+            auth: ReturnType<typeof createAuth>,
+            email: string,
+          ) {
+            return callAuth(auth, "/sign-in/email", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ email, password: testPassword, rememberMe: false }),
+            });
+          }
+
+          async function readSession(
+            auth: ReturnType<typeof createAuth>,
+            cookie: string,
+          ) {
+            const response = await callAuth(auth, "/get-session", { method: "GET" }, cookie);
+            if (!response.ok) return null;
+            const value = (await response.json()) as { user?: { id?: string } } | null;
+            return value?.user?.id ? value : null;
+          }
+
+          async function main() {
+            const database = new PrismaClient({
+              adapter: new PrismaPg({ connectionString: requireDatabaseUrl() }),
+            });
+            try {
+              const fixtures = await seed(database);
+              const auth = createAuth(database);
+
+              for (const fixture of fixtures) {
+                const response = await signIn(auth, fixture.email);
+                if (fixture.expectLoginDenied) {
+                  if (response.ok) throw new Error("AUTH_REHEARSAL_SUSPENDED_USER_ALLOWED");
+                  continue;
+                }
+                if (!response.ok) throw new Error("AUTH_REHEARSAL_LOGIN_FAILED");
+
+                const cookie = firstCookie(response);
+                const session = await readSession(auth, cookie);
+                if (!session?.user?.id) throw new Error("AUTH_REHEARSAL_SESSION_MISSING");
+                const destination = await resolvePostLoginDestinationForUser(
+                  database,
+                  session.user.id,
+                );
+                if (destination !== fixture.expectedDestination) {
+                  throw new Error("AUTH_REHEARSAL_DESTINATION_MISMATCH");
+                }
+
+                const signOut = await callAuth(auth, "/sign-out", { method: "POST" }, cookie);
+                if (!signOut.ok) throw new Error("AUTH_REHEARSAL_SIGN_OUT_FAILED");
+                if (await readSession(auth, cookie)) {
+                  throw new Error("AUTH_REHEARSAL_SESSION_SURVIVED_LOGOUT");
+                }
+              }
+
+              const active = fixtures.find((fixture) => fixture.email === "tenant-auth-51@example.test")!;
+              const response = await signIn(auth, active.email);
+              if (!response.ok) throw new Error("AUTH_REHEARSAL_EXPIRY_LOGIN_FAILED");
+              const cookie = firstCookie(response);
+              const session = await readSession(auth, cookie);
+              if (!session?.user?.id) throw new Error("AUTH_REHEARSAL_EXPIRY_SESSION_MISSING");
+              await database.authSession.updateMany({
+                where: { userId: session.user.id },
+                data: { expiresAt: new Date(Date.now() - 60_000) },
+              });
+              if (await readSession(auth, cookie)) {
+                throw new Error("AUTH_REHEARSAL_EXPIRED_SESSION_ALLOWED");
+              }
+
+              console.info(JSON.stringify({
+                status: "PASSED",
+                profilesChecked: fixtures.length,
+                logoutChecked: true,
+                expiryChecked: true,
+              }));
+            } finally {
+              await database.$disconnect();
+            }
+          }
+
+          main().catch((error: unknown) => {
+            const code = error instanceof Error && /^[A-Z0-9_]+$/.test(error.message)
+              ? error.message
+              : "AUTH_ACCESS_REHEARSAL_FAILED";
+            console.error(code);
+            process.exitCode = 1;
+          });
+          EOF
+
+          cat > tests/auth-access-matrix.test.ts <<'EOF'
+          import { readFileSync } from "node:fs";
+          import { describe, expect, it, vi } from "vitest";
+
+          vi.mock("server-only", () => ({}));
+
+          describe("authentication access matrix", () => {
+            it("routes each authenticated profile to the correct surface", async () => {
+              const { selectPostLoginDestination } = await import("@/lib/auth/post-login-destination");
+              expect(selectPostLoginDestination({ hasActivePlatformAccess: true })).toBe("/admin");
+              expect(selectPostLoginDestination({ hasActivePlatformAccess: false, firstAccessRequired: true })).toBe("/first-access");
+              expect(selectPostLoginDestination({ hasActivePlatformAccess: false, tenantSlug: "clinica-a" })).toBe("/clinica-a/dashboard");
+              expect(selectPostLoginDestination({ hasActivePlatformAccess: false })).toBe("/access-pending");
+            });
+
+            it("allows unknown and active identities through credential validation but blocks suspended identities", async () => {
+              const { canUserSignIn } = await import("@/lib/auth/sign-in-policy");
+              const database = (status: "ACTIVE" | "SUSPENDED" | "DISABLED" | null) => ({
+                user: {
+                  findUnique: vi.fn(async () => status ? { status } : null),
+                },
+              });
+              await expect(canUserSignIn(database(null) as never, "unknown@example.test")).resolves.toBe(true);
+              await expect(canUserSignIn(database("ACTIVE") as never, "active@example.test")).resolves.toBe(true);
+              await expect(canUserSignIn(database("SUSPENDED") as never, "suspended@example.test")).resolves.toBe(false);
+              await expect(canUserSignIn(database("DISABLED") as never, "disabled@example.test")).resolves.toBe(false);
+            });
+
+            it("keeps direct dashboard access behind the login screen", () => {
+              const dashboard = readFileSync("app/(platform)/dashboard/page.tsx", "utf8");
+              const login = readFileSync("components/auth/login-page-content.tsx", "utf8");
+              expect(dashboard).toContain('redirect("/login?reason=login-required")');
+              expect(login).toContain("markTabSessionActivity");
+              expect(login).toContain("rememberMe: false");
+            });
+
+            it("runs a permanent disposable PostgreSQL rehearsal", () => {
+              const workflow = readFileSync(".github/workflows/auth-access-rehearsal.yml", "utf8");
+              expect(workflow).toContain("postgres:17");
+              expect(workflow).toContain("pnpm ops:auth-access-rehearsal");
+              expect(workflow).toContain("EXTERNAL_EFFECTS_MODE: DISABLED");
+              const script = readFileSync("scripts/auth-access-rehearsal.ts", "utf8");
+              expect(script).toContain("AUTH_REHEARSAL_SUSPENDED_USER_ALLOWED");
+              expect(script).toContain("AUTH_REHEARSAL_EXPIRED_SESSION_ALLOWED");
+              expect(script).toContain("resolvePostLoginDestinationForUser");
+            });
+          });
+          EOF
+
+          cat > .github/workflows/auth-access-rehearsal.yml <<'EOF'
+          name: Authentication access rehearsal
+
+          on:
+            pull_request:
+            push:
+              branches: [main]
+
+          permissions:
+            contents: read
+
+          jobs:
+            rehearse:
+              runs-on: ubuntu-24.04
+              timeout-minutes: 20
+              services:
+                postgres:
+                  image: postgres:17
+                  env:
+                    POSTGRES_USER: postgres
+                    POSTGRES_PASSWORD: postgres
+                    POSTGRES_DB: flipschedule_auth_rehearsal
+                  ports:
+                    - 5432:5432
+                  options: >-
+                    --health-cmd "pg_isready -U postgres -d flipschedule_auth_rehearsal"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 20
+              env:
+                APP_ENV: test
+                NODE_ENV: test
+                DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/flipschedule_auth_rehearsal
+                DIRECT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/flipschedule_auth_rehearsal
+                BETTER_AUTH_URL: http://127.0.0.1:3000
+                BETTER_AUTH_TRUSTED_ORIGINS: http://127.0.0.1:3000
+                BETTER_AUTH_SECRET: auth-access-rehearsal-secret-with-more-than-thirty-two-characters
+                EXTERNAL_EFFECTS_MODE: DISABLED
+                EMAIL_PROVIDER: disabled
+              steps:
+                - uses: actions/checkout@v4
+                - uses: pnpm/action-setup@v4
+                  with:
+                    version: 10.28.1
+                - uses: actions/setup-node@v4
+                  with:
+                    node-version: 22
+                    cache: pnpm
+                - run: pnpm install --frozen-lockfile
+                - run: pnpm db:validate && pnpm db:generate
+                - run: pnpm db:migrate:deploy
+                - run: pnpm ops:auth-access-rehearsal
+                - run: pnpm exec vitest run tests/auth-access-matrix.test.ts tests/auth-foundation.test.tsx tests/session-lifecycle.test.ts tests/password-recovery.test.ts
+          EOF
+
+          cat > docs/AUTH_ACCESS_REHEARSAL.md <<'EOF'
+          # Ensaio de autenticação e acessos
+
+          O PR 51 estabelece um ensaio permanente e descartável para a matriz de autenticação do FlipSchedule.
+
+          ## Perfis verificados
+
+          - operador ativo da plataforma, com destino `/admin`;
+          - proprietário ativo de clínica, com destino `/{tenantSlug}/dashboard`;
+          - usuário de clínica com senha temporária, com destino `/first-access`;
+          - usuário suspenso, impedido de criar sessão;
+          - usuário de tenant suspenso, direcionado para `/access-pending`;
+          - usuário de tenant arquivado, direcionado para `/access-pending`.
+
+          O ensaio também confirma logout, invalidação de sessão expirada, política de uma hora sem atividade e comportamento por aba coberto pela suíte de interface.
+
+          ## Segurança operacional
+
+          O workflow usa PostgreSQL 17 descartável, credenciais exclusivamente sintéticas `@example.test`, segredo efêmero e `EXTERNAL_EFFECTS_MODE=DISABLED`. Nenhum e-mail, cobrança, webhook ou ambiente externo é acionado.
+
+          A política de login retorna uma falha genérica para usuários suspensos ou desabilitados. Contas inexistentes continuam no fluxo normal de validação de credenciais para evitar enumeração.
+          EOF
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          package_path = Path('package.json')
+          package = json.loads(package_path.read_text())
+          package['scripts']['ops:auth-access-rehearsal'] = 'NODE_OPTIONS=--conditions=react-server tsx scripts/auth-access-rehearsal.ts'
+          package_path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + '\n')
+
+          readme_path = Path('docs/README.md')
+          readme = readme_path.read_text()
+          item = '- [`AUTH_ACCESS_REHEARSAL.md`](AUTH_ACCESS_REHEARSAL.md): ensaio descartável da matriz de autenticação e acessos.'
+          if item not in readme:
+              readme_path.write_text(readme.rstrip() + '\n' + item + '\n')
+
+          roadmap_path = Path('docs/ROADMAP.md')
+          roadmap = roadmap_path.read_text()
+          heading = '## PR 51 — estabilização de autenticação e acessos'
+          if heading not in roadmap:
+              roadmap_path.write_text(roadmap.rstrip() + '\n\n' + heading + '\n\nImplementado no código: bloqueio de login para usuários suspensos/desabilitados, resolução testável do destino pós-login e rehearsal permanente com PostgreSQL descartável para Admin, usuário de clínica, primeiro acesso, tenants suspensos/arquivados, logout e expiração de sessão. Nenhum ambiente externo ou dado real é utilizado.\n')
+          PY
+
+      - name: Format and validate Prisma
+        run: |
+          pnpm db:format
+          pnpm db:validate
+          pnpm db:generate
+
+      - name: Apply migrations to disposable database
+        run: pnpm db:migrate:deploy
+
+      - name: Run authentication rehearsal
+        run: pnpm ops:auth-access-rehearsal
+
+      - name: Run targeted tests
+        run: pnpm exec vitest run tests/auth-access-matrix.test.ts tests/auth-foundation.test.tsx tests/session-lifecycle.test.ts tests/password-recovery.test.ts
+
+      - name: Run full quality gate
+        run: pnpm check
+
+      - name: Remove temporary workflow
+        run: rm .github/workflows/pr51-finalize.yml
+
+      - name: Commit finalized PR 51
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test: establish authentication access rehearsal"
+          git push origin HEAD:test/auth-access-rehearsal
