@@ -172,7 +172,6 @@ export class PlatformOperationsReader {
       where.OR = [
         { action: { contains: q, mode: "insensitive" } },
         { resourceType: { contains: q, mode: "insensitive" } },
-        { resourceId: { contains: q, mode: "insensitive" } },
         { correlationId: { contains: q, mode: "insensitive" } },
       ];
     }
