@@ -11,6 +11,7 @@ import type {
 import type { PlatformContext } from "@/domains/application/platform";
 import { requirePlatformPermission } from "@/domains/application/platform";
 
+// Keep platform operational listings bounded and consistent across both queues.
 const pageSize = 20;
 const pageSchema = z.coerce.number().int().min(1).catch(1);
 const textSchema = z.string().trim().max(120).catch("");
