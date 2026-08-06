@@ -100,7 +100,7 @@ export function describeTransactionalEmailOperationalReadiness(
   const webhookConfigured = Boolean(env.RESEND_WEBHOOK_SECRET?.trim());
   const recipientHashConfigured = (env.EMAIL_RECIPIENT_HASH_KEY?.length ?? 0) >= 32;
   const externalEffectsMode = (env.EXTERNAL_EFFECTS_MODE ?? "DISABLED").trim().toUpperCase();
-  const externalEffectsEnabled = externalEffectsMode !== "DISABLED";
+  const externalEffectsEnabled = externalEffectsMode === "SANDBOX";
   const valid =
     provider === "disabled" ||
     (provider === "resend" &&
