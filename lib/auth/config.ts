@@ -35,14 +35,26 @@ function validateOrigin(raw: string, secure: boolean) {
   }
 }
 
-function resolveVercelOrigin(env: Environment) {
-  const host =
-    env.VERCEL_ENV === "production"
-      ? firstConfigured(env.VERCEL_PROJECT_PRODUCTION_URL, env.VERCEL_URL)
-      : firstConfigured(env.VERCEL_URL, env.VERCEL_PROJECT_PRODUCTION_URL);
+function asHttpsOrigin(host: string | undefined) {
+  const value = host?.trim();
+  if (!value) return undefined;
+  return value.startsWith("http://") || value.startsWith("https://")
+    ? value
+    : `https://${value}`;
+}
 
-  if (!host) return undefined;
-  return host.startsWith("http://") || host.startsWith("https://") ? host : `https://${host}`;
+function resolveVercelOrigins(env: Environment) {
+  const productionOrigin = asHttpsOrigin(env.VERCEL_PROJECT_PRODUCTION_URL);
+  const deploymentOrigin = asHttpsOrigin(env.VERCEL_URL);
+  const branchOrigin = asHttpsOrigin(env.VERCEL_BRANCH_URL);
+
+  return env.VERCEL_ENV === "production"
+    ? [productionOrigin, deploymentOrigin]
+    : [deploymentOrigin, branchOrigin];
+}
+
+function resolveVercelOrigin(env: Environment) {
+  return resolveVercelOrigins(env).find((value): value is string => Boolean(value));
 }
 
 export function resolveAuthBaseURL(env: Environment, secure: boolean) {
@@ -77,10 +89,13 @@ export function readAuthConfig(env: Environment = process.env) {
     env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",")
       .map((value) => value.trim())
       .filter(Boolean) ?? [];
+  const runtimeOrigins = resolveVercelOrigins(env).filter(
+    (value): value is string => Boolean(value),
+  );
   const trustedOrigins = [
     ...new Set(
-      (configuredOrigins.length > 0 ? configuredOrigins : isSecureRuntime ? [baseURL] : []).map(
-        (value) => validateOrigin(value, isSecureRuntime),
+      [baseURL, ...configuredOrigins, ...runtimeOrigins].map((value) =>
+        validateOrigin(value, isSecureRuntime),
       ),
     ),
   ];

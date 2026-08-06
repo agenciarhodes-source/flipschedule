@@ -29,18 +29,21 @@ describe("auth configuration", () => {
     });
   });
 
-  it("derives the production origin from Vercel system variables", () => {
+  it("trusts both the production alias and immutable Vercel deployment", () => {
     const config = readAuthConfig({
       APP_ENV: "production",
       BETTER_AUTH_SECRET: "configured-secret-0123456789abcdef",
       VERCEL_ENV: "production",
       VERCEL_PROJECT_PRODUCTION_URL: "flipschedule.vercel.app",
-      VERCEL_URL: "flipschedule-build-hash.vercel.app",
+      VERCEL_URL: "flipschedule-7yp3bqopd-agenciarhodes-2076s-projects.vercel.app",
     });
 
     expect(config).toMatchObject({
       baseURL: "https://flipschedule.vercel.app",
-      trustedOrigins: ["https://flipschedule.vercel.app"],
+      trustedOrigins: [
+        "https://flipschedule.vercel.app",
+        "https://flipschedule-7yp3bqopd-agenciarhodes-2076s-projects.vercel.app",
+      ],
     });
   });
 
@@ -50,13 +53,35 @@ describe("auth configuration", () => {
       BETTER_AUTH_SECRET: "configured-secret-0123456789abcdef",
       VERCEL_ENV: "preview",
       VERCEL_URL: "flipschedule-preview.vercel.app",
+      VERCEL_BRANCH_URL: "flipschedule-git-feature.vercel.app",
       VERCEL_PROJECT_PRODUCTION_URL: "flipschedule.vercel.app",
     });
 
     expect(config).toMatchObject({
       baseURL: "https://flipschedule-preview.vercel.app",
-      trustedOrigins: ["https://flipschedule-preview.vercel.app"],
+      trustedOrigins: [
+        "https://flipschedule-preview.vercel.app",
+        "https://flipschedule-git-feature.vercel.app",
+      ],
     });
+  });
+
+  it("keeps configured origins and exact Vercel runtime origins", () => {
+    const config = readAuthConfig({
+      APP_ENV: "production",
+      BETTER_AUTH_SECRET: "configured-secret-0123456789abcdef",
+      BETTER_AUTH_URL: "https://flipschedule.vercel.app",
+      BETTER_AUTH_TRUSTED_ORIGINS: "https://app.flipschedule.com.br",
+      VERCEL_ENV: "production",
+      VERCEL_PROJECT_PRODUCTION_URL: "flipschedule.vercel.app",
+      VERCEL_URL: "flipschedule-deployment.vercel.app",
+    });
+
+    expect(config.trustedOrigins).toEqual([
+      "https://flipschedule.vercel.app",
+      "https://app.flipschedule.com.br",
+      "https://flipschedule-deployment.vercel.app",
+    ]);
   });
 
   it("supports the existing AUTH_SECRET during the environment migration", () => {
@@ -85,6 +110,7 @@ describe("auth configuration", () => {
     expect(readAuthConfig({ NODE_ENV: "test" })).toMatchObject({
       secret: "dev-only-secret",
       baseURL: "http://localhost:3000",
+      trustedOrigins: ["http://localhost:3000"],
       isProduction: false,
     });
   });
