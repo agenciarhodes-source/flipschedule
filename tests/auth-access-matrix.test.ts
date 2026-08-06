@@ -25,9 +25,9 @@ describe("authentication access matrix", () => {
     );
   });
 
-  it("keeps unknown and active identities in credential validation but blocks inactive identities", async () => {
-    const { canUserSignIn } = await import("@/lib/auth/sign-in-policy");
-    type Database = Parameters<typeof canUserSignIn>[0];
+  it("allows session creation only for active users", async () => {
+    const { canUserCreateSession } = await import("@/lib/auth/sign-in-policy");
+    type Database = Parameters<typeof canUserCreateSession>[0];
 
     const database = (status: "ACTIVE" | "SUSPENDED" | "DISABLED" | null) =>
       ({
@@ -36,14 +36,16 @@ describe("authentication access matrix", () => {
         },
       }) as unknown as Database;
 
-    await expect(canUserSignIn(database(null), "unknown@example.test")).resolves.toBe(true);
-    await expect(canUserSignIn(database("ACTIVE"), "active@example.test")).resolves.toBe(true);
+    await expect(canUserCreateSession(database("ACTIVE"), "active-user")).resolves.toBe(
+      true,
+    );
     await expect(
-      canUserSignIn(database("SUSPENDED"), "suspended@example.test"),
+      canUserCreateSession(database("SUSPENDED"), "suspended-user"),
     ).resolves.toBe(false);
     await expect(
-      canUserSignIn(database("DISABLED"), "disabled@example.test"),
+      canUserCreateSession(database("DISABLED"), "disabled-user"),
     ).resolves.toBe(false);
+    await expect(canUserCreateSession(database(null), "missing-user")).resolves.toBe(false);
   });
 
   it("keeps direct dashboard access behind the login screen", () => {
@@ -58,6 +60,7 @@ describe("authentication access matrix", () => {
   it("runs a permanent disposable PostgreSQL rehearsal", () => {
     const workflow = readFileSync(".github/workflows/auth-access-rehearsal.yml", "utf8");
     const script = readFileSync("scripts/auth-access-rehearsal.ts", "utf8");
+    const authServer = readFileSync("lib/auth/server.ts", "utf8");
 
     expect(workflow).toContain("postgres:17");
     expect(workflow).toContain("scripts/auth-access-rehearsal.ts");
@@ -65,5 +68,7 @@ describe("authentication access matrix", () => {
     expect(script).toContain("AUTH_REHEARSAL_SUSPENDED_USER_ALLOWED");
     expect(script).toContain("AUTH_REHEARSAL_EXPIRED_SESSION_ALLOWED");
     expect(script).toContain("resolvePostLoginDestinationForUser");
+    expect(authServer).toContain("databaseHooks:");
+    expect(authServer).toContain("canUserCreateSession(database, session.userId)");
   });
 });
