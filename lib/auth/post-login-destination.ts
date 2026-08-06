@@ -2,11 +2,12 @@ import "server-only";
 
 import { headers } from "next/headers";
 
+import type { PrismaClient } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/client";
 import { AuthAccessDeniedError } from "./errors";
 import { buildTenantDashboardPath } from "./post-login";
 import { getAuth } from "./server";
-import { getAuthenticatedSessionContext } from "./session";
+import { resolveAuthenticatedUserContext } from "./session-resolution";
 
 export type PostLoginDestinationInput = {
   hasActivePlatformAccess: boolean;
@@ -21,12 +22,12 @@ export function selectPostLoginDestination(input: PostLoginDestinationInput) {
   return "/access-pending";
 }
 
-export async function resolvePostLoginDestination() {
-  const session = await getAuth().api.getSession({ headers: await headers() });
-  if (!session?.user) return "/login";
-
-  const operator = await getPrismaClient().platformOperator.findUnique({
-    where: { userId: session.user.id },
+export async function resolvePostLoginDestinationForUser(
+  database: PrismaClient,
+  userId: string,
+) {
+  const operator = await database.platformOperator.findUnique({
+    where: { userId },
     select: {
       status: true,
       user: {
@@ -49,7 +50,7 @@ export async function resolvePostLoginDestination() {
   }
 
   try {
-    const context = await getAuthenticatedSessionContext();
+    const context = await resolveAuthenticatedUserContext(database, userId);
     return selectPostLoginDestination({
       hasActivePlatformAccess: false,
       firstAccessRequired: context.firstAccessRequired,
@@ -61,4 +62,11 @@ export async function resolvePostLoginDestination() {
     }
     throw error;
   }
+}
+
+export async function resolvePostLoginDestination() {
+  const session = await getAuth().api.getSession({ headers: await headers() });
+  if (!session?.user) return "/login";
+
+  return resolvePostLoginDestinationForUser(getPrismaClient(), session.user.id);
 }
