@@ -8,8 +8,10 @@ import { hasPermission } from "@/domains/application/rbac";
 import { actionFailure, type ActionResult } from "@/domains/application/actions";
 import { mapAppointmentStatus } from "@/domains/application/mappers";
 import type { AppointmentStatus } from "@/domains/application/view-models";
+import { CommercialPlanUsageError, commercialUsageMessage } from "@/domains/application/billing/commercial-entitlements";
 import { getPrismaClient } from "@/lib/db";
 import { PilotSyntheticDataError, validateSyntheticClinicalInput } from "@/domains/pilot/data-policy";
+import { assertTenantClinicCapacity } from "@/domains/infrastructure/prisma/commercial-entitlements";
 
 const uuid = z.string().uuid();
 const label = z.string().trim().min(2).max(120);
@@ -19,6 +21,7 @@ type Tx = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction"
 function validation(error: z.ZodError): ActionResult<never> { return actionFailure("VALIDATION_ERROR", "Revise os campos informados.", Object.fromEntries(Object.entries(error.flatten().fieldErrors).filter((entry): entry is [string, string[]] => Boolean(entry[1])))); }
 function unavailable(): ActionResult<never> { return actionFailure("UNAVAILABLE", "Não foi possível concluir a operação. Tente novamente."); }
 function pilotGuard(input: Record<string, unknown>): ActionResult<never> | null { try { validateSyntheticClinicalInput(input); return null; } catch (error) { if (error instanceof PilotSyntheticDataError) return actionFailure("VALIDATION_ERROR", "PILOT_SYNTHETIC_DATA_REQUIRED"); throw error; } }
+function commercialConflict(error: unknown): ActionResult<never> | null { return error instanceof CommercialPlanUsageError ? actionFailure("CONFLICT", commercialUsageMessage(error)) : null; }
 
 abstract class TenantService {
   protected readonly prisma: PrismaClient;
@@ -29,8 +32,8 @@ abstract class TenantService {
 
 const clinicSchema = z.object({ name: label, slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80), timezoneOverride: z.string().trim().max(80).nullable().default(null), active: z.boolean().default(true) });
 export class ClinicService extends TenantService {
-  async create(input: unknown) { const denied=this.denied(); if(denied)return denied; const p=clinicSchema.safeParse(input); if(!p.success)return validation(p.error); try { return await this.prisma.$transaction(async tx=>{const row=await tx.clinic.create({data:{tenantId:this.context.tenantId,name:p.data.name,slug:p.data.slug,timezoneOverride:p.data.timezoneOverride,status:p.data.active?"ACTIVE":"INACTIVE"},select:{id:true}});await this.audit(tx,"clinic.create","Clinic",row.id);return {ok:true,data:row} as const;}); } catch{return unavailable();} }
-  async update(id:string,input:unknown){const denied=this.denied();if(denied)return denied;const p=clinicSchema.safeParse(input);if(!p.success)return validation(p.error);try{return await this.prisma.$transaction(async tx=>{const exists=await tx.clinic.findFirst({where:{id,tenantId:this.context.tenantId},select:{id:true}});if(!exists)return actionFailure("NOT_FOUND","Unidade não encontrada.");await tx.clinic.update({where:{id},data:{name:p.data.name,slug:p.data.slug,timezoneOverride:p.data.timezoneOverride,status:p.data.active?"ACTIVE":"INACTIVE"}});await this.audit(tx,"clinic.update","Clinic",id);return {ok:true,data:{id}} as const;});}catch{return unavailable();}}
+  async create(input: unknown) { const denied=this.denied(); if(denied)return denied; const p=clinicSchema.safeParse(input); if(!p.success)return validation(p.error); try { return await this.prisma.$transaction(async tx=>{if(p.data.active)await assertTenantClinicCapacity(tx,this.context.tenantId);const row=await tx.clinic.create({data:{tenantId:this.context.tenantId,name:p.data.name,slug:p.data.slug,timezoneOverride:p.data.timezoneOverride,status:p.data.active?"ACTIVE":"INACTIVE"},select:{id:true}});await this.audit(tx,"clinic.create","Clinic",row.id);return {ok:true,data:row} as const;},{isolationLevel:"Serializable"}); } catch(error){return commercialConflict(error)??unavailable();} }
+  async update(id:string,input:unknown){const denied=this.denied();if(denied)return denied;const p=clinicSchema.safeParse(input);if(!p.success)return validation(p.error);try{return await this.prisma.$transaction(async tx=>{const exists=await tx.clinic.findFirst({where:{id,tenantId:this.context.tenantId},select:{id:true,status:true}});if(!exists)return actionFailure("NOT_FOUND","Unidade não encontrada.");if(p.data.active&&exists.status!=="ACTIVE")await assertTenantClinicCapacity(tx,this.context.tenantId);await tx.clinic.update({where:{id},data:{name:p.data.name,slug:p.data.slug,timezoneOverride:p.data.timezoneOverride,status:p.data.active?"ACTIVE":"INACTIVE"}});await this.audit(tx,"clinic.update","Clinic",id);return {ok:true,data:{id}} as const;},{isolationLevel:"Serializable"});}catch(error){return commercialConflict(error)??unavailable();}}
 }
 
 const professionalSchema=z.object({name:label,specialty:label,registrationNumber:z.string().trim().max(40).nullable().default(null),registrationRegion:z.string().trim().max(20).nullable().default(null),color:z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().default(null),active:z.boolean().default(true),clinicIds:z.array(uuid).min(1)});
