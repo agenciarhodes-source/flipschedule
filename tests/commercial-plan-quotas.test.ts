@@ -76,6 +76,33 @@ describe("commercial plan quotas", () => {
     expect(team).toContain("clinicCount !== clinicIds.length");
   });
 
+  it("blocks assigning a plan below current reserved tenant usage", () => {
+    const customerService = readFileSync(
+      "domains/infrastructure/platform/customer-service.ts",
+      "utf8",
+    );
+    const adminActions = readFileSync(
+      "app/(platform-admin)/admin/clients/actions.ts",
+      "utf8",
+    );
+    const adminPage = readFileSync(
+      "app/(platform-admin)/admin/clients/page.tsx",
+      "utf8",
+    );
+    expect(customerService).toContain("lockCommercialQuota(tx, tenant.id)");
+    expect(customerService).toContain("readCommercialPlanCapacity(tx, tenant.id)");
+    expect(customerService).toContain(
+      "commercialQuotaAllows(capacity.clinics.active, plan.maxClinics, 0)",
+    );
+    expect(customerService).toContain(
+      "commercialQuotaAllows(capacity.users.reserved, plan.maxUsers, 0)",
+    );
+    expect(customerService).toContain("PLAN_CLINIC_LIMIT_BELOW_USAGE");
+    expect(customerService).toContain("PLAN_USER_LIMIT_BELOW_USAGE");
+    expect(adminActions).toContain('return "plan-capacity"');
+    expect(adminPage).toContain('"plan-capacity"');
+  });
+
   it("shows plan capacity while preserving clinic access administration", () => {
     const settings = readFileSync(
       "components/modules/settings/real-settings-view.tsx",
