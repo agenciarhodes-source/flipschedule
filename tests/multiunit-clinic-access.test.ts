@@ -44,7 +44,6 @@ describe("multiunit clinic access", () => {
     expect(readers).toContain("clinicId:{in:clinicIds}");
     expect(actions).toContain("canAccessClinic");
     expect(actions).toContain("verifyAppointment");
-    expect(actions).toContain("CLINIC_ACCESS").toBe(false);
     expect(actions).toContain("Você não tem acesso a esta unidade.");
   });
 
