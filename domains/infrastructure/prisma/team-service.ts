@@ -4,7 +4,9 @@ import { z } from "zod";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import type { ApplicationContext, MembershipRole } from "@/domains/application/context";
 import { actionFailure, type ActionResult } from "@/domains/application/actions";
+import { CommercialPlanUsageError, commercialUsageMessage } from "@/domains/application/billing/commercial-entitlements";
 import { hasPermission, type Permission } from "@/domains/application/rbac";
+import { assertTenantUserCapacity } from "@/domains/infrastructure/prisma/commercial-entitlements";
 import { getPrismaClient } from "@/lib/db";
 import { normalizeEmail } from "@/lib/auth/utils";
 
@@ -14,6 +16,7 @@ const appUrl = (process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(
 const digest = (token: string) => createHash("sha256").update(token).digest("hex");
 const denied = () => actionFailure("ACCESS_DENIED", "Você não tem permissão para administrar a equipe.");
 const tenantWideRole = (role: MembershipRole) => role === "OWNER" || role === "MANAGER";
+const commercialConflict = (error: unknown): ActionResult<never> | null => error instanceof CommercialPlanUsageError ? actionFailure("CONFLICT", commercialUsageMessage(error)) : null;
 
 export class TeamService {
   constructor(private readonly context: ApplicationContext, private readonly prisma: PrismaClient = getPrismaClient()) {}
@@ -47,6 +50,7 @@ export class TeamService {
         ]);
         if (member || pending) throw new Error("DUPLICATE");
         if (!tenantWideRole(parsed.data.role) && clinicCount !== clinicIds.length) throw new Error("CLINIC_SCOPE_INVALID");
+        await assertTenantUserCapacity(tx, this.context.tenantId, { reservePendingInvitations: true });
         const row = await tx.tenantInvitation.create({ data: { tenantId: this.context.tenantId, emailNormalized, role: parsed.data.role, tokenHash: digest(token), expiresAt, invitedByMembershipId: this.context.membershipId }, select: { id: true } });
         if (!tenantWideRole(parsed.data.role)) {
           await tx.tenantInvitationClinicAccess.createMany({ data: clinicIds.map((clinicId) => ({ tenantId: this.context.tenantId, invitationId: row.id, clinicId })), skipDuplicates: true });
@@ -58,7 +62,7 @@ export class TeamService {
     } catch (error) {
       if (error instanceof Error && error.message === "DUPLICATE") return actionFailure("CONFLICT", "Já existe acesso ou convite pendente para este e-mail.");
       if (error instanceof Error && error.message === "CLINIC_SCOPE_INVALID") return actionFailure("VALIDATION_ERROR", "Uma das unidades selecionadas não está disponível.");
-      return actionFailure("UNAVAILABLE", "Não foi possível criar o convite.");
+      return commercialConflict(error) ?? actionFailure("UNAVAILABLE", "Não foi possível criar o convite.");
     }
   }
   async rotate(id: string) {
@@ -70,7 +74,7 @@ export class TeamService {
   private async invitationMutation(id: string, permission: Permission, action: string, data: { revokedAt: Date }) { if (!this.allows(permission) || !idSchema.safeParse(id).success) return denied(); try { return await this.prisma.$transaction(async tx => { const row=await tx.tenantInvitation.findFirst({where:{id,tenantId:this.context.tenantId,acceptedAt:null,revokedAt:null},select:{id:true}});if(!row)return actionFailure("NOT_FOUND","Convite não encontrado.");await tx.tenantInvitation.update({where:{id},data});await this.audit(tx,action,"TenantInvitation",id);return {ok:true as const,data:{id}};}); } catch { return actionFailure("UNAVAILABLE","Não foi possível revogar o convite."); } }
   async updateRole(id: string, role: unknown) { if (!this.allows("team.update_role")) return denied(); const parsed=editableRole.safeParse(role);if(!parsed.success||!idSchema.safeParse(id).success)return actionFailure("VALIDATION_ERROR","Papel inválido.");return this.changeMember(id,"team.member.role_changed",{role:parsed.data}); }
   async setStatus(id: string, status: "ACTIVE"|"SUSPENDED"|"REVOKED") { const permission=status==="SUSPENDED"?"team.suspend":"team.revoke";if(!this.allows(permission))return denied();return this.changeMember(id,`team.member.${status.toLowerCase()}`,{status}); }
-  private async changeMember(id:string,action:string,data:{role?:MembershipRole;status?:"ACTIVE"|"SUSPENDED"|"REVOKED"}) { if(!idSchema.safeParse(id).success)return actionFailure("VALIDATION_ERROR","Membro inválido.");try{return await this.prisma.$transaction(async tx=>{const target=await tx.membership.findFirst({where:{id,tenantId:this.context.tenantId},select:{id:true,role:true,status:true}});if(!target)return actionFailure("NOT_FOUND","Membro não encontrado.");if(target.role==="OWNER"&&(data.role||data.status&&data.status!=="ACTIVE")){const owners=await tx.membership.count({where:{tenantId:this.context.tenantId,role:"OWNER",status:"ACTIVE"}});if(owners<=1)return actionFailure("CONFLICT","A organização deve manter ao menos um proprietário ativo.");}await tx.membership.update({where:{id},data});await this.audit(tx,action,"Membership",id,data);return {ok:true as const,data:{id}};},{isolationLevel:"Serializable"});}catch{return actionFailure("UNAVAILABLE","Não foi possível alterar o membro.");}}
+  private async changeMember(id:string,action:string,data:{role?:MembershipRole;status?:"ACTIVE"|"SUSPENDED"|"REVOKED"}) { if(!idSchema.safeParse(id).success)return actionFailure("VALIDATION_ERROR","Membro inválido.");try{return await this.prisma.$transaction(async tx=>{const target=await tx.membership.findFirst({where:{id,tenantId:this.context.tenantId},select:{id:true,role:true,status:true}});if(!target)return actionFailure("NOT_FOUND","Membro não encontrado.");if(target.role==="OWNER"&&(data.role||data.status&&data.status!=="ACTIVE")){const owners=await tx.membership.count({where:{tenantId:this.context.tenantId,role:"OWNER",status:"ACTIVE"}});if(owners<=1)return actionFailure("CONFLICT","A organização deve manter ao menos um proprietário ativo.");}if(data.status==="ACTIVE"&&target.status!=="ACTIVE")await assertTenantUserCapacity(tx,this.context.tenantId);await tx.membership.update({where:{id},data});await this.audit(tx,action,"Membership",id,data);return {ok:true as const,data:{id}};},{isolationLevel:"Serializable"});}catch(error){return commercialConflict(error)??actionFailure("UNAVAILABLE","Não foi possível alterar o membro.");}}
   async transferOwnership(targetId:string,confirmation:unknown){if(!this.allows("team.transfer_ownership"))return denied();const parsed=z.string().trim().safeParse(confirmation);if(!parsed.success||!idSchema.safeParse(targetId).success)return actionFailure("VALIDATION_ERROR","Confirmação inválida.");try{return await this.prisma.$transaction(async tx=>{const tenant=await tx.tenant.findUnique({where:{id:this.context.tenantId},select:{name:true}});if(!tenant||parsed.data!==tenant.name)return actionFailure("VALIDATION_ERROR","Digite exatamente o nome da organização para confirmar.");const target=await tx.membership.findFirst({where:{id:targetId,tenantId:this.context.tenantId,status:"ACTIVE"},select:{id:true}});if(!target||target.id===this.context.membershipId)return actionFailure("CONFLICT","Selecione outro membro ativo.");await tx.membership.update({where:{id:target.id},data:{role:"OWNER"}});await tx.membership.update({where:{id:this.context.membershipId},data:{role:"MANAGER"}});await this.audit(tx,"team.ownership.transferred","Membership",target.id,{previousOwnerMembershipId:this.context.membershipId});return {ok:true as const,data:{id:target.id}};},{isolationLevel:"Serializable"});}catch{return actionFailure("UNAVAILABLE","Não foi possível transferir a propriedade.");}}
 }
 
@@ -79,22 +83,27 @@ export class PublicInvitationService {
   async inspect(token: string) { if (token.length < 32) return null; const row=await this.prisma.tenantInvitation.findFirst({where:{tokenHash:digest(token),acceptedAt:null,revokedAt:null,expiresAt:{gt:new Date()}},select:{emailNormalized:true,role:true,expiresAt:true,tenant:{select:{name:true}}}});if(!row)return null;const [local,domain]=row.emailNormalized.split("@");return {...row,emailMasked:`${local?.slice(0,1)??"*"}***@${domain}`}; }
   async accept(token:string,user:{id:string;email:string}) {
     if(token.length<32)return actionFailure("NOT_FOUND","Convite inválido ou expirado.");
-    return this.prisma.$transaction(async tx=>{
-      const invite=await tx.tenantInvitation.findFirst({where:{tokenHash:digest(token),acceptedAt:null,revokedAt:null,expiresAt:{gt:new Date()}},select:{id:true,tenantId:true,emailNormalized:true,role:true,tenant:{select:{slug:true}}}});
-      if(!invite)return actionFailure("NOT_FOUND","Convite inválido ou expirado.");
-      if(normalizeEmail(user.email)!==invite.emailNormalized)return actionFailure("ACCESS_DENIED","Entre com a conta correspondente ao convite.");
-      const existing=await tx.membership.findUnique({where:{tenantId_userId:{tenantId:invite.tenantId,userId:user.id}},select:{id:true,status:true}});
-      if(existing?.status==="ACTIVE")return actionFailure("CONFLICT","Esta conta já faz parte da organização.");
-      const membership=existing?await tx.membership.update({where:{id:existing.id},data:{role:invite.role,status:"ACTIVE",acceptedAt:new Date()}}):await tx.membership.create({data:{tenantId:invite.tenantId,userId:user.id,role:invite.role,status:"ACTIVE",acceptedAt:new Date()},select:{id:true}});
-      if(!tenantWideRole(invite.role)) {
-        const scopes=await tx.tenantInvitationClinicAccess.findMany({where:{tenantId:invite.tenantId,invitationId:invite.id},select:{clinicId:true}});
-        if(scopes.length===0)return actionFailure("CONFLICT","O convite não possui unidades disponíveis. Solicite um novo convite.");
-        await tx.membershipClinicAccess.updateMany({where:{tenantId:invite.tenantId,membershipId:membership.id,active:true},data:{active:false}});
-        await tx.membershipClinicAccess.createMany({data:scopes.map(({clinicId})=>({tenantId:invite.tenantId,membershipId:membership.id,clinicId,active:true})),skipDuplicates:true});
-      }
-      await tx.tenantInvitation.update({where:{id:invite.id},data:{acceptedAt:new Date(),acceptedByUserId:user.id}});
-      await tx.auditLog.create({data:{tenantId:invite.tenantId,actorUserId:user.id,actorMembershipId:membership.id,action:"team.invitation.accepted",resourceType:"TenantInvitation",resourceId:invite.id,outcome:"SUCCESS",metadata:{clinicScoped:!tenantWideRole(invite.role)}}});
-      return {ok:true as const,data:{membershipId:membership.id,tenantSlug:invite.tenant.slug}};
-    },{isolationLevel:"Serializable"});
+    try {
+      return await this.prisma.$transaction(async tx=>{
+        const invite=await tx.tenantInvitation.findFirst({where:{tokenHash:digest(token),acceptedAt:null,revokedAt:null,expiresAt:{gt:new Date()}},select:{id:true,tenantId:true,emailNormalized:true,role:true,tenant:{select:{slug:true}}}});
+        if(!invite)return actionFailure("NOT_FOUND","Convite inválido ou expirado.");
+        if(normalizeEmail(user.email)!==invite.emailNormalized)return actionFailure("ACCESS_DENIED","Entre com a conta correspondente ao convite.");
+        const existing=await tx.membership.findUnique({where:{tenantId_userId:{tenantId:invite.tenantId,userId:user.id}},select:{id:true,status:true}});
+        if(existing?.status==="ACTIVE")return actionFailure("CONFLICT","Esta conta já faz parte da organização.");
+        await assertTenantUserCapacity(tx,invite.tenantId);
+        const membership=existing?await tx.membership.update({where:{id:existing.id},data:{role:invite.role,status:"ACTIVE",acceptedAt:new Date()}}):await tx.membership.create({data:{tenantId:invite.tenantId,userId:user.id,role:invite.role,status:"ACTIVE",acceptedAt:new Date()},select:{id:true}});
+        if(!tenantWideRole(invite.role)) {
+          const scopes=await tx.tenantInvitationClinicAccess.findMany({where:{tenantId:invite.tenantId,invitationId:invite.id},select:{clinicId:true}});
+          if(scopes.length===0)return actionFailure("CONFLICT","O convite não possui unidades disponíveis. Solicite um novo convite.");
+          await tx.membershipClinicAccess.updateMany({where:{tenantId:invite.tenantId,membershipId:membership.id,active:true},data:{active:false}});
+          await tx.membershipClinicAccess.createMany({data:scopes.map(({clinicId})=>({tenantId:invite.tenantId,membershipId:membership.id,clinicId,active:true})),skipDuplicates:true});
+        }
+        await tx.tenantInvitation.update({where:{id:invite.id},data:{acceptedAt:new Date(),acceptedByUserId:user.id}});
+        await tx.auditLog.create({data:{tenantId:invite.tenantId,actorUserId:user.id,actorMembershipId:membership.id,action:"team.invitation.accepted",resourceType:"TenantInvitation",resourceId:invite.id,outcome:"SUCCESS",metadata:{clinicScoped:!tenantWideRole(invite.role)}}});
+        return {ok:true as const,data:{membershipId:membership.id,tenantSlug:invite.tenant.slug}};
+      },{isolationLevel:"Serializable"});
+    } catch(error) {
+      return commercialConflict(error)??actionFailure("UNAVAILABLE","Não foi possível aceitar o convite.");
+    }
   }
 }
