@@ -65,6 +65,12 @@ O catálogo `CommercialPlan` armazena código, nome, ciclo, preço, trial e limi
 
 A atribuição de plano pelo painel cria ou atualiza uma assinatura `MANUAL` e substitui o entitlement ativo da clínica. Isso não realiza cobrança externa e não aciona o Asaas.
 
+Os limites comerciais são aplicados no servidor. `maxClinics` controla a quantidade de unidades `ACTIVE`; `maxUsers` controla Memberships `ACTIVE`, e convites pendentes válidos reservam capacidade durante novos convites. Reativar unidade ou usuário revalida o respectivo limite. `null` representa capacidade ilimitada.
+
+Um plano não pode ser atribuído quando seus limites forem menores que o consumo ativo atual do tenant. Tenants legados ainda sem uma assinatura vinculada a `CommercialPlan` preservam o comportamento anterior até regularização administrativa. A política completa está em `COMMERCIAL_PLAN_ENTITLEMENTS.md`.
+
+O campo `features` ainda não possui chaves comerciais aprovadas e não é usado como feature gate neste estágio.
+
 ## Suspensão e arquivamento
 
 - `ACTIVE`: cliente operacional, sujeito às demais regras de entitlement e billing.
@@ -75,7 +81,7 @@ O painel não remove fisicamente clínicas ou dados clínicos.
 
 ## Usuários adicionais
 
-Depois que a clínica é criada, o proprietário e os gestores autorizados utilizam o fluxo de equipe do próprio tenant para convidar profissionais e colaboradores. O convite valida o e-mail e cria a Membership somente após aceite.
+Depois que a clínica é criada, o proprietário e os gestores autorizados utilizam o fluxo de equipe do próprio tenant para convidar profissionais e colaboradores. O convite valida o e-mail e cria a Membership somente após aceite. A criação de novos convites e o aceite são protegidos por `maxUsers` quando há plano comercial aplicável.
 
 ## Promoção inicial em produção
 
@@ -100,6 +106,8 @@ A execução revoga as sessões atuais. Depois dela, entre novamente em `/login`
 - senha temporária nunca é persistida em texto puro;
 - e-mails são mascarados nas listagens;
 - alterações de status e plano são auditadas;
+- limites de unidades e usuários são verificados no servidor e por tenant;
+- expansão e reativação sujeitas a limite usam transações serializáveis;
 - arquivamento preserva dados;
 - sessão expira após uma hora sem atividade;
 - login não cria cookie persistente de sessão lembrada;
