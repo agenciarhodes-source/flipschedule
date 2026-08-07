@@ -17,6 +17,12 @@ function errorCode(error: unknown) {
   if (error.message === "TENANT_SLUG_CONFLICT") return "slug-conflict";
   if (error.message === "OWNER_EMAIL_CONFLICT") return "email-conflict";
   if (error.message === "PLAN_NOT_ACTIVE") return "plan-inactive";
+  if (
+    error.message === "PLAN_CLINIC_LIMIT_BELOW_USAGE" ||
+    error.message === "PLAN_USER_LIMIT_BELOW_USAGE"
+  ) {
+    return "plan-capacity";
+  }
   if (error.message === "TENANT_NOT_FOUND") return "tenant-not-found";
   return "invalid";
 }

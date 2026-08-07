@@ -10,8 +10,13 @@ import type {
   PrismaClient,
   TenantStatus,
 } from "@/generated/prisma/client";
+import { commercialQuotaAllows } from "@/domains/application/commercial-quota";
 import type { PlatformContext } from "@/domains/application/platform";
 import { requirePlatformPermission } from "@/domains/application/platform";
+import {
+  lockCommercialQuota,
+  readCommercialPlanCapacity,
+} from "@/domains/infrastructure/prisma/commercial-plan-quota";
 import { passwordSchema } from "@/lib/auth/password-policy";
 import { normalizeEmail } from "@/lib/auth/utils";
 
@@ -299,6 +304,15 @@ export class PlatformCustomerAdministrationService {
         ]);
         if (!tenant) throw new Error("TENANT_NOT_FOUND");
         if (!plan || plan.status !== "ACTIVE") throw new Error("PLAN_NOT_ACTIVE");
+
+        await lockCommercialQuota(tx, tenant.id);
+        const capacity = await readCommercialPlanCapacity(tx, tenant.id);
+        if (!commercialQuotaAllows(capacity.clinics.active, plan.maxClinics, 0)) {
+          throw new Error("PLAN_CLINIC_LIMIT_BELOW_USAGE");
+        }
+        if (!commercialQuotaAllows(capacity.users.reserved, plan.maxUsers, 0)) {
+          throw new Error("PLAN_USER_LIMIT_BELOW_USAGE");
+        }
 
         const subscription = await assignPlanInTransaction(tx, {
           actorUserId: context.userId,
