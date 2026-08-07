@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma,PrismaClient } from "@/generated/prisma/client";
 import { ProviderAuthenticationError,ProviderPermanentError,ProviderRateLimitError,ProviderRegistry,ProviderTemporaryError,retryAt,systemClock,type Clock } from "@/domains/application/integrations";
-import { resolveCommercialPlanLink } from "@/domains/infrastructure/billing/commercial-plan-link";
+import { findCommercialPlanLink,requireCommercialPlanLink } from "@/domains/infrastructure/billing/commercial-plan-link";
 import { decryptField,encryptField } from "@/lib/security/field-encryption";
 import type { CredentialStore } from "./credential-store";
 
@@ -40,10 +40,10 @@ export class WebhookEventProcessor {
     if(!event.externalReference)throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");
     const checkout=await tx.billingCheckout.findFirst({where:{tenantId,provider:"ASAAS",externalReference:event.externalReference},select:{id:true,tenantId:true,planCode:true,cycle:true,externalReference:true}});
     if(!checkout||checkout.tenantId!==tenantId)throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");
-    const commercialPlan=await resolveCommercialPlanLink(tx,checkout.planCode);
+    const commercialPlan=await requireCommercialPlanLink(tx,checkout.planCode);
     const created=await tx.subscription.upsert({where:{tenantId_provider_externalSubscriptionId:{tenantId,provider:"ASAAS",externalSubscriptionId:event.externalSubscriptionId}},create:{tenantId,provider:"ASAAS",externalSubscriptionId:event.externalSubscriptionId,externalReference:checkout.externalReference,externalCustomerId:event.externalCustomerId??null,commercialPlanId:commercialPlan.id,planCode:checkout.planCode,billingType:checkout.cycle,status:event.status,providerStatus:event.providerStatus,lastSyncedAt:now},update:{commercialPlanId:commercialPlan.id,planCode:checkout.planCode,status:event.status,providerStatus:event.providerStatus,lastSyncedAt:now,...(event.externalCustomerId?{externalCustomerId:event.externalCustomerId}:{})},select:{id:true}});subscriptionId=created.id;
     await tx.billingCheckout.update({where:{id:checkout.id},data:{status:event.status==="ACTIVE"?"ACTIVE":"CREATED"}});
-   }else {const commercialPlan=existing.commercialPlanId?null:await resolveCommercialPlanLink(tx,existing.planCode);await tx.subscription.update({where:{id:subscriptionId},data:{status:event.status,providerStatus:event.providerStatus,lastSyncedAt:now,...(commercialPlan?{commercialPlanId:commercialPlan.id}:{}),...(event.externalCustomerId?{externalCustomerId:event.externalCustomerId}:{})}})}
+   }else {const commercialPlan=existing.commercialPlanId?null:await findCommercialPlanLink(tx,existing.planCode);await tx.subscription.update({where:{id:subscriptionId},data:{status:event.status,providerStatus:event.providerStatus,lastSyncedAt:now,...(commercialPlan?{commercialPlanId:commercialPlan.id}:{}),...(event.externalCustomerId?{externalCustomerId:event.externalCustomerId}:{})}})}
    await this.audit(tx,tenantId,"billing.webhook.subscription_applied","Subscription",correlationId);return;
   }
   if(event.type==="BillingPaymentChanged"){
