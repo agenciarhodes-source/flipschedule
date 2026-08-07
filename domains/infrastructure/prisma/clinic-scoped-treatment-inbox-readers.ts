@@ -212,10 +212,6 @@ function convo(row: ConversationRow) {
 
 function conversationScope(context: ApplicationContext) {
   const ids = scopedClinicIds(context);
-  const professional =
-    context.membershipRole === "PROFESSIONAL"
-      ? { lead: { professional: undefined } }
-      : null;
   if (ids !== null) {
     // A restricted unit can only open conversations attached to leads with an
     // explicit clinic. Patient-only conversations remain tenant-wide and are
@@ -290,7 +286,7 @@ export class ScopedConversationReader implements ConversationReader {
       messages: {
         where: { tenantId: this.context.tenantId },
         select: { bodyPreviewRedacted: true },
-        orderBy: [{ createdAt: "desc" as const }, { id: "desc" as const }],
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 1,
       },
       _count: {
@@ -300,7 +296,7 @@ export class ScopedConversationReader implements ConversationReader {
           },
         },
       },
-    } as const;
+    } satisfies Prisma.ConversationSelect;
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.conversation.findMany({
         where,
