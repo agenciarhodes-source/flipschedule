@@ -12,6 +12,7 @@ import type {
 } from "@/generated/prisma/client";
 import type { PlatformContext } from "@/domains/application/platform";
 import { requirePlatformPermission } from "@/domains/application/platform";
+import { assertPlanSupportsTenantUsage } from "@/domains/infrastructure/prisma/commercial-entitlements";
 import { passwordSchema } from "@/lib/auth/password-policy";
 import { normalizeEmail } from "@/lib/auth/utils";
 
@@ -299,6 +300,10 @@ export class PlatformCustomerAdministrationService {
         ]);
         if (!tenant) throw new Error("TENANT_NOT_FOUND");
         if (!plan || plan.status !== "ACTIVE") throw new Error("PLAN_NOT_ACTIVE");
+        await assertPlanSupportsTenantUsage(tx, tenant.id, {
+          maxClinics: plan.maxClinics,
+          maxUsers: plan.maxUsers,
+        });
 
         const subscription = await assignPlanInTransaction(tx, {
           actorUserId: context.userId,
