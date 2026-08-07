@@ -168,7 +168,7 @@ export class CommercialClinicService {
     tx: Prisma.TransactionClient,
     action: string,
     resourceId: string,
-    metadata?: Record<string, unknown>,
+    metadata?: Prisma.InputJsonValue,
   ) {
     await tx.auditLog.create({
       data: {
