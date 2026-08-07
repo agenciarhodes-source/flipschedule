@@ -1,8 +1,7 @@
 import "server-only";
 import type { ApplicationContext } from "@/domains/application/context";
 import { PrismaProcedureReader } from "./readers";
-import { ProcedureService, QuickPatientService } from "./services";
-import { PatientService } from "./crm-patient-services";
+import { ProcedureService } from "./services";
 import { OrganizationSettingsService, PrismaReportReader } from "./reports-settings";
 import {
   ScopedAppointmentReader,
@@ -27,6 +26,8 @@ import {
 import {
   ScopedConversationService,
   ScopedLeadService,
+  ScopedPatientService,
+  ScopedQuickPatientService,
   ScopedTreatmentPlanService,
 } from "./clinic-scoped-commercial-services";
 
@@ -55,8 +56,8 @@ export function createPrismaServices(context: ApplicationContext) {
     resources: new ScopedResourceService(context),
     workingHours: new ScopedWorkingHoursService(context),
     scheduleBlocks: new ScopedScheduleBlockService(context),
-    quickPatients: new QuickPatientService(context),
-    patients: new PatientService(context),
+    quickPatients: new ScopedQuickPatientService(context),
+    patients: new ScopedPatientService(context),
     leads: new ScopedLeadService(context),
     appointments: new ScopedAppointmentService(context),
     treatmentPlans: new ScopedTreatmentPlanService(context),
