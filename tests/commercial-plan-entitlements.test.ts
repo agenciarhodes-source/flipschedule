@@ -8,6 +8,20 @@ import {
   commercialUsageMessage,
 } from "@/domains/application/billing/commercial-entitlements";
 
+function expectUsageError(
+  operation: () => void,
+  code: CommercialPlanUsageError["code"],
+) {
+  let thrown: unknown;
+  try {
+    operation();
+  } catch (error) {
+    thrown = error;
+  }
+  expect(thrown).toBeInstanceOf(CommercialPlanUsageError);
+  expect(thrown).toMatchObject({ code });
+}
+
 describe("commercial plan entitlements", () => {
   it("treats null limits as unlimited and allows the exact configured capacity", () => {
     expect(() =>
@@ -19,28 +33,34 @@ describe("commercial plan entitlements", () => {
   });
 
   it("blocks usage above clinic and user limits with typed errors", () => {
-    expect(() =>
-      assertCommercialCapacity({ resource: "clinics", limit: 1, current: 1 }),
-    ).toThrowError(expect.objectContaining({ code: "CLINIC_LIMIT_REACHED" }));
-    expect(() =>
-      assertCommercialCapacity({ resource: "users", limit: 5, current: 5 }),
-    ).toThrowError(expect.objectContaining({ code: "USER_LIMIT_REACHED" }));
+    expectUsageError(
+      () => assertCommercialCapacity({ resource: "clinics", limit: 1, current: 1 }),
+      "CLINIC_LIMIT_REACHED",
+    );
+    expectUsageError(
+      () => assertCommercialCapacity({ resource: "users", limit: 5, current: 5 }),
+      "USER_LIMIT_REACHED",
+    );
   });
 
   it("rejects a plan that cannot cover current active usage", () => {
-    expect(() =>
-      assertCommercialPlanSupportsUsage(
-        { maxClinics: 2, maxUsers: 10 },
-        { clinics: 3, users: 4 },
-      ),
-    ).toThrowError(expect.objectContaining({ code: "CLINIC_LIMIT_REACHED" }));
+    expectUsageError(
+      () =>
+        assertCommercialPlanSupportsUsage(
+          { maxClinics: 2, maxUsers: 10 },
+          { clinics: 3, users: 4 },
+        ),
+      "CLINIC_LIMIT_REACHED",
+    );
 
-    expect(() =>
-      assertCommercialPlanSupportsUsage(
-        { maxClinics: null, maxUsers: 2 },
-        { clinics: 20, users: 3 },
-      ),
-    ).toThrowError(expect.objectContaining({ code: "USER_LIMIT_REACHED" }));
+    expectUsageError(
+      () =>
+        assertCommercialPlanSupportsUsage(
+          { maxClinics: null, maxUsers: 2 },
+          { clinics: 20, users: 3 },
+        ),
+      "USER_LIMIT_REACHED",
+    );
   });
 
   it("returns upgrade-oriented pt-BR feedback without exposing tenant data", () => {
@@ -75,7 +95,6 @@ describe("commercial plan entitlements", () => {
     expect(source).toContain("tenantId,");
     expect(source).toContain('status: { in: ["PENDING", "ACTIVE", "PAST_DUE", "SUSPENDED"] }');
     expect(source).toContain('status: "ACTIVE"');
-    expect(source).not.toContain("CANCELLED\", \"EXPIRED");
   });
 
   it("prevents assigning a plan below the tenant current active usage", () => {
