@@ -18,6 +18,8 @@ const feedback: Record<string, string> = {
   "slug-conflict": "Já existe uma clínica com esse identificador.",
   "email-conflict": "Esse e-mail já pertence a uma conta existente.",
   "plan-inactive": "Selecione um plano ativo.",
+  "plan-capacity":
+    "O plano selecionado não comporta o uso atual da clínica. Reduza unidades, acessos ou convites reservados antes do downgrade, ou escolha um plano com limites maiores.",
   "tenant-not-found": "A clínica não foi encontrada.",
   invalid: "Não foi possível concluir. Revise os dados e tente novamente.",
   unavailable: "O serviço está temporariamente indisponível.",
