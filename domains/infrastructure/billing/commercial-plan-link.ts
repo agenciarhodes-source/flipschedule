@@ -11,20 +11,28 @@ export type CommercialPlanLink = {
 };
 
 /**
- * Resolve a persisted billing plan code to the canonical commercial plan.
+ * Find the canonical commercial plan for a persisted billing code.
  *
  * Existing subscriptions may legitimately keep an archived plan, so lifecycle
- * reconciliation must resolve by the immutable commercial code without
- * requiring the plan to remain available for new sales.
+ * reconciliation resolves by the immutable commercial code without requiring
+ * the plan to remain available for new sales.
  */
-export async function resolveCommercialPlanLink(
+export function findCommercialPlanLink(
   db: DatabaseClient,
   planCode: string,
-): Promise<CommercialPlanLink> {
-  const plan = await db.commercialPlan.findUnique({
+): Promise<CommercialPlanLink | null> {
+  return db.commercialPlan.findUnique({
     where: { code: planCode },
     select: { id: true, code: true },
   });
+}
+
+/** New provider subscriptions must never materialize without a managed plan. */
+export async function requireCommercialPlanLink(
+  db: DatabaseClient,
+  planCode: string,
+): Promise<CommercialPlanLink> {
+  const plan = await findCommercialPlanLink(db, planCode);
   if (!plan) throw new ProviderPermanentError("COMMERCIAL_PLAN_UNRESOLVED");
   return plan;
 }
