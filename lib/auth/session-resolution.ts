@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { PrismaClient } from "@/generated/prisma/client";
+import { parseClinicAccess } from "@/domains/application/clinic-access";
 import { AuthAccessDeniedError } from "./errors";
 import { normalizeEmail } from "./utils";
 
@@ -31,6 +32,7 @@ export async function resolveAuthenticatedUserContext(
           tenantId: true,
           role: true,
           status: true,
+          clinicAccess: true,
           acceptedAt: true,
           createdAt: true,
           tenant: {
@@ -95,6 +97,7 @@ export async function resolveAuthenticatedUserContext(
     tenantStatus: activeMembership.tenant.status,
     membershipRole: activeMembership.role,
     membershipStatus: activeMembership.status,
+    clinicAccess: parseClinicAccess(activeMembership.clinicAccess, activeMembership.role),
     availableTenants: eligible
       .map((membership) => ({
         membershipId: membership.id,
