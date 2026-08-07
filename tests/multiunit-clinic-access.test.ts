@@ -16,7 +16,7 @@ describe("multiunit clinic access", () => {
     expect(hasTenantWideClinicAccess("AGENCY_OPS")).toBe(false);
   });
 
-  it("adds an explicit membership to clinic access model and safe backfill migration", () => {
+  it("adds explicit membership and invitation clinic scope with compatibility backfill", () => {
     const schema = readFileSync("prisma/access-scope.prisma", "utf8");
     const migration = readFileSync(
       "prisma/migrations/20260807010000_add_membership_clinic_access/migration.sql",
@@ -24,9 +24,13 @@ describe("multiunit clinic access", () => {
     );
 
     expect(schema).toContain("model MembershipClinicAccess");
+    expect(schema).toContain("model TenantInvitationClinicAccess");
     expect(schema).toContain("@@unique([membershipId, clinicId])");
+    expect(schema).toContain("@@unique([invitationId, clinicId])");
     expect(migration).toContain('CREATE TABLE "MembershipClinicAccess"');
+    expect(migration).toContain('CREATE TABLE "TenantInvitationClinicAccess"');
     expect(migration).toContain('JOIN "Clinic" c ON c."tenantId" = m."tenantId"');
+    expect(migration).toContain('JOIN "Clinic" c ON c."tenantId" = i."tenantId"');
     expect(migration).toContain("ON CONFLICT");
   });
 
@@ -64,6 +68,24 @@ describe("multiunit clinic access", () => {
     expect(service).toContain("Proprietários e gestores possuem acesso a todas as unidades");
     expect(settings).toContain("Acesso por unidade");
     expect(settings).toContain("updateMemberClinicAccess");
+  });
+
+  it("carries restricted clinic scopes from invitation to accepted membership", () => {
+    const teamService = readFileSync(
+      "domains/infrastructure/prisma/team-service.ts",
+      "utf8",
+    );
+    const teamSettings = readFileSync(
+      "components/modules/settings/team-settings.tsx",
+      "utf8",
+    );
+
+    expect(teamService).toContain("tenantInvitationClinicAccess.createMany");
+    expect(teamService).toContain("tenantInvitationClinicAccess.findMany");
+    expect(teamService).toContain("membershipClinicAccess.createMany");
+    expect(teamService).toContain("Selecione ao menos uma unidade para este papel");
+    expect(teamSettings).toContain("Unidades liberadas");
+    expect(teamSettings).toContain('name="clinicIds"');
   });
 
   it("uses Prisma multi-file schema consistently in development and deploy config", () => {
