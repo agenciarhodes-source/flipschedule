@@ -1,12 +1,114 @@
 "use client";
 import { useActionState, useState } from "react";
-import { inviteMember, revokeInvitation, rotateInvitation, transferOwnership, updateMemberRole, updateMemberStatus } from "@/app/(platform)/[tenantSlug]/team-actions";
+import {
+  inviteMember,
+  revokeInvitation,
+  rotateInvitation,
+  transferOwnership,
+  updateMemberClinicAccess,
+  updateMemberRole,
+  updateMemberStatus,
+} from "@/app/(platform)/[tenantSlug]/team-actions";
+
 type TeamData=NonNullable<Awaited<ReturnType<import("@/domains/infrastructure/prisma/team-service").TeamService["read"]>>>;
 const roles=["MANAGER","RECEPTIONIST","PROFESSIONAL","AGENCY_LEAD","AGENCY_OPS","AGENCY_READONLY"];
 const label:Record<string,string>={OWNER:"Proprietário",MANAGER:"Gestor",RECEPTIONIST:"Recepção",PROFESSIONAL:"Profissional",AGENCY_LEAD:"Agência (liderança)",AGENCY_OPS:"Agência (operação)",AGENCY_READONLY:"Agência (leitura)"};
 const field="min-h-10 rounded-md border border-line bg-bg-elev px-3 text-sm";
-export function TeamSettings({data,organizationName}:{data:TeamData;organizationName:string}){const [state,action,pending]=useActionState(inviteMember,null);return <section className="card-surface p-5 lg:col-span-2"><h2 className="font-display text-2xl">Equipe e acessos</h2><p className="mt-1 text-sm text-ink-muted">Convites são links manuais. Nenhum e-mail é enviado.</p><form action={action} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><input className={field} required type="email" name="email" placeholder="pessoa@exemplo.com" aria-label="E-mail do convite"/><select className={field} name="role" aria-label="Papel inicial">{roles.map(x=><option key={x} value={x}>{label[x]}</option>)}</select><button disabled={pending} className="rounded-md bg-primary px-4 text-sm text-primary-foreground">{pending?"Gerando…":"Gerar convite"}</button></form>{state&&!state.ok?<p role="alert" className="mt-2 text-sm text-warm">{state.message}</p>:null}{state?.ok?<CopyLink url={state.data.url}/>:null}<h3 className="mt-6 font-display text-xl">Membros</h3><div className="mt-2 space-y-2">{data.members.map(m=><div className="rounded-md border border-line p-3" key={m.id}><div><strong>{m.user.displayName}</strong><p className="text-xs text-ink-muted">{m.user.emailNormalized} · {label[m.role]} · {m.status}</p></div>{m.role!=="OWNER"?<div className="mt-2 flex flex-wrap gap-2"><Action action={updateMemberRole} id={m.id}><select name="role" defaultValue={m.role} className={field}>{roles.map(x=><option key={x} value={x}>{label[x]}</option>)}</select><button className={field}>Alterar papel</button></Action><Action action={updateMemberStatus} id={m.id} extra={{status:m.status==="ACTIVE"?"SUSPENDED":"ACTIVE"}} label={m.status==="ACTIVE"?"Suspender":"Reativar"}/><Action action={updateMemberStatus} id={m.id} extra={{status:"REVOKED"}} label="Revogar acesso"/><Action action={transferOwnership} id={m.id}><input className={field} name="confirmation" placeholder={organizationName} aria-label="Nome da organização para confirmação"/><button className={field}>Transferir propriedade</button></Action></div>:null}</div>)}</div><h3 className="mt-6 font-display text-xl">Convites</h3><div className="mt-2 space-y-2">{data.invitations.length?data.invitations.map(i=><div key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line p-3 text-sm"><span>{i.emailNormalized} · {label[i.role]} · {i.state} · expira em {i.expiresAt.toISOString().slice(0,10)}</span>{i.state==="PENDING"?<span className="flex gap-2"><RotateAction id={i.id}/><Action action={revokeInvitation} id={i.id} label="Revogar"/></span>:null}</div>):<p className="text-sm text-ink-dim">Nenhum convite.</p>}</div><details className="mt-6"><summary className="cursor-pointer font-display text-xl">Histórico de alterações</summary><ul className="mt-2 space-y-1 text-xs text-ink-muted">{data.history.map(h=><li key={h.id}>{h.occurredAt.toISOString()} · {h.action} · {h.resourceType}</li>)}</ul></details></section>}
-function Action({action,id,label:buttonLabel,extra,children}:{action:(state:unknown,data:FormData)=>Promise<unknown>;id:string;label?:string;extra?:Record<string,string>;children?:React.ReactNode}){const [,formAction,pending]=useActionState(action,null);return <form action={formAction} className="flex gap-1"><input type="hidden" name="id" value={id}/>{Object.entries(extra??{}).map(([k,v])=><input key={k} type="hidden" name={k} value={v}/>)}{children??<button disabled={pending} className={field}>{pending?"Processando…":buttonLabel}</button>}</form>}
-function CopyLink({url}:{url:string}){const [copied,setCopied]=useState(false);return <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 p-3"><p className="break-all text-xs">{url}</p><button type="button" className="mt-2 text-sm font-medium text-primary" onClick={async()=>{await navigator.clipboard.writeText(url);setCopied(true)}}>{copied?"Link copiado":"Copiar link manual"}</button></div>}
 
-function RotateAction({id}:{id:string}){const [state,action,pending]=useActionState(rotateInvitation,null);return <div><form action={action}><input type="hidden" name="id" value={id}/><button disabled={pending} className={field}>{pending?"Rotacionando…":"Rotacionar link"}</button></form>{state&&!state.ok?<p role="alert" className="mt-2 text-xs text-warm">{state.message}</p>:null}{state?.ok?<div><p role="status" className="mt-2 text-xs">O link anterior foi invalidado.</p><CopyLink url={state.data.url}/></div>:null}</div>}
+function ClinicScopeFields({data,defaultMode="ALL",defaultIds=[]}:{data:TeamData;defaultMode?:"ALL"|"SELECTED";defaultIds?:readonly string[]}){
+  return <div className="grid gap-2 rounded-md border border-line p-3 sm:col-span-full">
+    <label className="text-xs font-medium">Acesso às unidades
+      <select className={`${field} mt-1 w-full`} name="clinicAccessMode" defaultValue={defaultMode}>
+        <option value="ALL">Todas as unidades</option>
+        <option value="SELECTED">Somente unidades selecionadas</option>
+      </select>
+    </label>
+    <div className="flex flex-wrap gap-3">
+      {data.clinics.map(clinic=><label className="text-xs" key={clinic.id}><input type="checkbox" name="clinicIds" value={clinic.id} defaultChecked={defaultIds.includes(clinic.id)}/> {clinic.name}</label>)}
+    </div>
+    <p className="text-xs text-ink-dim">Ao escolher unidades selecionadas, marque pelo menos uma. Proprietários sempre mantêm acesso total.</p>
+  </div>
+}
+
+function scopeSummary(scope:{mode:"ALL"|"SELECTED";clinicIds:readonly string[]},data:TeamData){
+  if(scope.mode==="ALL")return "Todas as unidades";
+  const names=scope.clinicIds.map(id=>data.clinics.find(clinic=>clinic.id===id)?.name).filter(Boolean);
+  return names.length?names.join(", "):"Nenhuma unidade disponível";
+}
+
+export function TeamSettings({data,organizationName}:{data:TeamData;organizationName:string}){
+  const [state,action,pending]=useActionState(inviteMember,null);
+  return <section className="card-surface p-5 lg:col-span-2">
+    <h2 className="font-display text-2xl">Equipe e acessos</h2>
+    <p className="mt-1 text-sm text-ink-muted">Controle papéis e limite o acesso operacional por unidade. Links de convite continuam sendo de uso controlado.</p>
+
+    <form action={action} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+      <input className={field} required type="email" name="email" placeholder="pessoa@exemplo.com" aria-label="E-mail do convite"/>
+      <select className={field} name="role" aria-label="Papel inicial">{roles.map(x=><option key={x} value={x}>{label[x]}</option>)}</select>
+      <button disabled={pending} className="rounded-md bg-primary px-4 text-sm text-primary-foreground">{pending?"Gerando…":"Gerar convite"}</button>
+      <ClinicScopeFields data={data}/>
+    </form>
+    {state&&!state.ok?<p role="alert" className="mt-2 text-sm text-warm">{state.message}</p>:null}
+    {state?.ok?<CopyLink url={state.data.url}/>:null}
+
+    <h3 className="mt-6 font-display text-xl">Membros</h3>
+    <div className="mt-2 space-y-3">
+      {data.members.map(m=><div className="rounded-md border border-line p-3" key={m.id}>
+        <div>
+          <strong>{m.user.displayName}</strong>
+          <p className="text-xs text-ink-muted">{m.user.emailNormalized} · {label[m.role]} · {m.status}</p>
+          <p className="mt-1 text-xs text-ink-dim">Unidades: {scopeSummary(m.clinicAccess,data)}</p>
+        </div>
+        {m.role!=="OWNER"?<div className="mt-3 grid gap-3">
+          <div className="flex flex-wrap gap-2">
+            <Action action={updateMemberRole} id={m.id}>
+              <select name="role" defaultValue={m.role} className={field}>{roles.map(x=><option key={x} value={x}>{label[x]}</option>)}</select>
+              <button className={field}>Alterar papel</button>
+            </Action>
+            <Action action={updateMemberStatus} id={m.id} extra={{status:m.status==="ACTIVE"?"SUSPENDED":"ACTIVE"}} label={m.status==="ACTIVE"?"Suspender":"Reativar"}/>
+            <Action action={updateMemberStatus} id={m.id} extra={{status:"REVOKED"}} label="Revogar acesso"/>
+            <Action action={transferOwnership} id={m.id}>
+              <input className={field} name="confirmation" placeholder={organizationName} aria-label="Nome da organização para confirmação"/>
+              <button className={field}>Transferir propriedade</button>
+            </Action>
+          </div>
+          {data.canManageClinicAccess?<ClinicAccessAction member={m} data={data}/>:null}
+        </div>:null}
+      </div>)}
+    </div>
+
+    <h3 className="mt-6 font-display text-xl">Convites</h3>
+    <div className="mt-2 space-y-2">
+      {data.invitations.length?data.invitations.map(i=><div key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line p-3 text-sm">
+        <span>{i.emailNormalized} · {label[i.role]} · {i.state} · {scopeSummary(i.clinicAccess,data)} · expira em {i.expiresAt.toISOString().slice(0,10)}</span>
+        {i.state==="PENDING"?<span className="flex gap-2"><RotateAction id={i.id}/><Action action={revokeInvitation} id={i.id} label="Revogar"/></span>:null}
+      </div>):<p className="text-sm text-ink-dim">Nenhum convite.</p>}
+    </div>
+
+    <details className="mt-6"><summary className="cursor-pointer font-display text-xl">Histórico de alterações</summary><ul className="mt-2 space-y-1 text-xs text-ink-muted">{data.history.map(h=><li key={h.id}>{h.occurredAt.toISOString()} · {h.action} · {h.resourceType}</li>)}</ul></details>
+  </section>
+}
+
+function ClinicAccessAction({member,data}:{member:TeamData["members"][number];data:TeamData}){
+  const [,formAction,pending]=useActionState(updateMemberClinicAccess,null);
+  return <form action={formAction} className="grid gap-2">
+    <input type="hidden" name="id" value={member.id}/>
+    <ClinicScopeFields data={data} defaultMode={member.clinicAccess.mode} defaultIds={member.clinicAccess.clinicIds}/>
+    <button disabled={pending} className="justify-self-start rounded-md border border-line px-4 py-2 text-sm">{pending?"Salvando…":"Salvar unidades do membro"}</button>
+  </form>
+}
+
+function Action({action,id,label:buttonLabel,extra,children}:{action:(state:unknown,data:FormData)=>Promise<unknown>;id:string;label?:string;extra?:Record<string,string>;children?:React.ReactNode}){
+  const [,formAction,pending]=useActionState(action,null);
+  return <form action={formAction} className="flex gap-1"><input type="hidden" name="id" value={id}/>{Object.entries(extra??{}).map(([k,v])=><input key={k} type="hidden" name={k} value={v}/>)}{children??<button disabled={pending} className={field}>{pending?"Processando…":buttonLabel}</button>}</form>
+}
+
+function CopyLink({url}:{url:string}){
+  const [copied,setCopied]=useState(false);
+  return <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 p-3"><p className="break-all text-xs">{url}</p><button type="button" className="mt-2 text-sm font-medium text-primary" onClick={async()=>{await navigator.clipboard.writeText(url);setCopied(true)}}>{copied?"Link copiado":"Copiar link manual"}</button></div>
+}
+
+function RotateAction({id}:{id:string}){
+  const [state,action,pending]=useActionState(rotateInvitation,null);
+  return <div><form action={action}><input type="hidden" name="id" value={id}/><button disabled={pending} className={field}>{pending?"Rotacionando…":"Rotacionar link"}</button></form>{state&&!state.ok?<p role="alert" className="mt-2 text-xs text-warm">{state.message}</p>:null}{state?.ok?<div><p role="status" className="mt-2 text-xs">O link anterior foi invalidado.</p><CopyLink url={state.data.url}/></div>:null}</div>
+}
