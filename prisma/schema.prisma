@@ -408,6 +408,7 @@ model Membership {
   userId                  String                       @db.Uuid
   role                    MembershipRole
   status                  MembershipStatus             @default(INVITED)
+  clinicAccess            Json?
   invitedAt               DateTime                     @default(now()) @db.Timestamptz(3)
   acceptedAt              DateTime?                    @db.Timestamptz(3)
   createdAt               DateTime                     @default(now()) @db.Timestamptz(3)
@@ -436,6 +437,7 @@ model TenantInvitation {
   tenantId              String         @db.Uuid
   emailNormalized       String
   role                  MembershipRole
+  clinicAccess          Json?
   tokenHash             String         @unique
   expiresAt             DateTime       @db.Timestamptz(3)
   acceptedAt            DateTime?      @db.Timestamptz(3)
