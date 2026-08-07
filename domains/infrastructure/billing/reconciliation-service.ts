@@ -2,7 +2,7 @@ import "server-only";
 import type { Prisma,PrismaClient,SubscriptionStatus,PaymentStatus } from "@/generated/prisma/client";
 import type { BillingProviderAdapter,ProviderPayment } from "@/domains/application/billing";
 import { ProviderPermanentError } from "@/domains/application/integrations";
-import { resolveCommercialPlanLink } from "./commercial-plan-link";
+import { findCommercialPlanLink } from "./commercial-plan-link";
 const subscriptions:Readonly<Record<string,SubscriptionStatus>>={ACTIVE:"ACTIVE",PENDING:"PENDING",OVERDUE:"PAST_DUE",INACTIVE:"SUSPENDED",EXPIRED:"EXPIRED",DELETED:"CANCELLED"};
 const payments:Readonly<Record<string,PaymentStatus>>={PENDING:"PENDING",CONFIRMED:"CONFIRMED",RECEIVED:"RECEIVED",OVERDUE:"OVERDUE",REFUNDED:"REFUNDED",DELETED:"CANCELLED",CANCELLED:"CANCELLED",CREDIT_CARD_CAPTURE_REFUSED:"FAILED"};
 export const mapAsaasSubscriptionStatus=(value:string)=>subscriptions[value]??null;
@@ -11,7 +11,7 @@ export class AsaasBillingReconciliationService {
  constructor(private prisma:PrismaClient,private adapter:BillingProviderAdapter){}
  async reconcile(tenantId:string,subscriptionId:string,correlationId:string){
   const local=await this.prisma.subscription.findFirst({where:{id:subscriptionId,tenantId,provider:"ASAAS"},select:{id:true,externalSubscriptionId:true,currentPeriodStart:true,currentPeriodEnd:true,planCode:true,commercialPlanId:true}});if(!local?.externalSubscriptionId)throw new Error("RECONCILIATION_REQUIRED");
-  const commercialPlan=local.commercialPlanId?null:await resolveCommercialPlanLink(this.prisma,local.planCode);
+  const commercialPlan=local.commercialPlanId?null:await findCommercialPlanLink(this.prisma,local.planCode);
   const result=await this.adapter.reconcileSubscription(local.externalSubscriptionId,correlationId),status=mapAsaasSubscriptionStatus(result.subscription.status);if(!status){await this.prisma.subscription.updateMany({where:{id:local.id,tenantId},data:{providerStatus:result.subscription.status,lastSyncedAt:new Date()}});throw new ProviderPermanentError("UNKNOWN_SUBSCRIPTION_STATUS")}
   for(const item of result.payments)if(!mapAsaasPaymentStatus(item.status))throw new ProviderPermanentError("UNKNOWN_PAYMENT_STATUS");
   const now=new Date();await this.prisma.$transaction(async tx=>{await tx.subscription.updateMany({where:{id:local.id,tenantId},data:{providerStatus:result.subscription.status,status,...(commercialPlan?{commercialPlanId:commercialPlan.id}:{}),...(result.subscription.customerId?{externalCustomerId:result.subscription.customerId}:{}),lastSyncedAt:now}});if(commercialPlan)await tx.auditLog.create({data:{tenantId,action:"platform.billing.commercial_plan_linked",resourceType:"Subscription",resourceId:local.id,outcome:"SUCCESS",correlationId,metadata:{planCode:local.planCode,commercialPlanId:commercialPlan.id}}});for(const item of result.payments)await this.upsertPayment(tx,tenantId,local.id,item,correlationId,now);if(result.payments.some(x=>["CONFIRMED","RECEIVED"].includes(mapAsaasPaymentStatus(x.status)??"")))await this.activatePaid(tx,tenantId,local.id,local.currentPeriodStart??now,local.currentPeriodEnd);await tx.auditLog.create({data:{tenantId,action:"platform.billing.reconciled",resourceType:"Subscription",resourceId:local.id,outcome:"SUCCESS",correlationId}})});return {payments:result.payments.length};
