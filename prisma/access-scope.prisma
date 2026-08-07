@@ -1,0 +1,29 @@
+/// Explicit clinic visibility for memberships that are not tenant-wide administrators.
+/// OWNER and MANAGER remain tenant-wide by policy; restricted roles use these rows.
+model MembershipClinicAccess {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  membershipId String   @db.Uuid
+  clinicId     String   @db.Uuid
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([membershipId, clinicId])
+  @@index([tenantId, membershipId, active])
+  @@index([tenantId, clinicId, active])
+}
+
+/// Clinic scope captured when an invitation is issued. This makes the first
+/// authenticated session deterministic for restricted roles.
+model TenantInvitationClinicAccess {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  invitationId String   @db.Uuid
+  clinicId     String   @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([invitationId, clinicId])
+  @@index([tenantId, invitationId])
+  @@index([tenantId, clinicId])
+}

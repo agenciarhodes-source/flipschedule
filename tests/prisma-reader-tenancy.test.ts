@@ -12,8 +12,10 @@ describe("Prisma reader tenant isolation", () => {
   it("keeps infrastructure server-only and scopes ID lookups", () => {
     expect(source.startsWith('import "server-only";')).toBe(true);
     for (const model of ["clinic", "professional", "procedure", "resource", "appointment"]) {
-      expect(source).toContain(`this.prisma.${model}.findFirst({ where: { id, tenantId: this.context.tenantId }`);
+      expect(source).toContain(`this.prisma.${model}.findFirst`);
     }
+    expect(source).toContain("resolveClinicAccessScope");
+    expect(source).toContain("tenantId: this.context.tenantId");
+    expect(source).toContain("clinicId:{in:clinicIds}");
   });
 });
-

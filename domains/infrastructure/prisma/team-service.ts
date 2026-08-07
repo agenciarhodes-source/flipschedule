@@ -13,6 +13,7 @@ const idSchema = z.string().uuid();
 const appUrl = (process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const digest = (token: string) => createHash("sha256").update(token).digest("hex");
 const denied = () => actionFailure("ACCESS_DENIED", "Você não tem permissão para administrar a equipe.");
+const tenantWideRole = (role: MembershipRole) => role === "OWNER" || role === "MANAGER";
 
 export class TeamService {
   constructor(private readonly context: ApplicationContext, private readonly prisma: PrismaClient = getPrismaClient()) {}
@@ -32,22 +33,33 @@ export class TeamService {
   }
   async invite(input: unknown): Promise<ActionResult<{ id: string; url: string; expiresAt: string }>> {
     if (!this.allows("team.invite")) return denied();
-    const parsed = z.object({ email: z.string().trim().email().max(254), role: editableRole }).safeParse(input);
-    if (!parsed.success) return actionFailure("VALIDATION_ERROR", "Revise o e-mail e o papel informados.");
+    const parsed = z.object({ email: z.string().trim().email().max(254), role: editableRole, clinicIds: z.array(idSchema).max(100).default([]) }).safeParse(input);
+    if (!parsed.success) return actionFailure("VALIDATION_ERROR", "Revise o e-mail, o papel e as unidades informadas.");
+    const clinicIds = [...new Set(parsed.data.clinicIds)];
+    if (!tenantWideRole(parsed.data.role) && clinicIds.length === 0) return actionFailure("VALIDATION_ERROR", "Selecione ao menos uma unidade para este papel.");
     const emailNormalized = normalizeEmail(parsed.data.email), token = randomBytes(32).toString("base64url"), expiresAt = new Date(Date.now() + 7 * 864e5);
     try {
       const invitation = await this.prisma.$transaction(async (tx) => {
-        const [member, pending] = await Promise.all([
+        const [member, pending, clinicCount] = await Promise.all([
           tx.membership.findFirst({ where: { tenantId: this.context.tenantId, user: { emailNormalized }, status: { in: ["ACTIVE", "SUSPENDED"] } }, select: { id: true } }),
           tx.tenantInvitation.findFirst({ where: { tenantId: this.context.tenantId, emailNormalized, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } }, select: { id: true } }),
+          tx.clinic.count({ where: { tenantId: this.context.tenantId, status: "ACTIVE", id: { in: clinicIds } } }),
         ]);
         if (member || pending) throw new Error("DUPLICATE");
+        if (!tenantWideRole(parsed.data.role) && clinicCount !== clinicIds.length) throw new Error("CLINIC_SCOPE_INVALID");
         const row = await tx.tenantInvitation.create({ data: { tenantId: this.context.tenantId, emailNormalized, role: parsed.data.role, tokenHash: digest(token), expiresAt, invitedByMembershipId: this.context.membershipId }, select: { id: true } });
-        await this.audit(tx, "team.invitation.created", "TenantInvitation", row.id, { role: parsed.data.role });
+        if (!tenantWideRole(parsed.data.role)) {
+          await tx.tenantInvitationClinicAccess.createMany({ data: clinicIds.map((clinicId) => ({ tenantId: this.context.tenantId, invitationId: row.id, clinicId })), skipDuplicates: true });
+        }
+        await this.audit(tx, "team.invitation.created", "TenantInvitation", row.id, { role: parsed.data.role, clinicCount: tenantWideRole(parsed.data.role) ? null : clinicIds.length });
         return row;
       }, { isolationLevel: "Serializable" });
       return { ok: true, data: { id: invitation.id, url: `${appUrl}/convite#token=${encodeURIComponent(token)}`, expiresAt: expiresAt.toISOString() } };
-    } catch (error) { return error instanceof Error && error.message === "DUPLICATE" ? actionFailure("CONFLICT", "Já existe acesso ou convite pendente para este e-mail.") : actionFailure("UNAVAILABLE", "Não foi possível criar o convite."); }
+    } catch (error) {
+      if (error instanceof Error && error.message === "DUPLICATE") return actionFailure("CONFLICT", "Já existe acesso ou convite pendente para este e-mail.");
+      if (error instanceof Error && error.message === "CLINIC_SCOPE_INVALID") return actionFailure("VALIDATION_ERROR", "Uma das unidades selecionadas não está disponível.");
+      return actionFailure("UNAVAILABLE", "Não foi possível criar o convite.");
+    }
   }
   async rotate(id: string) {
     if (!this.allows("team.invite") || !idSchema.safeParse(id).success) return denied();
@@ -65,5 +77,24 @@ export class TeamService {
 export class PublicInvitationService {
   constructor(private readonly prisma: PrismaClient = getPrismaClient()) {}
   async inspect(token: string) { if (token.length < 32) return null; const row=await this.prisma.tenantInvitation.findFirst({where:{tokenHash:digest(token),acceptedAt:null,revokedAt:null,expiresAt:{gt:new Date()}},select:{emailNormalized:true,role:true,expiresAt:true,tenant:{select:{name:true}}}});if(!row)return null;const [local,domain]=row.emailNormalized.split("@");return {...row,emailMasked:`${local?.slice(0,1)??"*"}***@${domain}`}; }
-  async accept(token:string,user:{id:string;email:string}) { if(token.length<32)return actionFailure("NOT_FOUND","Convite inválido ou expirado.");return this.prisma.$transaction(async tx=>{const invite=await tx.tenantInvitation.findFirst({where:{tokenHash:digest(token),acceptedAt:null,revokedAt:null,expiresAt:{gt:new Date()}},select:{id:true,tenantId:true,emailNormalized:true,role:true,tenant:{select:{slug:true}}}});if(!invite)return actionFailure("NOT_FOUND","Convite inválido ou expirado.");if(normalizeEmail(user.email)!==invite.emailNormalized)return actionFailure("ACCESS_DENIED","Entre com a conta correspondente ao convite.");const existing=await tx.membership.findUnique({where:{tenantId_userId:{tenantId:invite.tenantId,userId:user.id}},select:{id:true,status:true}});if(existing?.status==="ACTIVE")return actionFailure("CONFLICT","Esta conta já faz parte da organização.");const membership=existing?await tx.membership.update({where:{id:existing.id},data:{role:invite.role,status:"ACTIVE",acceptedAt:new Date()}}):await tx.membership.create({data:{tenantId:invite.tenantId,userId:user.id,role:invite.role,status:"ACTIVE",acceptedAt:new Date()},select:{id:true}});await tx.tenantInvitation.update({where:{id:invite.id},data:{acceptedAt:new Date(),acceptedByUserId:user.id}});await tx.auditLog.create({data:{tenantId:invite.tenantId,actorUserId:user.id,actorMembershipId:membership.id,action:"team.invitation.accepted",resourceType:"TenantInvitation",resourceId:invite.id,outcome:"SUCCESS"}});return {ok:true as const,data:{membershipId:membership.id,tenantSlug:invite.tenant.slug}};},{isolationLevel:"Serializable"}); }
+  async accept(token:string,user:{id:string;email:string}) {
+    if(token.length<32)return actionFailure("NOT_FOUND","Convite inválido ou expirado.");
+    return this.prisma.$transaction(async tx=>{
+      const invite=await tx.tenantInvitation.findFirst({where:{tokenHash:digest(token),acceptedAt:null,revokedAt:null,expiresAt:{gt:new Date()}},select:{id:true,tenantId:true,emailNormalized:true,role:true,tenant:{select:{slug:true}}}});
+      if(!invite)return actionFailure("NOT_FOUND","Convite inválido ou expirado.");
+      if(normalizeEmail(user.email)!==invite.emailNormalized)return actionFailure("ACCESS_DENIED","Entre com a conta correspondente ao convite.");
+      const existing=await tx.membership.findUnique({where:{tenantId_userId:{tenantId:invite.tenantId,userId:user.id}},select:{id:true,status:true}});
+      if(existing?.status==="ACTIVE")return actionFailure("CONFLICT","Esta conta já faz parte da organização.");
+      const membership=existing?await tx.membership.update({where:{id:existing.id},data:{role:invite.role,status:"ACTIVE",acceptedAt:new Date()}}):await tx.membership.create({data:{tenantId:invite.tenantId,userId:user.id,role:invite.role,status:"ACTIVE",acceptedAt:new Date()},select:{id:true}});
+      if(!tenantWideRole(invite.role)) {
+        const scopes=await tx.tenantInvitationClinicAccess.findMany({where:{tenantId:invite.tenantId,invitationId:invite.id},select:{clinicId:true}});
+        if(scopes.length===0)return actionFailure("CONFLICT","O convite não possui unidades disponíveis. Solicite um novo convite.");
+        await tx.membershipClinicAccess.updateMany({where:{tenantId:invite.tenantId,membershipId:membership.id,active:true},data:{active:false}});
+        await tx.membershipClinicAccess.createMany({data:scopes.map(({clinicId})=>({tenantId:invite.tenantId,membershipId:membership.id,clinicId,active:true})),skipDuplicates:true});
+      }
+      await tx.tenantInvitation.update({where:{id:invite.id},data:{acceptedAt:new Date(),acceptedByUserId:user.id}});
+      await tx.auditLog.create({data:{tenantId:invite.tenantId,actorUserId:user.id,actorMembershipId:membership.id,action:"team.invitation.accepted",resourceType:"TenantInvitation",resourceId:invite.id,outcome:"SUCCESS",metadata:{clinicScoped:!tenantWideRole(invite.role)}}});
+      return {ok:true as const,data:{membershipId:membership.id,tenantSlug:invite.tenant.slug}};
+    },{isolationLevel:"Serializable"});
+  }
 }

@@ -1,14 +1,18 @@
 import { AccountEmailVerification } from "@/components/modules/settings/account-email-verification";
+import { ClinicAccessSettings } from "@/components/modules/settings/clinic-access-settings";
 import { RealSettingsView } from "@/components/modules/settings/real-settings-view";
 import { getApplicationContext } from "@/lib/auth/application-context";
 import { getPrismaClient } from "@/lib/db/client";
 import { createPrismaReaders } from "@/domains/infrastructure/prisma/factory";
+import { ClinicAccessManagementService } from "@/domains/infrastructure/prisma/clinic-access-management";
 import { TeamService } from "@/domains/infrastructure/prisma/team-service";
 
 export default async function ConfiguracoesPage() {
   const context = await getApplicationContext();
   const readers = createPrismaReaders(context);
-  const [organization, clinics, professionals, procedures, resources, workingHours, consents, team, account] = await Promise.all([
+  const teamService = new TeamService(context);
+  const clinicAccessService = new ClinicAccessManagementService(context);
+  const [organization, clinics, professionals, procedures, resources, workingHours, consents, team, clinicAccess, account] = await Promise.all([
     readers.organization.read(),
     readers.clinics.list({ limit: 100 }),
     readers.professionals.list({ limit: 100 }),
@@ -16,7 +20,8 @@ export default async function ConfiguracoesPage() {
     readers.resources.list({ limit: 100 }),
     readers.workingHours.list({ limit: 100 }),
     readers.reports.read({ from: new Date(Date.now() - 365 * 864e5).toISOString(), to: new Date().toISOString() }),
-    new TeamService(context).read(),
+    teamService.read(),
+    clinicAccessService.read(),
     getPrismaClient().user.findUniqueOrThrow({
       where: { id: context.userId },
       select: { emailNormalized: true, emailVerified: true },
@@ -42,6 +47,7 @@ export default async function ConfiguracoesPage() {
         workingHours={workingHours.items}
         team={team}
       />
+      {team && clinicAccess ? <ClinicAccessSettings data={clinicAccess} team={team} /> : null}
     </div>
   );
 }
