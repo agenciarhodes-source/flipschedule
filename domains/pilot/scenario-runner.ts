@@ -71,6 +71,7 @@ async function getPilotOwnerContext(prisma: PrismaClient): Promise<ApplicationCo
     tenantTimezone: membership.tenant.timezone,
     displayName: membership.user.displayName,
     email: membership.user.emailNormalized,
+    clinicAccess: { mode: "ALL", clinicIds: [] },
   };
 }
 
