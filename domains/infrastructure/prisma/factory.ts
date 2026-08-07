@@ -2,10 +2,7 @@ import "server-only";
 import type { ApplicationContext } from "@/domains/application/context";
 import { PrismaProcedureReader } from "./readers";
 import { ProcedureService, QuickPatientService } from "./services";
-import { PrismaLeadReader, PrismaPatientReader } from "./crm-patient-readers";
-import { LeadService, PatientService } from "./crm-patient-services";
-import { PrismaConversationReader, PrismaTreatmentPlanReader } from "./treatment-inbox-readers";
-import { ConversationService, TreatmentPlanService } from "./treatment-inbox-services";
+import { PatientService } from "./crm-patient-services";
 import { OrganizationSettingsService, PrismaReportReader } from "./reports-settings";
 import {
   ScopedAppointmentReader,
@@ -22,6 +19,16 @@ import {
   ScopedScheduleBlockService,
   ScopedWorkingHoursService,
 } from "./clinic-scoped-services";
+import { ScopedLeadReader, ScopedPatientReader } from "./clinic-scoped-crm-readers";
+import {
+  ScopedConversationReader,
+  ScopedTreatmentPlanReader,
+} from "./clinic-scoped-treatment-inbox-readers";
+import {
+  ScopedConversationService,
+  ScopedLeadService,
+  ScopedTreatmentPlanService,
+} from "./clinic-scoped-commercial-services";
 
 export function createPrismaReaders(context: ApplicationContext) {
   return {
@@ -33,10 +40,10 @@ export function createPrismaReaders(context: ApplicationContext) {
     resources: new ScopedResourceReader(context),
     workingHours: new ScopedWorkingHoursReader(context),
     appointments: new ScopedAppointmentReader(context),
-    leads: new PrismaLeadReader(context),
-    patients: new PrismaPatientReader(context),
-    treatmentPlans: new PrismaTreatmentPlanReader(context),
-    conversations: new PrismaConversationReader(context),
+    leads: new ScopedLeadReader(context),
+    patients: new ScopedPatientReader(context),
+    treatmentPlans: new ScopedTreatmentPlanReader(context),
+    conversations: new ScopedConversationReader(context),
   };
 }
 
@@ -50,9 +57,9 @@ export function createPrismaServices(context: ApplicationContext) {
     scheduleBlocks: new ScopedScheduleBlockService(context),
     quickPatients: new QuickPatientService(context),
     patients: new PatientService(context),
-    leads: new LeadService(context),
+    leads: new ScopedLeadService(context),
     appointments: new ScopedAppointmentService(context),
-    treatmentPlans: new TreatmentPlanService(context),
-    conversations: new ConversationService(context),
+    treatmentPlans: new ScopedTreatmentPlanService(context),
+    conversations: new ScopedConversationService(context),
   };
 }
