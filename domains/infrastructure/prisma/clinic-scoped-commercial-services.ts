@@ -258,4 +258,9 @@ export class ScopedConversationService {
     if (!(await this.conversationAllowed(id))) return denied();
     return this.delegate.addMessage(id, input);
   }
+
+  async markRead(id: string) {
+    if (!(await this.conversationAllowed(id))) return denied();
+    return this.delegate.markRead(id);
+  }
 }
