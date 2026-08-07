@@ -11,7 +11,8 @@ describe("Production database migration infrastructure", () => {
 
     expect(config).toContain('import "dotenv/config";');
     expect(config).toContain('import { defineConfig, env } from "prisma/config";');
-    expect(config).toContain('schema: "prisma/schema.prisma"');
+    expect(config).toContain('schema: "prisma"');
+    expect(config).toContain('path: "prisma/migrations"');
     expect(config).toContain('url: env("DIRECT_DATABASE_URL")');
     expect(config).not.toContain("shadowDatabaseUrl");
     expect(config).not.toContain('env("DATABASE_URL")');
