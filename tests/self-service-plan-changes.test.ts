@@ -26,6 +26,15 @@ const intent: SubscriptionPlanChangeMetadata = {
   targetAllowedBillingTypes: ["PIX", "CREDIT_CARD"],
 };
 
+function planChangeServiceSource() {
+  const source = readFileSync("domains/infrastructure/billing/billing-services.ts", "utf8");
+  return (
+    source.split("export class BillingSubscriptionPlanChangeService")[1]?.split(
+      "export class BillingEntitlementService",
+    )[0] ?? ""
+  );
+}
+
 describe("self-service subscription plan changes", () => {
   it("holds the most restrictive quota while a plan change is unresolved", () => {
     expect(restrictiveCommercialLimit(null, 3)).toBe(3);
@@ -60,11 +69,8 @@ describe("self-service subscription plan changes", () => {
   });
 
   it("serializes one plan mutation, snapshots capacity and never creates a second subscription", () => {
-    const source = readFileSync("domains/infrastructure/billing/billing-services.ts", "utf8");
-    const section = source
-      .split("export class BillingSubscriptionPlanChangeService")[1]
-      .split("export class BillingEntitlementService")[0];
-
+    const section = planChangeServiceSource();
+    expect(section).not.toBe("");
     expect(section).toContain("pg_advisory_xact_lock(350062");
     expect(section).toContain("lockCommercialQuota(tx, context.tenantId)");
     expect(section).toContain('requirePermission(context.membershipRole, "subscription.manage")');
@@ -81,11 +87,8 @@ describe("self-service subscription plan changes", () => {
   });
 
   it("turns uncertain provider mutation results into reconciliation instead of blind retry", () => {
-    const source = readFileSync("domains/infrastructure/billing/billing-services.ts", "utf8");
-    const section = source
-      .split("export class BillingSubscriptionPlanChangeService")[1]
-      .split("export class BillingEntitlementService")[0];
-
+    const section = planChangeServiceSource();
+    expect(section).not.toBe("");
     expect(section).toContain("PLAN_CHANGE_RECONCILIATION_REQUIRED");
     expect(section).toContain("markReconciliationRequired");
     expect(section).toContain("error instanceof BillingProviderError && !error.temporary");
@@ -135,6 +138,7 @@ describe("self-service subscription plan changes", () => {
       externalEventId: "evt_1",
       integrationExternalAccountId: "shared-billing",
     });
+    expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       type: "BillingSubscriptionChanged",
       billingType: "CREDIT_CARD",
