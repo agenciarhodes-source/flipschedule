@@ -82,7 +82,11 @@ export class CommercialOnboardingService {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(350063, hashtext(${data.ownerEmail}))`;
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(350064, hashtext(${data.tenantSlug}))`;
 
-        const [existingUser, existingTenant, existingIntent] = await Promise.all([
+        const [planRow, existingUser, existingTenant, existingIntent] = await Promise.all([
+          tx.commercialPlan.findUnique({
+            where: { code: plan.code },
+            select: { id: true, status: true, priceCents: true, cycle: true },
+          }),
           tx.user.findUnique({ where: { emailNormalized: data.ownerEmail }, select: { id: true } }),
           tx.tenant.findUnique({ where: { slug: data.tenantSlug }, select: { id: true } }),
           tx.commercialOnboardingIntent.findFirst({
@@ -96,6 +100,15 @@ export class CommercialOnboardingService {
             orderBy: { createdAt: "desc" },
           }),
         ]);
+
+        if (
+          !planRow ||
+          planRow.status !== "ACTIVE" ||
+          planRow.priceCents !== plan.priceCents ||
+          planRow.cycle !== plan.cycle
+        ) {
+          throw new Error("PLAN_NOT_AVAILABLE");
+        }
         if (existingUser) throw new Error("ONBOARDING_EMAIL_UNAVAILABLE");
         if (existingTenant) throw new Error("ONBOARDING_SLUG_UNAVAILABLE");
 
@@ -109,15 +122,11 @@ export class CommercialOnboardingService {
             existingIntent.status === "CHECKOUT_ACTIVE" &&
             existingIntent.externalCheckoutId
           ) {
-            return {
-              created: false as const,
-              intent: await tx.commercialOnboardingIntent.update({
-                where: { id: existingIntent.id },
-                data: { publicTokenHash },
-              }),
-            };
+            return { created: false as const, intent: existingIntent };
           }
-          if (existingIntent.status === "PAID") throw new Error("ONBOARDING_PAYMENT_PENDING_PROVISIONING");
+          if (existingIntent.status === "PAID") {
+            throw new Error("ONBOARDING_PAYMENT_PENDING_PROVISIONING");
+          }
           if (existingIntent.status === "RECONCILIATION_REQUIRED") {
             throw new Error("ONBOARDING_RECONCILIATION_REQUIRED");
           }
@@ -126,9 +135,7 @@ export class CommercialOnboardingService {
 
         const intent = await tx.commercialOnboardingIntent.create({
           data: {
-            commercialPlanId: plan.code === data.planCode
-              ? (await tx.commercialPlan.findUniqueOrThrow({ where: { code: plan.code }, select: { id: true } })).id
-              : (await tx.commercialPlan.findUniqueOrThrow({ where: { code: data.planCode }, select: { id: true } })).id,
+            commercialPlanId: planRow.id,
             planCode: plan.code,
             ownerEmailNormalized: data.ownerEmail,
             ownerName: data.ownerName,
@@ -157,7 +164,6 @@ export class CommercialOnboardingService {
         return {
           onboardingId: reservation.intent.id,
           hostedCheckoutUrl: hosted.url,
-          publicToken,
           resumed: true,
         };
       } catch (error) {
@@ -196,7 +202,7 @@ export class CommercialOnboardingService {
         data: {
           externalCheckoutId: hosted.id,
           status: "CHECKOUT_ACTIVE",
-          providerStatus: hosted.status,
+          checkoutProviderStatus: hosted.status,
           ...(hosted.expiresAt ? { expiresAt: hosted.expiresAt } : {}),
           lastErrorCode: null,
         },
@@ -206,7 +212,6 @@ export class CommercialOnboardingService {
       return {
         onboardingId: reservation.intent.id,
         hostedCheckoutUrl: hosted.url,
-        publicToken,
         resumed: false,
       };
     } catch (error) {
@@ -220,20 +225,5 @@ export class CommercialOnboardingService {
       if (permanent) throw new Error("ONBOARDING_CHECKOUT_REJECTED");
       throw new Error("ONBOARDING_RECONCILIATION_REQUIRED");
     }
-  }
-
-  async readPublicStatus(token: string) {
-    if (!token.startsWith("onb_") || token.length > 256) return null;
-    const row = await this.prisma.commercialOnboardingIntent.findUnique({
-      where: { publicTokenHash: hashCommercialOnboardingPublicToken(token) },
-      select: { status: true, tenantSlug: true, accessSetupSentAt: true },
-    });
-    if (!row) return null;
-    return {
-      status: row.status,
-      ready: row.status === "PROVISIONED",
-      ...(row.status === "PROVISIONED" ? { tenantSlug: row.tenantSlug } : {}),
-      accessSetupSent: Boolean(row.accessSetupSentAt),
-    };
   }
 }
