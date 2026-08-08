@@ -58,6 +58,16 @@ export function getAsaasBillingEnvironment(
   return "sandbox";
 }
 
+export function getAsaasCheckoutExpirationMinutes(
+  env: Record<string, string | undefined> = process.env,
+) {
+  const value = Number(env.ASAAS_CHECKOUT_EXPIRATION_MINUTES?.trim());
+  if (!Number.isSafeInteger(value) || value < 10 || value > 1440) {
+    throw new RuntimeConfigurationError("ASAAS_CHECKOUT_EXPIRATION_UNAVAILABLE");
+  }
+  return value;
+}
+
 export function createAsaasBillingAdapter(
   env: Record<string, string | undefined> = process.env,
   fetchImpl?: FetchLike,
@@ -65,8 +75,10 @@ export function createAsaasBillingAdapter(
   const environment = getAsaasBillingEnvironment(env);
   assertExternalEffectAllowed(environment, env);
   const accessToken = requireRuntimeSecretReference("ASAAS_API_KEY", 24, env);
+  const checkoutExpirationMinutes = getAsaasCheckoutExpirationMinutes(env);
   return new AsaasBillingAdapter(
     new AsaasHttpClient({ accessToken, environment, ...(fetchImpl ? { fetch: fetchImpl } : {}) }),
+    checkoutExpirationMinutes,
   );
 }
 
@@ -93,6 +105,7 @@ export function isAsaasBillingCheckoutAvailable(
     getAsaasBillingEnvironment(env);
     assertExternalEffectAllowed("sandbox", env);
     requireRuntimeSecretReference("ASAAS_API_KEY", 24, env);
+    getAsaasCheckoutExpirationMinutes(env);
     getPublicApplicationOrigin(env);
     return true;
   } catch {
