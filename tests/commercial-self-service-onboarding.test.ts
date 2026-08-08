@@ -62,16 +62,16 @@ describe("paid commercial self-service onboarding", () => {
     expect(source).not.toContain("setTimeout(");
   });
 
-  it("never retries an uncertain financial POST and only resumes a known checkout", () => {
+  it("never retries an uncertain financial POST or exposes an active public checkout", () => {
     const source = readFileSync(
       "domains/infrastructure/billing/commercial-onboarding-service.ts",
       "utf8",
     );
     expect(source).toContain("PROVIDER_RESULT_UNCERTAIN");
     expect(source).toContain("ONBOARDING_RECONCILIATION_REQUIRED");
-    expect(source).toContain("this.adapter.retrieveCheckout");
-    expect(source).toContain('existingIntent.status === "CHECKOUT_ACTIVE"');
-    expect(source).not.toContain("publicTokenHash },");
+    expect(source).toContain("ONBOARDING_ALREADY_ACTIVE");
+    expect(source).not.toContain("this.adapter.retrieveCheckout");
+    expect(source).not.toContain("hostedCheckoutUrl: hosted.url,\n          resumed: true");
     expect(source).not.toContain("while (");
   });
 
