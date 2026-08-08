@@ -11,7 +11,10 @@ import { AsaasBillingAdapter } from "./asaas-billing-adapter";
 import { AsaasHttpClient } from "./asaas-http-client";
 import { BillingCheckoutService } from "./billing-services";
 import { PrismaBillingPlanCatalog } from "./commercial-billing-catalog";
-import { assertExternalEffectAllowed } from "@/lib/runtime/external-effects";
+import {
+  assertExternalEffectAllowed,
+  getProductionExternalEffectScopes,
+} from "@/lib/runtime/external-effects";
 import {
   getExternalEffectsMode,
   getPublicApplicationOrigin,
@@ -22,6 +25,7 @@ import {
 
 const ASAAS_HOSTED_CHECKOUT_BILLING_TYPES = new Set(["PIX", "CREDIT_CARD"]);
 export const ASAAS_PRODUCTION_CONFIRMATION = "ENABLE_REAL_ASAAS_CHARGES";
+export const ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE = "ASAAS_BILLING";
 
 export function isAsaasHostedCheckoutPlanSupported(plan: BillingPlan) {
   return (
@@ -93,6 +97,7 @@ export type AsaasProductionBillingReadiness = {
   runtimeEnvironment: string | null;
   providerEnvironment: string | null;
   externalEffectsMode: string | null;
+  productionScopeEnabled: boolean;
   billingEnabled: boolean;
   productionHostname: string | null;
   tenantAllowlistCount: number;
@@ -131,6 +136,11 @@ export function getAsaasProductionBillingReadiness(
   } catch {
     issues.push("ASAAS_PRODUCTION_EXTERNAL_EFFECTS_REQUIRED");
   }
+
+  const productionScopeEnabled = getProductionExternalEffectScopes(env).has(
+    ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE,
+  );
+  if (!productionScopeEnabled) issues.push("ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE_REQUIRED");
 
   const billingEnabled = env.ASAAS_PRODUCTION_BILLING_ENABLED?.trim() === "true";
   if (!billingEnabled) issues.push("ASAAS_PRODUCTION_BILLING_DISABLED");
@@ -186,6 +196,7 @@ export function getAsaasProductionBillingReadiness(
     runtimeEnvironment,
     providerEnvironment,
     externalEffectsMode,
+    productionScopeEnabled,
     billingEnabled,
     productionHostname,
     tenantAllowlistCount,
@@ -202,7 +213,7 @@ export function assertAsaasProductionBillingReady(
   if (!readiness.ready) {
     throw new RuntimeConfigurationError(readiness.issues[0] ?? "ASAAS_PRODUCTION_BILLING_UNAVAILABLE");
   }
-  assertExternalEffectAllowed("production", env);
+  assertExternalEffectAllowed("production", env, ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE);
   requireRuntimeSecretReference("ASAAS_API_KEY", 24, env);
   requireRuntimeSecretReference("ASAAS_WEBHOOK_TOKEN", 24, env);
   return readiness;
@@ -252,6 +263,7 @@ export function createAsaasBillingCheckoutService(
     getPublicApplicationOrigin(env).origin,
     environment,
     env,
+    environment === "production" ? ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE : undefined,
     environment === "production"
       ? (context) => assertAsaasProductionTenantAllowed(context.tenantSlug, env)
       : undefined,
