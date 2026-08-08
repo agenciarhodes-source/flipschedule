@@ -48,14 +48,14 @@ async function provisionPaidIntent(
       where: { id: intent.id },
       data: { lastErrorCode: "PROVISIONING_PLAN_UNRESOLVED" },
     });
-    throw new ProviderPermanentError("PROVISIONING_PLAN_UNRESOLVED");
+    return null;
   }
   if (existingUser || existingTenant) {
     await tx.commercialOnboardingIntent.update({
       where: { id: intent.id },
       data: { lastErrorCode: "PROVISIONING_IDENTITY_CONFLICT" },
     });
-    throw new ProviderPermanentError("PROVISIONING_IDENTITY_CONFLICT");
+    return null;
   }
 
   const tenant = await tx.tenant.create({
@@ -271,9 +271,14 @@ export async function applyCommercialOnboardingEvent(
     const activation = await provisionPaidIntent(tx, intent.id, now);
     const provisioned = await tx.commercialOnboardingIntent.findUnique({
       where: { id: intent.id },
-      select: { tenantId: true },
+      select: { tenantId: true, lastErrorCode: true },
     });
-    if (!provisioned?.tenantId) throw new ProviderPermanentError("ONBOARDING_TENANT_UNRESOLVED");
+    if (!provisioned?.tenantId) {
+      if (!provisioned?.lastErrorCode) {
+        throw new ProviderPermanentError("ONBOARDING_TENANT_UNRESOLVED");
+      }
+      return { tenantId: null, applyToTenant: false };
+    }
     return {
       tenantId: provisioned.tenantId,
       applyToTenant: true,
