@@ -34,8 +34,16 @@ const row = (overrides: Record<string, unknown> = {}) => ({
 
 describe("persisted commercial checkout policy", () => {
   it("fails closed when checkout metadata is absent or malformed", () => {
-    expect(readCommercialCheckoutPolicy(null)).toEqual({ enabled: false, allowedBillingTypes: [], gracePeriodDays: null });
-    expect(readCommercialCheckoutPolicy({ checkout: { enabled: true } })).toEqual({ enabled: false, allowedBillingTypes: [], gracePeriodDays: null });
+    expect(readCommercialCheckoutPolicy(null)).toEqual({
+      enabled: false,
+      allowedBillingTypes: [],
+      gracePeriodDays: null,
+    });
+    expect(readCommercialCheckoutPolicy({ checkout: { enabled: true } })).toEqual({
+      enabled: false,
+      allowedBillingTypes: [],
+      gracePeriodDays: null,
+    });
   });
 
   it("preserves unrelated commercial features when writing checkout policy", () => {
@@ -44,13 +52,35 @@ describe("persisted commercial checkout policy", () => {
       { enabled: true, allowedBillingTypes: ["PIX"], gracePeriodDays: 3 },
     ) as Record<string, unknown>;
     expect(result.entitlements).toEqual({ whatsapp: true });
-    expect(result.checkout).toEqual({ enabled: true, allowedBillingTypes: ["PIX"], gracePeriodDays: 3 });
+    expect(result.checkout).toEqual({
+      enabled: true,
+      allowedBillingTypes: ["PIX"],
+      gracePeriodDays: 3,
+    });
   });
 
   it("validates supported payment methods and bounded grace period", () => {
-    expect(commercialCheckoutPolicySchema.safeParse({ enabled: true, allowedBillingTypes: ["PIX"], gracePeriodDays: 90 }).success).toBe(true);
-    expect(commercialCheckoutPolicySchema.safeParse({ enabled: true, allowedBillingTypes: ["CRYPTO"], gracePeriodDays: 0 }).success).toBe(false);
-    expect(commercialCheckoutPolicySchema.safeParse({ enabled: true, allowedBillingTypes: ["PIX"], gracePeriodDays: 91 }).success).toBe(false);
+    expect(
+      commercialCheckoutPolicySchema.safeParse({
+        enabled: true,
+        allowedBillingTypes: ["PIX"],
+        gracePeriodDays: 90,
+      }).success,
+    ).toBe(true);
+    expect(
+      commercialCheckoutPolicySchema.safeParse({
+        enabled: true,
+        allowedBillingTypes: ["CRYPTO"],
+        gracePeriodDays: 0,
+      }).success,
+    ).toBe(false);
+    expect(
+      commercialCheckoutPolicySchema.safeParse({
+        enabled: true,
+        allowedBillingTypes: ["PIX"],
+        gracePeriodDays: 91,
+      }).success,
+    ).toBe(false);
   });
 
   it("maps one checkout-ready commercial plan without changing price, cycle or limits", () => {
@@ -69,15 +99,28 @@ describe("persisted commercial checkout policy", () => {
     expect(mapCommercialPlanToBillingPlan(row({ status: "INACTIVE" } as never))).toBeNull();
     expect(mapCommercialPlanToBillingPlan(row({ cycle: "CUSTOM" } as never))).toBeNull();
     expect(mapCommercialPlanToBillingPlan(row({ priceCents: 0 }))).toBeNull();
-    expect(mapCommercialPlanToBillingPlan(row({ features: { checkout: { enabled: false, allowedBillingTypes: [], gracePeriodDays: null } } }))).toBeNull();
+    expect(
+      mapCommercialPlanToBillingPlan(
+        row({
+          features: {
+            checkout: { enabled: false, allowedBillingTypes: [], gracePeriodDays: null },
+          },
+        }),
+      ),
+    ).toBeNull();
   });
 
   it("resolves checkout plans from CommercialPlan rows by exact code", async () => {
     const findUnique = vi.fn().mockResolvedValue(row());
-    const findMany = vi.fn().mockResolvedValue([row(), row({ code: "OFF", status: "INACTIVE" } as never)]);
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([row(), row({ code: "OFF", status: "INACTIVE" } as never)]);
     const prisma = { commercialPlan: { findUnique, findMany } } as unknown as PrismaClient;
     const catalog = new PrismaBillingPlanCatalog(prisma);
-    await expect(catalog.requireActive("PRO")).resolves.toMatchObject({ code: "PRO", priceCents: 19900 });
+    await expect(catalog.requireActive("PRO")).resolves.toMatchObject({
+      code: "PRO",
+      priceCents: 19900,
+    });
     await expect(catalog.listActive()).resolves.toHaveLength(1);
     expect(findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { code: "PRO" } }));
   });
@@ -85,18 +128,25 @@ describe("persisted commercial checkout policy", () => {
   it("keeps commercial policy persistent while provider execution stays behind the controlled runtime", () => {
     const billingService = readFileSync("domains/infrastructure/billing/billing-services.ts", "utf8");
     const runtime = readFileSync("domains/infrastructure/billing/asaas-runtime.ts", "utf8");
-    const page = readFileSync("app/(platform)/[tenantSlug]/configuracoes/assinatura/page.tsx", "utf8");
-    const action = readFileSync("app/(platform)/[tenantSlug]/configuracoes/assinatura/actions.ts", "utf8");
+    const page = readFileSync(
+      "app/(platform)/[tenantSlug]/configuracoes/assinatura/page.tsx",
+      "utf8",
+    );
+    const action = readFileSync(
+      "app/(platform)/[tenantSlug]/configuracoes/assinatura/actions.ts",
+      "utf8",
+    );
     const admin = readFileSync("app/(platform-admin)/admin/plans/actions.ts", "utf8");
 
     expect(billingService).toContain("BillingPlanSource");
     expect(billingService).toContain("await this.catalog.requireActive(planCode)");
     expect(runtime).toContain("new PrismaBillingPlanCatalog(prisma)");
     expect(runtime).toContain("createAsaasBillingPlanSource(prisma)");
-    expect(runtime).toContain('getAsaasBillingEnvironment(env)');
+    expect(runtime).toContain("getAsaasBillingEnvironment(env)");
+    expect(runtime).toContain("ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE");
     expect(page).toContain("createAsaasBillingPlanSource(prisma).listActive()");
     expect(page).toContain("createHostedCheckoutAction");
-    expect(page).toContain("isAsaasBillingCheckoutAvailable()");
+    expect(page).toContain("isAsaasBillingCheckoutAvailableForTenant(context.tenantSlug)");
     expect(action).toContain("createAsaasBillingCheckoutService(getPrismaClient())");
     expect(admin).toContain("PlatformCommercialCheckoutPolicyService");
   });
