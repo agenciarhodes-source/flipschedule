@@ -68,6 +68,27 @@ describe("self-service subscription plan changes", () => {
     );
   });
 
+  it("fails closed when current and target plans are indistinguishable to the provider", () => {
+    const indistinguishable: SubscriptionPlanChangeMetadata = {
+      ...intent,
+      targetPriceCents: intent.currentPriceCents,
+      targetCycle: intent.currentCycle,
+      targetMaxClinics: 5,
+      targetMaxUsers: 20,
+    };
+    expect(
+      classifyProviderPlanState(
+        {
+          id: "sub",
+          status: "ACTIVE",
+          valueCents: intent.currentPriceCents,
+          cycle: intent.currentCycle,
+        },
+        indistinguishable,
+      ),
+    ).toBe("AMBIGUOUS");
+  });
+
   it("serializes one plan mutation, snapshots capacity and never creates a second subscription", () => {
     const section = planChangeServiceSource();
     expect(section).not.toBe("");
