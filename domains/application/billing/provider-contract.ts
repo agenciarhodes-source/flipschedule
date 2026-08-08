@@ -6,6 +6,7 @@ export interface RecurringCheckoutRequest {
   nextDueDate: string;
   callback: { successUrl: string; cancelUrl: string; expiredUrl: string };
   correlationId: string;
+  customerData?: { name: string; email: string };
 }
 export interface HostedCheckout { id: string; url: string; status: string; expiresAt?: Date }
 export interface ProviderSubscription {
