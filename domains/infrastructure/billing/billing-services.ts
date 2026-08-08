@@ -3,16 +3,16 @@ import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@/generated/prisma/client";
 import type { ApplicationContext } from "@/domains/application/context";
 import { requirePermission } from "@/domains/application/rbac";
-import type { BillingPlanCatalog,BillingProviderAdapter } from "@/domains/application/billing";
+import type { BillingPlanSource,BillingProviderAdapter } from "@/domains/application/billing";
 import { BillingProviderError } from "@/domains/application/billing";
 import { assertExternalEffectAllowed } from "@/lib/runtime/external-effects";
 
 export class BillingCheckoutService {
-  constructor(private prisma:PrismaClient,private catalog:BillingPlanCatalog,private adapter:BillingProviderAdapter,private appOrigin:string){}
+  constructor(private prisma:PrismaClient,private catalog:BillingPlanSource,private adapter:BillingProviderAdapter,private appOrigin:string){}
   async create(context:ApplicationContext,planCode:string){
     assertExternalEffectAllowed("sandbox");
     requirePermission(context.membershipRole,"billing.checkout");
-    const plan=this.catalog.requireActive(planCode);
+    const plan=await this.catalog.requireActive(planCode);
     const correlationId=randomUUID(),externalReference=`fs_${randomUUID().replaceAll("-","")}`;
     const checkout=await this.prisma.$transaction(async(tx)=>{
       const membership=await tx.membership.findFirst({where:{id:context.membershipId,tenantId:context.tenantId,status:"ACTIVE"},select:{id:true}});
