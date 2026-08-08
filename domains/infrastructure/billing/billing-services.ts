@@ -21,11 +21,16 @@ export class BillingCheckoutService {
     private readonly appOrigin: string,
     private readonly providerEnvironment: "sandbox" | "production" = "sandbox",
     private readonly externalEffectsEnv: Record<string, string | undefined> = process.env,
+    private readonly externalEffectsScope?: string,
     private readonly executionGuard?: BillingCheckoutExecutionGuard,
   ) {}
 
   async create(context: ApplicationContext, planCode: string) {
-    assertExternalEffectAllowed(this.providerEnvironment, this.externalEffectsEnv);
+    assertExternalEffectAllowed(
+      this.providerEnvironment,
+      this.externalEffectsEnv,
+      this.externalEffectsScope,
+    );
     requirePermission(context.membershipRole, "billing.checkout");
     this.executionGuard?.(context);
     const plan = await this.catalog.requireActive(planCode);
