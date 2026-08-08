@@ -27,7 +27,7 @@ export function findCommercialPlanLink(
   });
 }
 
-/** New provider subscriptions must never materialize without a managed plan. */
+/** New provider subscriptions must never materialize without a canonical managed plan. */
 export async function requireCommercialPlanLink(
   db: DatabaseClient,
   planCode: string,
