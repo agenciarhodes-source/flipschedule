@@ -255,9 +255,9 @@ describe("controlled Asaas hosted checkout runtime", () => {
 
   it("persists the provider checkout id when a webhook wins the creation race", () => {
     const runtime = readFileSync("domains/infrastructure/integrations/async-runtime.ts", "utf8");
-    expect(runtime).toContain(
-      "data:{externalCheckoutId:event.externalCheckoutId,status:event.status",
-    );
+    expect(runtime).toContain("externalCheckoutId: event.externalCheckoutId");
+    expect(runtime).toContain("status: event.status");
+    expect(runtime).toContain("tx.billingCheckout.updateMany");
   });
 
   it("keeps the external redirect behind tenant-aware server validation", () => {

@@ -118,6 +118,7 @@ export class AsaasWebhookAdapter implements IntegrationProviderAdapter {
           externalSubscriptionId: id,
           ...(row.externalReference ? { externalReference: String(row.externalReference) } : {}),
           ...(row.customer ? { externalCustomerId: String(row.customer) } : {}),
+          ...(row.billingType ? { billingType: String(row.billingType) } : {}),
           providerStatus: String(row.status ?? name),
           status: subscriptionMap[name as keyof typeof subscriptionMap],
         },

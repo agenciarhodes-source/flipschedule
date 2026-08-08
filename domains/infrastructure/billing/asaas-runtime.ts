@@ -9,7 +9,7 @@ import {
 import type { FetchLike, AsaasEnvironment } from "./asaas-http-client";
 import { AsaasBillingAdapter } from "./asaas-billing-adapter";
 import { AsaasHttpClient } from "./asaas-http-client";
-import { BillingCheckoutService } from "./billing-services";
+import { BillingCheckoutService, BillingSubscriptionPlanChangeService } from "./billing-services";
 import { PrismaBillingPlanCatalog } from "./commercial-billing-catalog";
 import {
   assertExternalEffectAllowed,
@@ -296,6 +296,26 @@ export function createAsaasBillingCheckoutService(
     createAsaasBillingPlanSource(prisma),
     adapter,
     getPublicApplicationOrigin(env).origin,
+    environment,
+    env,
+    environment === "production" ? ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE : undefined,
+    environment === "production"
+      ? (context) => assertAsaasProductionTenantAllowed(context.tenantSlug, env)
+      : undefined,
+  );
+}
+
+export function createAsaasBillingPlanChangeService(
+  prisma: PrismaClient,
+  env: Record<string, string | undefined> = process.env,
+  fetchImpl?: FetchLike,
+) {
+  const environment = getAsaasBillingEnvironment(env);
+  const adapter = createAsaasBillingAdapter(env, fetchImpl);
+  return new BillingSubscriptionPlanChangeService(
+    prisma,
+    new PrismaBillingPlanCatalog(prisma),
+    adapter,
     environment,
     env,
     environment === "production" ? ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE : undefined,

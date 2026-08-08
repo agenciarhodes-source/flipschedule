@@ -8,7 +8,7 @@ export type ProviderEvent =
   | {type:"InboundMessageReceived";externalMessageId:string;externalConversationId:string;channel:ConversationChannel;body:string}
   | {type:"MessageSent"|"MessageDelivered"|"MessageRead"|"MessageFailed";externalMessageId:string}
   | {type:"BillingCheckoutChanged";externalCheckoutId:string;externalReference?:string;status:"ACTIVE"|"PAID"|"CANCELLED"|"EXPIRED"}
-  | {type:"BillingSubscriptionChanged";externalSubscriptionId:string;externalReference?:string;externalCustomerId?:string;providerStatus:string;status:"PENDING"|"ACTIVE"|"SUSPENDED"|"CANCELLED"}
+  | {type:"BillingSubscriptionChanged";externalSubscriptionId:string;externalReference?:string;externalCustomerId?:string;billingType?:string;providerStatus:string;status:"PENDING"|"ACTIVE"|"SUSPENDED"|"CANCELLED"}
   | {type:"BillingPaymentChanged";externalPaymentId:string;externalSubscriptionId?:string;providerStatus:string;status:"PENDING"|"CONFIRMED"|"RECEIVED"|"OVERDUE"|"REFUNDED"|"FAILED"|"CANCELLED";amountCents:number;dueAt:Date;paidAt?:Date};
 export interface ProviderSendMessageRequest { context:ProviderExecutionContext; channel:ConversationChannel; destination:string; body:string; idempotencyKey:string }
 export type ProviderSendMessageResult = {ok:true;externalMessageId:string}|{ok:false;errorCode:string;temporary:boolean};

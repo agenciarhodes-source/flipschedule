@@ -23,6 +23,9 @@ function errorCode(error: unknown) {
   ) {
     return "plan-capacity";
   }
+  if (error.message === "PROVIDER_MANAGED_SUBSCRIPTION_CHANGE_REQUIRED") {
+    return "provider-managed-plan";
+  }
   if (error.message === "TENANT_NOT_FOUND") return "tenant-not-found";
   return "invalid";
 }

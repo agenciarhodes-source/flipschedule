@@ -3,7 +3,7 @@ import { BillingPermanentError,type BillingProviderAdapter,type HostedCheckout,t
 import { AsaasHttpClient,validateHostedCheckoutUrl } from "./asaas-http-client";
 type Json=Record<string,unknown>;
 const cents=(value:unknown)=>Math.round(Number(value)*100);
-const subscription=(value:Json):ProviderSubscription=>({id:String(value.id),status:String(value.status),...(value.customer?{customerId:String(value.customer)}:{}),...(value.externalReference?{externalReference:String(value.externalReference)}:{}),...(value.cycle?{cycle:String(value.cycle)}:{}),...(value.nextDueDate?{nextDueDate:String(value.nextDueDate)}:{})});
+const subscription=(value:Json):ProviderSubscription=>({id:String(value.id),status:String(value.status),...(value.customer?{customerId:String(value.customer)}:{}),...(value.externalReference?{externalReference:String(value.externalReference)}:{}),...(value.cycle?{cycle:String(value.cycle)}:{}),...(value.nextDueDate?{nextDueDate:String(value.nextDueDate)}:{}),...(value.billingType?{billingType:String(value.billingType)}:{}),...(value.value!==undefined&&Number.isFinite(Number(value.value))?{valueCents:cents(value.value)}:{})});
 const payment=(value:Json):ProviderPayment=>({id:String(value.id),status:String(value.status),valueCents:cents(value.value),dueDate:String(value.dueDate),...(value.subscription?{subscriptionId:String(value.subscription)}:{}),...(value.paymentDate?{paymentDate:String(value.paymentDate)}:{})});
 const hostedCheckoutTypes=new Set(["PIX","CREDIT_CARD"]);
 export class AsaasBillingAdapter implements BillingProviderAdapter {
