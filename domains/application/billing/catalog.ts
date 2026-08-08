@@ -12,7 +12,12 @@ export interface BillingPlan {
   readonly version: number;
 }
 
-export class BillingPlanCatalog {
+export interface BillingPlanSource {
+  requireActive(code: string): BillingPlan | Promise<BillingPlan>;
+  listActive(): readonly BillingPlan[] | Promise<readonly BillingPlan[]>;
+}
+
+export class BillingPlanCatalog implements BillingPlanSource {
   private readonly plans: ReadonlyMap<string, BillingPlan>;
   constructor(plans: readonly BillingPlan[] = []) {
     for (const plan of plans) {
@@ -30,6 +35,3 @@ export class BillingPlanCatalog {
   listActive() { return [...this.plans.values()].filter((plan) => plan.active); }
 }
 export class BillingPlanError extends Error { constructor(readonly code: "PLAN_NOT_AVAILABLE") { super(code); } }
-
-/** Commercial names, prices, limits and grace period are not approved yet. */
-export const billingPlanCatalog = new BillingPlanCatalog();
