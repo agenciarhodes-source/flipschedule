@@ -61,6 +61,13 @@ describe("controlled Asaas hosted checkout runtime", () => {
     expect(service).toContain("this.adapter.retrieveCheckout");
   });
 
+  it("persists the provider checkout id when a webhook wins the creation race", () => {
+    const runtime = readFileSync("domains/infrastructure/integrations/async-runtime.ts", "utf8");
+    expect(runtime).toContain(
+      "data:{externalCheckoutId:event.externalCheckoutId,status:event.status",
+    );
+  });
+
   it("keeps the external redirect behind server context and provider validation", () => {
     const action = readFileSync(
       "app/(platform)/[tenantSlug]/configuracoes/assinatura/actions.ts",
