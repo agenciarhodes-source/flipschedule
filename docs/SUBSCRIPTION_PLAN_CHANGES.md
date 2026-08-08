@@ -56,6 +56,8 @@ O worker consulta a assinatura Asaas e compara valor/ciclo com os snapshots da i
 - **CURRENT**: mantém o plano local atual e encerra a intenção como falha, permitindo uma nova tentativa explícita depois;
 - **AMBIGUOUS/INCOMPLETE**: falha fechado e mantém a intenção pendente para investigação.
 
+Planos comerciais diferentes que tenham exatamente o mesmo preço e ciclo são deliberadamente tratados como **AMBIGUOUS**. O Asaas não fornece, nesse estado, informação suficiente para provar qual catálogo comercial do FlipSchedule está vigente. O sistema não infere o plano alvo apenas por quotas, features ou código local.
+
 A finalização usa o mesmo advisory lock de troca e o lock de quotas comerciais, evitando corrida com alterações de unidades ou acessos.
 
 ## Webhook e billingType
