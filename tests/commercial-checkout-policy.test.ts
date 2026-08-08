@@ -92,8 +92,9 @@ describe("persisted commercial checkout policy", () => {
     expect(billingService).toContain("BillingPlanSource");
     expect(billingService).toContain("await this.catalog.requireActive(planCode)");
     expect(runtime).toContain("new PrismaBillingPlanCatalog(prisma)");
+    expect(runtime).toContain("createAsaasBillingPlanSource(prisma)");
     expect(runtime).toContain('getAsaasBillingEnvironment(env)');
-    expect(page).toContain("new PrismaBillingPlanCatalog(prisma).listActive()");
+    expect(page).toContain("createAsaasBillingPlanSource(prisma).listActive()");
     expect(page).toContain("createHostedCheckoutAction");
     expect(page).toContain("isAsaasBillingCheckoutAvailable()");
     expect(action).toContain("createAsaasBillingCheckoutService(getPrismaClient())");
