@@ -5,8 +5,10 @@ import {
   subscriptionStatusLabel,
 } from "@/domains/application/billing";
 import { hasPermission, requirePermission } from "@/domains/application/rbac";
-import { isAsaasBillingCheckoutAvailable } from "@/domains/infrastructure/billing/asaas-runtime";
-import { PrismaBillingPlanCatalog } from "@/domains/infrastructure/billing/commercial-billing-catalog";
+import {
+  createAsaasBillingPlanSource,
+  isAsaasBillingCheckoutAvailable,
+} from "@/domains/infrastructure/billing/asaas-runtime";
 import { getApplicationContext } from "@/lib/auth/application-context";
 import { getPrismaClient } from "@/lib/db";
 import { createHostedCheckoutAction } from "./actions";
@@ -53,7 +55,7 @@ export default async function SubscriptionSettingsPage({
       },
       orderBy: { createdAt: "desc" },
     }),
-    new PrismaBillingPlanCatalog(prisma).listActive(),
+    createAsaasBillingPlanSource(prisma).listActive(),
     searchParams,
   ]);
 
@@ -91,7 +93,7 @@ export default async function SubscriptionSettingsPage({
         <section className="rounded-xl border p-5">
           <h2 className="font-medium">Nenhum plano disponível para checkout online</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            A administração precisa habilitar explicitamente preço, ciclo e formas de pagamento antes que um plano possa ser contratado online.
+            A administração precisa habilitar explicitamente preço, ciclo e formas de pagamento compatíveis com o Checkout Asaas antes que um plano possa ser contratado online.
           </p>
         </section>
       ) : (
