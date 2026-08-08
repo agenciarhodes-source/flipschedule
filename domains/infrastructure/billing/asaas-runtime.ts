@@ -276,3 +276,18 @@ export function isAsaasBillingCheckoutAvailable(
     return false;
   }
 }
+
+export function isAsaasBillingCheckoutAvailableForTenant(
+  tenantSlug: string,
+  env: Record<string, string | undefined> = process.env,
+) {
+  try {
+    if (!isAsaasBillingCheckoutAvailable(env)) return false;
+    if (getAsaasBillingEnvironment(env) === "production") {
+      assertAsaasProductionTenantAllowed(tenantSlug, env);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
