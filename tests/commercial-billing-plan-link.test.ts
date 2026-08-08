@@ -79,8 +79,11 @@ describe("commercial billing plan link", () => {
     const worker = readFileSync("scripts/reconcile-billing.ts", "utf8");
 
     expect(reconciliation).toContain("platform.billing.commercial_plan_linked");
-    expect(reconciliation).toContain("metadata:{planCode:local.planCode,commercialPlanId:commercialPlan.id}");
+    expect(reconciliation).toContain(
+      "metadata:{planCode:local.planCode,commercialPlanId:commercialPlan.id}",
+    );
     expect(worker).toContain("new AsaasBillingReconciliationService");
-    expect(worker).toContain('provider:"ASAAS"');
+    expect(worker).toContain("createAsaasBillingReconciliationAdapter()");
+    expect(worker).toContain('provider: "ASAAS"');
   });
 });
