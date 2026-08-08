@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 describe("paid commercial self-service onboarding", () => {
-  it("models onboarding as a durable pre-tenant intent with billing snapshots", () => {
+  it("models onboarding as a durable pre-tenant intent with independent billing snapshots", () => {
     const schema = readFileSync("prisma/commercial-onboarding.prisma", "utf8");
     const migration = readFileSync(
       "prisma/migrations/20260808110000_add_commercial_onboarding/migration.sql",
@@ -12,11 +12,14 @@ describe("paid commercial self-service onboarding", () => {
     );
     expect(schema).toContain("model CommercialOnboardingIntent");
     expect(schema).toContain("RECONCILIATION_REQUIRED");
-    expect(schema).toContain("externalReference       String                     @unique");
-    expect(schema).toContain("externalCheckoutId      String?                    @unique");
+    expect(schema).toMatch(/externalReference\s+String\s+@unique/);
+    expect(schema).toMatch(/externalCheckoutId\s+String\?\s+@unique/);
     expect(schema).toContain("externalSubscriptionId");
     expect(schema).toContain("externalPaymentId");
-    expect(schema).toContain("publicTokenHash         String                     @unique");
+    expect(schema).toMatch(/publicTokenHash\s+String\s+@unique/);
+    expect(schema).toContain("checkoutProviderStatus");
+    expect(schema).toContain("subscriptionProviderStatus");
+    expect(schema).toContain("paymentProviderStatus");
     expect(migration).toContain('CREATE TABLE "CommercialOnboardingIntent"');
     expect(migration).toContain('"subscriptionStatus" "SubscriptionStatus"');
     expect(migration).toContain('"paymentStatus" "PaymentStatus"');
@@ -59,7 +62,7 @@ describe("paid commercial self-service onboarding", () => {
     expect(source).not.toContain("setTimeout(");
   });
 
-  it("never retries an uncertain financial POST and can only resume a known checkout", () => {
+  it("never retries an uncertain financial POST and only resumes a known checkout", () => {
     const source = readFileSync(
       "domains/infrastructure/billing/commercial-onboarding-service.ts",
       "utf8",
@@ -68,6 +71,7 @@ describe("paid commercial self-service onboarding", () => {
     expect(source).toContain("ONBOARDING_RECONCILIATION_REQUIRED");
     expect(source).toContain("this.adapter.retrieveCheckout");
     expect(source).toContain('existingIntent.status === "CHECKOUT_ACTIVE"');
+    expect(source).not.toContain("publicTokenHash },");
     expect(source).not.toContain("while (");
   });
 
@@ -143,8 +147,9 @@ describe("paid commercial self-service onboarding", () => {
       "utf8",
     );
     expect(handler).toContain("subscriptionStatus: event.status");
+    expect(handler).toContain("subscriptionProviderStatus: event.providerStatus");
     expect(handler).toContain("externalPaymentId: event.externalPaymentId");
-    expect(handler).toContain("paymentStatus: event.status");
+    expect(handler).toContain("paymentProviderStatus: event.providerStatus");
     expect(handler).toContain("applyToTenant: true");
     expect(runtime).toContain("applyCommercialOnboardingEvent");
     expect(runtime).toContain("if (!onboarding.applyToTenant) return activation");
