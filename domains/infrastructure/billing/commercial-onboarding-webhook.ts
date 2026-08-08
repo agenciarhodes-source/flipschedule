@@ -126,7 +126,7 @@ async function provisionPaidIntent(
         externalReference: intent.externalReference,
         planCode: intent.planCode,
         status: intent.subscriptionStatus ?? "PENDING",
-        providerStatus: intent.providerStatus,
+        providerStatus: intent.subscriptionProviderStatus,
         billingType: intent.billingType,
         lastSyncedAt: now,
       },
@@ -148,7 +148,7 @@ async function provisionPaidIntent(
         provider: "ASAAS",
         externalPaymentId: intent.externalPaymentId,
         status: intent.paymentStatus,
-        providerStatus: intent.paymentStatus,
+        providerStatus: intent.paymentProviderStatus,
         amountCents: intent.paymentAmountCents,
         dueAt: intent.paymentDueAt,
         paidAt: intent.paymentPaidAt,
@@ -240,7 +240,7 @@ export async function applyCommercialOnboardingEvent(
         data: {
           externalCheckoutId: event.externalCheckoutId,
           status: event.status,
-          providerStatus: event.status,
+          checkoutProviderStatus: event.status,
         },
       });
       return { tenantId: null, applyToTenant: false };
@@ -251,7 +251,7 @@ export async function applyCommercialOnboardingEvent(
         data: {
           externalCheckoutId: event.externalCheckoutId,
           status: "CHECKOUT_ACTIVE",
-          providerStatus: event.status,
+          checkoutProviderStatus: event.status,
           lastErrorCode: null,
         },
       });
@@ -263,7 +263,7 @@ export async function applyCommercialOnboardingEvent(
       data: {
         externalCheckoutId: event.externalCheckoutId,
         status: "PAID",
-        providerStatus: event.status,
+        checkoutProviderStatus: event.status,
         paidAt: intent.paidAt ?? now,
         lastErrorCode: null,
       },
@@ -294,7 +294,7 @@ export async function applyCommercialOnboardingEvent(
         externalSubscriptionId: event.externalSubscriptionId,
         externalCustomerId: event.externalCustomerId ?? intent.externalCustomerId,
         subscriptionStatus: event.status,
-        providerStatus: event.providerStatus,
+        subscriptionProviderStatus: event.providerStatus,
         billingType: event.billingType ?? intent.billingType,
       },
     });
@@ -320,6 +320,7 @@ export async function applyCommercialOnboardingEvent(
           : {}),
         externalPaymentId: event.externalPaymentId,
         paymentStatus: event.status,
+        paymentProviderStatus: event.providerStatus,
         paymentAmountCents: event.amountCents,
         paymentDueAt: event.dueAt,
         paymentPaidAt: event.paidAt ?? null,
