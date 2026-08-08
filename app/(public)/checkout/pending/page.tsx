@@ -1,2 +1,12 @@
-import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
-export default function CheckoutPendingPage() { return <PreparatoryPage eyebrow="Retorno preparatório" title="Consulta de status indisponível" description="Nenhuma cobrança foi iniciada e não há pagamento em análise. Esta é somente uma página de estado visual." nextStep="O status futuro será consultado com segurança no servidor." />; }
+import { CommercialOnboardingStatus } from "@/components/public-routes/commercial-onboarding-status";
+
+export default async function CheckoutPendingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ token?: string }>;
+}) {
+  const params = await searchParams;
+  return <CommercialOnboardingStatus token={typeof params?.token === "string" ? params.token : ""} eyebrow="Status da contratação" />;
+}
+
+export const metadata = { other: { referrer: "no-referrer" } };

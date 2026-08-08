@@ -1,2 +1,12 @@
-import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
-export default function CheckoutCancelledPage() { return <PreparatoryPage eyebrow="Retorno preparatório" title="Checkout não iniciado" description="Nenhuma cobrança ou assinatura foi criada ou cancelada. O checkout real ainda não está conectado." nextStep="Retorne quando a contratação oficial estiver disponível." />; }
+import { CommercialOnboardingStatus } from "@/components/public-routes/commercial-onboarding-status";
+
+export default async function CheckoutCancelledPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ token?: string }>;
+}) {
+  const params = await searchParams;
+  return <CommercialOnboardingStatus token={typeof params?.token === "string" ? params.token : ""} eyebrow="Retorno do checkout" />;
+}
+
+export const metadata = { other: { referrer: "no-referrer" } };

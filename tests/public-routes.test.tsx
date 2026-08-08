@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import DemoPage from "@/app/(demo)/demo/page";
 import LoginPage from "@/app/(auth)/login/page";
-import CheckoutSuccessPage from "@/app/(public)/checkout/success/page";
 import { appUrl, marketingUrl, publicUrls, supportEmail } from "@/lib/config/public-urls";
 
 const { redirect } = vi.hoisted(() => ({ redirect: vi.fn() }));
@@ -49,20 +48,28 @@ describe("public app routes", () => {
     expect({ marketingUrl, appUrl, supportEmail }).toEqual(publicUrls);
   });
 
-  it("does not claim that checkout completed a payment", () => {
-    render(<CheckoutSuccessPage />);
-    expect(screen.getByText(/não confirma pagamento, assinatura ou ativação/i)).toBeInTheDocument();
-    expect(screen.queryByText(/pagamento (realizado|aprovado|confirmado)/i)).not.toBeInTheDocument();
+  it("keeps checkout browser callbacks informational instead of mutating billing", () => {
+    const root = path.resolve(__dirname, "..");
+    const callbackFiles = [
+      "app/(public)/checkout/success/page.tsx",
+      "app/(public)/checkout/pending/page.tsx",
+      "app/(public)/checkout/cancelled/page.tsx",
+      "app/(public)/checkout/error/page.tsx",
+    ];
+    const source = callbackFiles.map((file) => readFileSync(path.join(root, file), "utf8")).join("\n");
+    expect(source).toContain("CommercialOnboardingStatus");
+    expect(source).not.toMatch(/payment\.(create|update|upsert)/);
+    expect(source).not.toMatch(/subscription\.(create|update|upsert)/);
+    expect(source).not.toMatch(/tenant\.create/);
   });
 
-  it("keeps public routes independent from Prisma and DATABASE_URL", () => {
+  it("keeps non-commercial public routes independent from Prisma and DATABASE_URL", () => {
     const root = path.resolve(__dirname, "..");
     const publicFiles = [
       "app/(marketing)/page.tsx", "app/(demo)/demo/page.tsx", "app/(demo)/demo/layout.tsx", "app/(auth)/login/page.tsx",
       "app/(auth)/first-access/page.tsx", "app/(auth)/forgot-password/page.tsx", "app/(auth)/reset-password/page.tsx",
-      "app/(public)/checkout/[plano]/page.tsx", "app/(public)/checkout/success/page.tsx", "app/(public)/checkout/pending/page.tsx",
-      "app/(public)/checkout/cancelled/page.tsx", "app/(public)/checkout/error/page.tsx", "app/(public)/billing/blocked/page.tsx",
-      "components/auth/login-page-content.tsx", "components/public-routes/preparatory-page.tsx", "lib/config/public-urls.ts",
+      "app/(public)/billing/blocked/page.tsx", "components/auth/login-page-content.tsx",
+      "components/public-routes/preparatory-page.tsx", "lib/config/public-urls.ts",
     ];
     const source = publicFiles.map((file) => readFileSync(path.join(root, file), "utf8")).join("\n");
     expect(source).not.toMatch(/@prisma|lib\/db|DATABASE_URL/);

@@ -15,6 +15,12 @@ import {
   findCommercialPlanLink,
   requireCommercialPlanLink,
 } from "@/domains/infrastructure/billing/commercial-plan-link";
+import {
+  applyCommercialOnboardingEvent,
+  type CommercialOnboardingActivation,
+} from "@/domains/infrastructure/billing/commercial-onboarding-webhook";
+import { resolveAsaasBillingWebhookTenant } from "@/domains/infrastructure/billing/asaas-webhook-routing";
+import { issueAccountActivation } from "@/lib/auth/account-activation/service";
 import { decryptField, encryptField } from "@/lib/security/field-encryption";
 import type { CredentialStore } from "./credential-store";
 
@@ -273,9 +279,26 @@ export class WebhookEventProcessor {
         integrationExternalAccountId: "resolved-at-ingress",
       });
       if (events.length === 0) throw new ProviderPermanentError("WEBHOOK_NO_EFFECT");
-      await this.prisma.$transaction(async (tx) => {
+
+      const billingRoute =
+        row.provider === "ASAAS"
+          ? await resolveAsaasBillingWebhookTenant(this.prisma, rawBody)
+          : null;
+      const onboardingIntentId = billingRoute?.authoritative
+        ? billingRoute.onboardingIntentId
+        : null;
+
+      const activation = await this.prisma.$transaction(async (tx) => {
+        let pendingActivation: CommercialOnboardingActivation | null = null;
         for (const event of events) {
-          await this.applyBillingEvent(tx, row.tenantId, event, row.correlationId);
+          const result = await this.applyBillingEvent(
+            tx,
+            row.tenantId,
+            event,
+            row.correlationId,
+            onboardingIntentId,
+          );
+          if (result && !pendingActivation) pendingActivation = result;
         }
         await tx.webhookEvent.update({
           where: { id },
@@ -287,7 +310,39 @@ export class WebhookEventProcessor {
             lastErrorCode: null,
           },
         });
+        return pendingActivation;
       });
+
+      if (activation) {
+        try {
+          const delivery = await issueAccountActivation({
+            userId: activation.userId,
+            recipientEmail: activation.recipientEmail,
+            workspaceName: activation.workspaceName,
+          });
+          await this.prisma.commercialOnboardingIntent.updateMany({
+            where: {
+              id: activation.onboardingIntentId,
+              tenantId: activation.tenantId,
+              status: "PROVISIONED",
+            },
+            data: delivery.ok
+              ? { accessSetupSentAt: new Date(), lastErrorCode: null }
+              : { lastErrorCode: "ACCOUNT_ACTIVATION_DELIVERY_UNAVAILABLE" },
+          });
+        } catch {
+          await this.prisma.commercialOnboardingIntent
+            .updateMany({
+              where: {
+                id: activation.onboardingIntentId,
+                tenantId: activation.tenantId,
+                status: "PROVISIONED",
+              },
+              data: { lastErrorCode: "ACCOUNT_ACTIVATION_DELIVERY_UNAVAILABLE" },
+            })
+            .catch(() => undefined);
+        }
+      }
       return true;
     } catch (error) {
       if (error instanceof ProviderPermanentError) return fail(error.code);
@@ -304,9 +359,24 @@ export class WebhookEventProcessor {
     tenantId: string | null,
     event: Awaited<ReturnType<ReturnType<ProviderRegistry["require"]>["parseWebhook"]>>[number],
     correlationId: string | null,
-  ) {
-    if (!tenantId) throw new ProviderPermanentError("TENANT_UNRESOLVED");
+    onboardingIntentId: string | null,
+  ): Promise<CommercialOnboardingActivation | null> {
     const now = this.clock.now();
+    let activation: CommercialOnboardingActivation | null = null;
+
+    if (onboardingIntentId && event.type.startsWith("Billing")) {
+      const onboarding = await applyCommercialOnboardingEvent(
+        tx,
+        onboardingIntentId,
+        event,
+        now,
+      );
+      activation = onboarding.activation ?? null;
+      if (!onboarding.applyToTenant) return activation;
+      tenantId = onboarding.tenantId;
+    }
+
+    if (!tenantId) throw new ProviderPermanentError("TENANT_UNRESOLVED");
 
     if (event.type === "BillingCheckoutChanged") {
       const result = await tx.billingCheckout.updateMany({
@@ -327,7 +397,7 @@ export class WebhookEventProcessor {
       });
       if (result.count !== 1) throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");
       await this.audit(tx, tenantId, "billing.webhook.checkout_applied", "BillingCheckout", correlationId);
-      return;
+      return activation;
     }
 
     if (event.type === "BillingSubscriptionChanged") {
@@ -411,7 +481,7 @@ export class WebhookEventProcessor {
         });
       }
       await this.audit(tx, tenantId, "billing.webhook.subscription_applied", "Subscription", correlationId);
-      return;
+      return activation;
     }
 
     if (event.type === "BillingPaymentChanged") {
@@ -476,7 +546,7 @@ export class WebhookEventProcessor {
         );
       }
       await this.audit(tx, tenantId, "billing.webhook.payment_applied", "Payment", correlationId);
-      return;
+      return activation;
     }
 
     throw new ProviderPermanentError("WEBHOOK_EVENT_NOT_APPLICABLE");

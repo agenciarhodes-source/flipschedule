@@ -1,0 +1,54 @@
+/// Durable pre-tenant purchase intent. The row exists before a Tenant/User can
+/// safely be created and is consumed only after Asaas confirms the checkout.
+enum CommercialOnboardingStatus {
+  CREATED
+  CHECKOUT_ACTIVE
+  PAID
+  PROVISIONED
+  CANCELLED
+  EXPIRED
+  RECONCILIATION_REQUIRED
+  FAILED
+}
+
+model CommercialOnboardingIntent {
+  id                         String                     @id @default(uuid()) @db.Uuid
+  commercialPlanId           String                     @db.Uuid
+  planCode                   String
+  ownerEmailNormalized       String
+  ownerName                  String
+  tenantName                 String
+  tenantSlug                 String
+  provider                    BillingProvider            @default(ASAAS)
+  externalReference           String                     @unique
+  externalCheckoutId          String?                    @unique
+  checkoutProviderStatus      String?
+  externalSubscriptionId      String?                    @unique
+  externalCustomerId          String?
+  subscriptionStatus          SubscriptionStatus?
+  subscriptionProviderStatus  String?
+  billingType                 String?
+  externalPaymentId           String?                    @unique
+  paymentStatus               PaymentStatus?
+  paymentProviderStatus       String?
+  paymentAmountCents          Int?
+  paymentDueAt                DateTime?                  @db.Timestamptz(3)
+  paymentPaidAt               DateTime?                  @db.Timestamptz(3)
+  amountCents                 Int
+  cycle                       CommercialPlanCycle
+  status                      CommercialOnboardingStatus @default(CREATED)
+  correlationId               String                     @unique
+  publicTokenHash             String                     @unique
+  expiresAt                   DateTime?                  @db.Timestamptz(3)
+  paidAt                      DateTime?                  @db.Timestamptz(3)
+  provisionedAt               DateTime?                  @db.Timestamptz(3)
+  tenantId                    String?                    @unique @db.Uuid
+  accessSetupSentAt           DateTime?                  @db.Timestamptz(3)
+  lastErrorCode               String?
+  createdAt                   DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt                   DateTime                   @updatedAt @db.Timestamptz(3)
+
+  @@index([ownerEmailNormalized, status])
+  @@index([tenantSlug, status])
+  @@index([status, createdAt])
+}

@@ -39,6 +39,7 @@ describe("shared Asaas billing webhook routing", () => {
       billingCheckout: { findMany: vi.fn().mockResolvedValue([{ tenantId: "tenant-a" }]) },
       subscription: { findMany: vi.fn().mockResolvedValue([{ tenantId: "tenant-a" }]) },
       payment: { findMany: vi.fn().mockResolvedValue([]) },
+      commercialOnboardingIntent: { findMany: vi.fn().mockResolvedValue([]) },
     } as unknown as PrismaClient;
 
     await expect(
@@ -46,14 +47,14 @@ describe("shared Asaas billing webhook routing", () => {
         db,
         body({ checkout: { id: "chk_1", externalReference: "fs_opaque" } }),
       ),
-    ).resolves.toEqual({ authoritative: true, tenantId: "tenant-a" });
+    ).resolves.toEqual({ authoritative: true, tenantId: "tenant-a", onboardingIntentId: null });
 
     await expect(
       resolveAsaasBillingWebhookTenant(
         db,
         body({ subscription: { id: "sub_1", externalReference: "fs_opaque" } }),
       ),
-    ).resolves.toEqual({ authoritative: true, tenantId: "tenant-a" });
+    ).resolves.toEqual({ authoritative: true, tenantId: "tenant-a", onboardingIntentId: null });
   });
 
   it("fails closed when provider identifiers point at more than one tenant", async () => {
@@ -61,6 +62,7 @@ describe("shared Asaas billing webhook routing", () => {
       billingCheckout: { findMany: vi.fn().mockResolvedValue([{ tenantId: "tenant-a" }]) },
       subscription: { findMany: vi.fn().mockResolvedValue([{ tenantId: "tenant-b" }]) },
       payment: { findMany: vi.fn().mockResolvedValue([]) },
+      commercialOnboardingIntent: { findMany: vi.fn().mockResolvedValue([]) },
     } as unknown as PrismaClient;
 
     await expect(
@@ -68,7 +70,7 @@ describe("shared Asaas billing webhook routing", () => {
         db,
         body({ subscription: { id: "sub_1", externalReference: "fs_opaque" } }),
       ),
-    ).resolves.toEqual({ authoritative: true, tenantId: null });
+    ).resolves.toEqual({ authoritative: true, tenantId: null, onboardingIntentId: null });
   });
 
   it("accepts a signed shared billing webhook even when no tenant-specific account id is present", async () => {
@@ -87,13 +89,16 @@ describe("shared Asaas billing webhook routing", () => {
     if (result.valid) expect(result.webhook.integrationExternalAccountId).toBe("shared-billing");
   });
 
-  it("uses billing routing before the legacy integration-account fallback", () => {
+  it("uses authoritative billing routing before the legacy integration-account fallback", () => {
     const ingress = readFileSync(
       "domains/infrastructure/integrations/webhook-ingress.ts",
       "utf8",
     );
     expect(ingress).toContain("resolveAsaasBillingWebhookTenant(this.prisma, rawBody)");
     expect(ingress).toContain("if (billingRoute.authoritative)");
-    expect(ingress).toContain("if (!billingRoute.tenantId) return { status: 400 as const }");
+    expect(ingress).toContain(
+      "if (!billingRoute.tenantId && !billingRoute.onboardingIntentId) return { status: 400 as const }",
+    );
+    expect(ingress).toContain("tenantId = billingRoute.tenantId");
   });
 });

@@ -38,11 +38,11 @@ export class WebhookIngressService {
     const verified = await adapter.verifyWebhook({ provider, headers, rawBody, receivedAt: new Date() });
     if (!verified.valid) return { status: 401 as const };
 
-    let tenantId: string;
+    let tenantId: string | null;
     if (provider === "ASAAS") {
       const billingRoute = await resolveAsaasBillingWebhookTenant(this.prisma, rawBody);
       if (billingRoute.authoritative) {
-        if (!billingRoute.tenantId) return { status: 400 as const };
+        if (!billingRoute.tenantId && !billingRoute.onboardingIntentId) return { status: 400 as const };
         tenantId = billingRoute.tenantId;
       } else {
         const integrations = await this.prisma.integration.findMany({
