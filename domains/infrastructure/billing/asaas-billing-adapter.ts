@@ -8,9 +8,9 @@ const payment=(value:Json):ProviderPayment=>({id:String(value.id),status:String(
 const hostedCheckoutTypes=new Set(["PIX","CREDIT_CARD"]);
 export class AsaasBillingAdapter implements BillingProviderAdapter {
   readonly provider="ASAAS" as const;
-  constructor(private readonly http:AsaasHttpClient,private readonly checkoutExpirationMinutes:number){}
+  constructor(private readonly http:AsaasHttpClient,private readonly checkoutExpirationMinutes?:number){}
   async createRecurringCheckout(request:RecurringCheckoutRequest):Promise<HostedCheckout>{
-    if(!Number.isSafeInteger(this.checkoutExpirationMinutes)||this.checkoutExpirationMinutes<10||this.checkoutExpirationMinutes>1440)throw new BillingPermanentError("ASAAS_CHECKOUT_EXPIRATION_INVALID");
+    if(!Number.isSafeInteger(this.checkoutExpirationMinutes)||this.checkoutExpirationMinutes!<10||this.checkoutExpirationMinutes!>1440)throw new BillingPermanentError("ASAAS_CHECKOUT_EXPIRATION_INVALID");
     if(request.plan.allowedBillingTypes.length===0||request.plan.allowedBillingTypes.some((type)=>!hostedCheckoutTypes.has(type)))throw new BillingPermanentError("ASAAS_CHECKOUT_BILLING_TYPE_UNSUPPORTED");
     const data=await this.http.request<Json>("POST","/checkouts",{chargeTypes:["RECURRENT"],billingTypes:request.plan.allowedBillingTypes,minutesToExpire:this.checkoutExpirationMinutes,externalReference:request.externalReference,items:[{name:request.plan.displayName,quantity:1,value:request.plan.priceCents/100}],subscription:{cycle:request.plan.cycle,nextDueDate:request.nextDueDate},callback:request.callback},request.correlationId);
     return {id:String(data.id),url:validateHostedCheckoutUrl(String(data.link??data.url)),status:String(data.status??"ACTIVE"),...(data.expirationDate?{expiresAt:new Date(String(data.expirationDate))}:{})};
