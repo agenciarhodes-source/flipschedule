@@ -1,6 +1,11 @@
 import "server-only";
 
 import type { PrismaClient } from "@/generated/prisma/client";
+import {
+  BillingPlanError,
+  type BillingPlan,
+  type BillingPlanSource,
+} from "@/domains/application/billing";
 import type { FetchLike } from "./asaas-http-client";
 import { AsaasBillingAdapter } from "./asaas-billing-adapter";
 import { AsaasHttpClient } from "./asaas-http-client";
@@ -12,6 +17,36 @@ import {
   requireRuntimeSecretReference,
   RuntimeConfigurationError,
 } from "@/lib/runtime/config";
+
+const ASAAS_HOSTED_CHECKOUT_BILLING_TYPES = new Set(["PIX", "CREDIT_CARD"]);
+
+export function isAsaasHostedCheckoutPlanSupported(plan: BillingPlan) {
+  return (
+    plan.allowedBillingTypes.length > 0 &&
+    plan.allowedBillingTypes.every((type) => ASAAS_HOSTED_CHECKOUT_BILLING_TYPES.has(type))
+  );
+}
+
+class AsaasBillingPlanSource implements BillingPlanSource {
+  constructor(private readonly source: BillingPlanSource) {}
+
+  async requireActive(code: string) {
+    const plan = await this.source.requireActive(code);
+    if (!isAsaasHostedCheckoutPlanSupported(plan)) {
+      throw new BillingPlanError("PLAN_NOT_AVAILABLE");
+    }
+    return plan;
+  }
+
+  async listActive() {
+    const plans = await this.source.listActive();
+    return plans.filter(isAsaasHostedCheckoutPlanSupported);
+  }
+}
+
+export function createAsaasBillingPlanSource(prisma: PrismaClient) {
+  return new AsaasBillingPlanSource(new PrismaBillingPlanCatalog(prisma));
+}
 
 export function getAsaasBillingEnvironment(
   env: Record<string, string | undefined> = process.env,
@@ -44,7 +79,7 @@ export function createAsaasBillingCheckoutService(
   const adapter = createAsaasBillingAdapter(env, fetchImpl);
   return new BillingCheckoutService(
     prisma,
-    new PrismaBillingPlanCatalog(prisma),
+    createAsaasBillingPlanSource(prisma),
     adapter,
     getPublicApplicationOrigin(env).origin,
     environment,
