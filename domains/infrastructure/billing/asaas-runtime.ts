@@ -26,6 +26,7 @@ import {
 const ASAAS_HOSTED_CHECKOUT_BILLING_TYPES = new Set(["PIX", "CREDIT_CARD"]);
 export const ASAAS_PRODUCTION_CONFIRMATION = "ENABLE_REAL_ASAAS_CHARGES";
 export const ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE = "ASAAS_BILLING";
+export const ASAAS_RECONCILIATION_EXTERNAL_EFFECT_SCOPE = "ASAAS_BILLING_RECONCILIATION";
 
 export function isAsaasHostedCheckoutPlanSupported(plan: BillingPlan) {
   return (
@@ -97,7 +98,8 @@ export type AsaasProductionBillingReadiness = {
   runtimeEnvironment: string | null;
   providerEnvironment: string | null;
   externalEffectsMode: string | null;
-  productionScopeEnabled: boolean;
+  productionCheckoutScopeEnabled: boolean;
+  reconciliationScopeEnabled: boolean;
   billingEnabled: boolean;
   productionHostname: string | null;
   tenantAllowlistCount: number;
@@ -137,10 +139,15 @@ export function getAsaasProductionBillingReadiness(
     issues.push("ASAAS_PRODUCTION_EXTERNAL_EFFECTS_REQUIRED");
   }
 
-  const productionScopeEnabled = getProductionExternalEffectScopes(env).has(
-    ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE,
-  );
-  if (!productionScopeEnabled) issues.push("ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE_REQUIRED");
+  const scopes = getProductionExternalEffectScopes(env);
+  const productionCheckoutScopeEnabled = scopes.has(ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE);
+  const reconciliationScopeEnabled = scopes.has(ASAAS_RECONCILIATION_EXTERNAL_EFFECT_SCOPE);
+  if (!productionCheckoutScopeEnabled) {
+    issues.push("ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE_REQUIRED");
+  }
+  if (!reconciliationScopeEnabled) {
+    issues.push("ASAAS_RECONCILIATION_EXTERNAL_EFFECT_SCOPE_REQUIRED");
+  }
 
   const billingEnabled = env.ASAAS_PRODUCTION_BILLING_ENABLED?.trim() === "true";
   if (!billingEnabled) issues.push("ASAAS_PRODUCTION_BILLING_DISABLED");
@@ -196,7 +203,8 @@ export function getAsaasProductionBillingReadiness(
     runtimeEnvironment,
     providerEnvironment,
     externalEffectsMode,
-    productionScopeEnabled,
+    productionCheckoutScopeEnabled,
+    reconciliationScopeEnabled,
     billingEnabled,
     productionHostname,
     tenantAllowlistCount,
@@ -229,6 +237,18 @@ export function assertAsaasProductionTenantAllowed(
   }
 }
 
+function createAsaasHttpAdapter(
+  environment: AsaasEnvironment,
+  accessToken: string,
+  fetchImpl?: FetchLike,
+  checkoutExpirationMinutes?: number,
+) {
+  return new AsaasBillingAdapter(
+    new AsaasHttpClient({ accessToken, environment, ...(fetchImpl ? { fetch: fetchImpl } : {}) }),
+    checkoutExpirationMinutes,
+  );
+}
+
 export function createAsaasBillingAdapter(
   env: Record<string, string | undefined> = process.env,
   fetchImpl?: FetchLike,
@@ -242,11 +262,26 @@ export function createAsaasBillingAdapter(
   }
 
   const accessToken = requireRuntimeSecretReference("ASAAS_API_KEY", 24, env);
-  const checkoutExpirationMinutes = getAsaasCheckoutExpirationMinutes(env);
-  return new AsaasBillingAdapter(
-    new AsaasHttpClient({ accessToken, environment, ...(fetchImpl ? { fetch: fetchImpl } : {}) }),
-    checkoutExpirationMinutes,
+  return createAsaasHttpAdapter(
+    environment,
+    accessToken,
+    fetchImpl,
+    getAsaasCheckoutExpirationMinutes(env),
   );
+}
+
+export function createAsaasBillingReconciliationAdapter(
+  env: Record<string, string | undefined> = process.env,
+  fetchImpl?: FetchLike,
+) {
+  const environment = getAsaasBillingEnvironment(env);
+  const accessToken = requireRuntimeSecretReference("ASAAS_API_KEY", 24, env);
+  if (environment === "production") {
+    assertExternalEffectAllowed("production", env, ASAAS_RECONCILIATION_EXTERNAL_EFFECT_SCOPE);
+  } else {
+    assertExternalEffectAllowed("sandbox", env);
+  }
+  return createAsaasHttpAdapter(environment, accessToken, fetchImpl);
 }
 
 export function createAsaasBillingCheckoutService(
