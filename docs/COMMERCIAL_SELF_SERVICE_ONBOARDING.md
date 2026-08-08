@@ -32,7 +32,7 @@ O checkout hospedado recebe somente nome e e-mail como `customerData`. Dados de 
 
 Se o resultado do POST for incerto por timeout, rate limit ou falha temporária, a intenção passa para `RECONCILIATION_REQUIRED`. O sistema não cria outro checkout automaticamente.
 
-Um checkout já conhecido em `CHECKOUT_ACTIVE` pode ser retomado pelo ID autoritativo do Asaas. O token do callback original não é rotacionado durante a retomada.
+Uma intenção pública já ativa também não devolve a URL de um checkout existente a partir de e-mail, slug e plano. Esses dados não constituem prova suficiente de identidade. A retomada de checkout permanece restrita aos fluxos autenticados; no onboarding público, uma intenção não terminal bloqueia uma segunda criação.
 
 ## 3. Callback não confirma pagamento
 
