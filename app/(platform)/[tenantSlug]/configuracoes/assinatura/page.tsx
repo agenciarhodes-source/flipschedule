@@ -7,7 +7,7 @@ import {
 import { hasPermission, requirePermission } from "@/domains/application/rbac";
 import {
   createAsaasBillingPlanSource,
-  isAsaasBillingCheckoutAvailable,
+  isAsaasBillingCheckoutAvailableForTenant,
 } from "@/domains/infrastructure/billing/asaas-runtime";
 import { getApplicationContext } from "@/lib/auth/application-context";
 import { getPrismaClient } from "@/lib/db";
@@ -60,7 +60,7 @@ export default async function SubscriptionSettingsPage({
   ]);
 
   const canCheckout = hasPermission(context.membershipRole, "billing.checkout");
-  const runtimeAvailable = isAsaasBillingCheckoutAvailable();
+  const runtimeAvailable = isAsaasBillingCheckoutAvailableForTenant(context.tenantSlug);
   const hasEffectiveSubscription = Boolean(
     subscription && ["PENDING", "ACTIVE", "PAST_DUE", "SUSPENDED"].includes(subscription.status),
   );
@@ -155,7 +155,7 @@ export default async function SubscriptionSettingsPage({
           </div>
           {!runtimeAvailable ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              O efeito externo permanece bloqueado até o ambiente protegido habilitar explicitamente o checkout Asaas.
+              O efeito externo permanece bloqueado até o ambiente protegido habilitar explicitamente o checkout Asaas para esta conta.
             </p>
           ) : null}
         </section>
