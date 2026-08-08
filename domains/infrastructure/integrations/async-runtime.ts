@@ -1,63 +1,548 @@
 import "server-only";
-import type { Prisma,PrismaClient } from "@/generated/prisma/client";
-import { ProviderAuthenticationError,ProviderPermanentError,ProviderRateLimitError,ProviderRegistry,ProviderTemporaryError,retryAt,systemClock,type Clock } from "@/domains/application/integrations";
-import { findCommercialPlanLink,requireCommercialPlanLink } from "@/domains/infrastructure/billing/commercial-plan-link";
-import { decryptField,encryptField } from "@/lib/security/field-encryption";
+
+import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import {
+  ProviderAuthenticationError,
+  ProviderPermanentError,
+  ProviderRateLimitError,
+  ProviderRegistry,
+  ProviderTemporaryError,
+  retryAt,
+  systemClock,
+  type Clock,
+} from "@/domains/application/integrations";
+import {
+  findCommercialPlanLink,
+  requireCommercialPlanLink,
+} from "@/domains/infrastructure/billing/commercial-plan-link";
+import { decryptField, encryptField } from "@/lib/security/field-encryption";
 import type { CredentialStore } from "./credential-store";
 
-const leaseExpired=(now:Date)=>new Date(now.getTime()-10*60_000);
+const leaseExpired = (now: Date) => new Date(now.getTime() - 10 * 60_000);
+
 export class OutboundMessageWorker {
- constructor(private prisma:PrismaClient,private registry:ProviderRegistry,private credentials:CredentialStore,private clock:Clock=systemClock){}
- async claim(limit=20){const now=this.clock.now();const candidates=await this.prisma.message.findMany({where:{direction:"OUTBOUND",OR:[{status:"PENDING",nextAttemptAt:{lte:now}},{status:"PENDING",nextAttemptAt:null},{status:"PROCESSING",processingStartedAt:{lt:leaseExpired(now)}}]},select:{id:true,tenantId:true,status:true},orderBy:[{nextAttemptAt:"asc"},{createdAt:"asc"}],take:Math.min(100,Math.max(1,limit))});const claimed=[];for(const row of candidates){const result=await this.prisma.message.updateMany({where:{id:row.id,tenantId:row.tenantId,status:row.status,...(row.status==="PROCESSING"?{processingStartedAt:{lt:leaseExpired(now)}}:{})},data:{status:"PROCESSING",processingStartedAt:now,attempts:{increment:1}}});if(result.count===1)claimed.push(row.id)}return claimed}
- async processOne(id:string){const message=await this.prisma.message.findFirst({where:{id,status:"PROCESSING",direction:"OUTBOUND"},select:{id:true,tenantId:true,attempts:true,bodyCiphertext:true,correlationId:true,conversation:{select:{channel:true,patientId:true,leadId:true,patient:{select:{phoneE164:true,emailNormalized:true}},lead:{select:{phoneE164:true,emailNormalized:true}},integration:{select:{id:true,tenantId:true,provider:true,status:true,credentialReference:true,configuration:true}}}}}});if(!message)return false;const fail=async(code:string,temporary:boolean)=>{const next=temporary?retryAt(message.attempts,this.clock):null;await this.prisma.message.updateMany({where:{id,tenantId:message.tenantId,status:"PROCESSING"},data:{status:next?"PENDING":"FAILED",nextAttemptAt:next,processingStartedAt:null,lastErrorCode:code,...(!next?{failedAt:this.clock.now()}:{})}});return false};try{const integration=message.conversation.integration;if(!integration||integration.tenantId!==message.tenantId||integration.status!=="CONNECTED")return fail("INTEGRATION_UNAVAILABLE",false);const adapter=this.registry.require(integration.provider);if(!adapter.supportsChannel(message.conversation.channel))return fail("CHANNEL_UNSUPPORTED",false);if(!integration.credentialReference)return fail("CREDENTIAL_UNAVAILABLE",false);const credentials=await this.credentials.resolve(integration.credentialReference);if(!credentials)return fail("CREDENTIAL_UNAVAILABLE",false);if(!message.bodyCiphertext)return fail("MESSAGE_BODY_UNAVAILABLE",false);const destination=message.conversation.channel==="EMAIL"?(message.conversation.patient?.emailNormalized??message.conversation.lead?.emailNormalized):(message.conversation.patient?.phoneE164??message.conversation.lead?.phoneE164);if(!destination)return fail("RECIPIENT_INVALID",false);if(message.conversation.patientId){const consent=await this.prisma.consent.findFirst({where:{tenantId:message.tenantId,patientId:message.conversation.patientId,purpose:"SERVICE",granted:true,revokedAt:null},select:{id:true}});if(!consent)return fail("CONSENT_REQUIRED",false)}const result=await adapter.sendMessage({context:{tenantId:message.tenantId,integrationId:integration.id,correlationId:message.correlationId??message.id,configuration:(integration.configuration??{}) as Record<string,unknown>,credentials},channel:message.conversation.channel,destination,body:decryptField(message.bodyCiphertext),idempotencyKey:message.id});if(!result.ok)return fail(result.errorCode,result.temporary);if(!result.externalMessageId)return fail("PROVIDER_CONFIRMATION_INVALID",false);await this.prisma.message.updateMany({where:{id,tenantId:message.tenantId,status:"PROCESSING"},data:{status:"SENT",externalMessageId:result.externalMessageId,sentAt:this.clock.now(),processingStartedAt:null,nextAttemptAt:null,lastErrorCode:null}});return true}catch(error){if(error instanceof ProviderRateLimitError||error instanceof ProviderTemporaryError)return fail(error.code,true);if(error instanceof ProviderAuthenticationError||error instanceof ProviderPermanentError)return fail(error.code,false);return fail("PROVIDER_OPERATION_FAILED",true)}}
- async run(limit=20){const ids=await this.claim(limit);let processed=0;for(const id of ids)if(await this.processOne(id))processed++;return {claimed:ids.length,processed}}
+  constructor(
+    private prisma: PrismaClient,
+    private registry: ProviderRegistry,
+    private credentials: CredentialStore,
+    private clock: Clock = systemClock,
+  ) {}
+
+  async claim(limit = 20) {
+    const now = this.clock.now();
+    const candidates = await this.prisma.message.findMany({
+      where: {
+        direction: "OUTBOUND",
+        OR: [
+          { status: "PENDING", nextAttemptAt: { lte: now } },
+          { status: "PENDING", nextAttemptAt: null },
+          { status: "PROCESSING", processingStartedAt: { lt: leaseExpired(now) } },
+        ],
+      },
+      select: { id: true, tenantId: true, status: true },
+      orderBy: [{ nextAttemptAt: "asc" }, { createdAt: "asc" }],
+      take: Math.min(100, Math.max(1, limit)),
+    });
+    const claimed = [];
+    for (const row of candidates) {
+      const result = await this.prisma.message.updateMany({
+        where: {
+          id: row.id,
+          tenantId: row.tenantId,
+          status: row.status,
+          ...(row.status === "PROCESSING"
+            ? { processingStartedAt: { lt: leaseExpired(now) } }
+            : {}),
+        },
+        data: { status: "PROCESSING", processingStartedAt: now, attempts: { increment: 1 } },
+      });
+      if (result.count === 1) claimed.push(row.id);
+    }
+    return claimed;
+  }
+
+  async processOne(id: string) {
+    const message = await this.prisma.message.findFirst({
+      where: { id, status: "PROCESSING", direction: "OUTBOUND" },
+      select: {
+        id: true,
+        tenantId: true,
+        attempts: true,
+        bodyCiphertext: true,
+        correlationId: true,
+        conversation: {
+          select: {
+            channel: true,
+            patientId: true,
+            leadId: true,
+            patient: { select: { phoneE164: true, emailNormalized: true } },
+            lead: { select: { phoneE164: true, emailNormalized: true } },
+            integration: {
+              select: {
+                id: true,
+                tenantId: true,
+                provider: true,
+                status: true,
+                credentialReference: true,
+                configuration: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!message) return false;
+
+    const fail = async (code: string, temporary: boolean) => {
+      const next = temporary ? retryAt(message.attempts, this.clock) : null;
+      await this.prisma.message.updateMany({
+        where: { id, tenantId: message.tenantId, status: "PROCESSING" },
+        data: {
+          status: next ? "PENDING" : "FAILED",
+          nextAttemptAt: next,
+          processingStartedAt: null,
+          lastErrorCode: code,
+          ...(!next ? { failedAt: this.clock.now() } : {}),
+        },
+      });
+      return false;
+    };
+
+    try {
+      const integration = message.conversation.integration;
+      if (!integration || integration.tenantId !== message.tenantId || integration.status !== "CONNECTED") {
+        return fail("INTEGRATION_UNAVAILABLE", false);
+      }
+      const adapter = this.registry.require(integration.provider);
+      if (!adapter.supportsChannel(message.conversation.channel)) {
+        return fail("CHANNEL_UNSUPPORTED", false);
+      }
+      if (!integration.credentialReference) return fail("CREDENTIAL_UNAVAILABLE", false);
+      const credentials = await this.credentials.resolve(integration.credentialReference);
+      if (!credentials) return fail("CREDENTIAL_UNAVAILABLE", false);
+      if (!message.bodyCiphertext) return fail("MESSAGE_BODY_UNAVAILABLE", false);
+      const destination =
+        message.conversation.channel === "EMAIL"
+          ? (message.conversation.patient?.emailNormalized ?? message.conversation.lead?.emailNormalized)
+          : (message.conversation.patient?.phoneE164 ?? message.conversation.lead?.phoneE164);
+      if (!destination) return fail("RECIPIENT_INVALID", false);
+      if (message.conversation.patientId) {
+        const consent = await this.prisma.consent.findFirst({
+          where: {
+            tenantId: message.tenantId,
+            patientId: message.conversation.patientId,
+            purpose: "SERVICE",
+            granted: true,
+            revokedAt: null,
+          },
+          select: { id: true },
+        });
+        if (!consent) return fail("CONSENT_REQUIRED", false);
+      }
+      const result = await adapter.sendMessage({
+        context: {
+          tenantId: message.tenantId,
+          integrationId: integration.id,
+          correlationId: message.correlationId ?? message.id,
+          configuration: (integration.configuration ?? {}) as Record<string, unknown>,
+          credentials,
+        },
+        channel: message.conversation.channel,
+        destination,
+        body: decryptField(message.bodyCiphertext),
+        idempotencyKey: message.id,
+      });
+      if (!result.ok) return fail(result.errorCode, result.temporary);
+      if (!result.externalMessageId) return fail("PROVIDER_CONFIRMATION_INVALID", false);
+      await this.prisma.message.updateMany({
+        where: { id, tenantId: message.tenantId, status: "PROCESSING" },
+        data: {
+          status: "SENT",
+          externalMessageId: result.externalMessageId,
+          sentAt: this.clock.now(),
+          processingStartedAt: null,
+          nextAttemptAt: null,
+          lastErrorCode: null,
+        },
+      });
+      return true;
+    } catch (error) {
+      if (error instanceof ProviderRateLimitError || error instanceof ProviderTemporaryError) {
+        return fail(error.code, true);
+      }
+      if (error instanceof ProviderAuthenticationError || error instanceof ProviderPermanentError) {
+        return fail(error.code, false);
+      }
+      return fail("PROVIDER_OPERATION_FAILED", true);
+    }
+  }
+
+  async run(limit = 20) {
+    const ids = await this.claim(limit);
+    let processed = 0;
+    for (const id of ids) if (await this.processOne(id)) processed++;
+    return { claimed: ids.length, processed };
+  }
 }
 
-export class WebhookEventClaimer {constructor(private prisma:PrismaClient,private clock:Clock=systemClock){}async claim(limit=20){const now=this.clock.now(),rows=await this.prisma.webhookEvent.findMany({where:{OR:[{status:"RECEIVED",nextAttemptAt:null},{status:"RECEIVED",nextAttemptAt:{lte:now}},{status:"PROCESSING",processingStartedAt:{lt:leaseExpired(now)}}]},select:{id:true,status:true},orderBy:{receivedAt:"asc"},take:Math.min(100,Math.max(1,limit))});const ids:string[]=[];for(const row of rows){const result=await this.prisma.webhookEvent.updateMany({where:{id:row.id,status:row.status,...(row.status==="PROCESSING"?{processingStartedAt:{lt:leaseExpired(now)}}:{})},data:{status:"PROCESSING",processingStartedAt:now,attempts:{increment:1}}});if(result.count===1)ids.push(row.id)}return ids}}
-export class WebhookEventProcessor {
- constructor(private prisma:PrismaClient,private registry:ProviderRegistry,private clock:Clock=systemClock){}
- async process(id:string){
-  const row=await this.prisma.webhookEvent.findFirst({where:{id,status:"PROCESSING"},select:{id:true,tenantId:true,provider:true,payloadCiphertext:true,attempts:true,correlationId:true,externalEventId:true}});if(!row)return false;
-  const fail=async(code:string,temporary=false)=>{const next=temporary?retryAt(row.attempts,this.clock):null;await this.prisma.webhookEvent.update({where:{id},data:{status:next?"RECEIVED":"FAILED",nextAttemptAt:next,processingStartedAt:null,lastErrorCode:code}});return false};
-  try{
-   if(!row.payloadCiphertext)throw new ProviderPermanentError("PAYLOAD_UNAVAILABLE");
-   const provider=row.provider as never,adapter=this.registry.require(provider),rawBody=new TextEncoder().encode(decryptField(row.payloadCiphertext));
-   const events=await adapter.parseWebhook({provider,headers:{},rawBody,receivedAt:this.clock.now(),externalEventId:row.externalEventId,integrationExternalAccountId:"resolved-at-ingress"});
-   if(events.length===0)throw new ProviderPermanentError("WEBHOOK_NO_EFFECT");
-   await this.prisma.$transaction(async tx=>{for(const event of events)await this.applyBillingEvent(tx,row.tenantId,event,row.correlationId);await tx.webhookEvent.update({where:{id},data:{status:"PROCESSED",processedAt:this.clock.now(),processingStartedAt:null,nextAttemptAt:null,lastErrorCode:null}})});
-   return true;
-  }catch(error){if(error instanceof ProviderPermanentError)return fail(error.code);const temporary=error instanceof ProviderTemporaryError||error instanceof ProviderRateLimitError;return fail(temporary?(error as ProviderTemporaryError).code:"WEBHOOK_PROCESSING_FAILED",temporary)}
- }
- private async applyBillingEvent(tx:Prisma.TransactionClient,tenantId:string|null,event:Awaited<ReturnType<ReturnType<ProviderRegistry["require"]>["parseWebhook"]>>[number],correlationId:string|null){
-  if(!tenantId)throw new ProviderPermanentError("TENANT_UNRESOLVED");const now=this.clock.now();
-  if(event.type==="BillingCheckoutChanged"){
-   const result=await tx.billingCheckout.updateMany({where:{tenantId,provider:"ASAAS",OR:[{externalCheckoutId:event.externalCheckoutId},...(event.externalReference?[{externalReference:event.externalReference}]:[])]},data:{externalCheckoutId:event.externalCheckoutId,status:event.status,...(event.status==="PAID"?{completedAt:now}:{}),...(event.status==="CANCELLED"?{cancelledAt:now}:{})}});if(result.count!==1)throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");await this.audit(tx,tenantId,"billing.webhook.checkout_applied","BillingCheckout",correlationId);return;
+export class WebhookEventClaimer {
+  constructor(
+    private prisma: PrismaClient,
+    private clock: Clock = systemClock,
+  ) {}
+
+  async claim(limit = 20) {
+    const now = this.clock.now();
+    const rows = await this.prisma.webhookEvent.findMany({
+      where: {
+        OR: [
+          { status: "RECEIVED", nextAttemptAt: null },
+          { status: "RECEIVED", nextAttemptAt: { lte: now } },
+          { status: "PROCESSING", processingStartedAt: { lt: leaseExpired(now) } },
+        ],
+      },
+      select: { id: true, status: true },
+      orderBy: { receivedAt: "asc" },
+      take: Math.min(100, Math.max(1, limit)),
+    });
+    const ids: string[] = [];
+    for (const row of rows) {
+      const result = await this.prisma.webhookEvent.updateMany({
+        where: {
+          id: row.id,
+          status: row.status,
+          ...(row.status === "PROCESSING"
+            ? { processingStartedAt: { lt: leaseExpired(now) } }
+            : {}),
+        },
+        data: { status: "PROCESSING", processingStartedAt: now, attempts: { increment: 1 } },
+      });
+      if (result.count === 1) ids.push(row.id);
+    }
+    return ids;
   }
-  if(event.type==="BillingSubscriptionChanged"){
-   const existing=await tx.subscription.findFirst({where:{tenantId,provider:"ASAAS",externalSubscriptionId:event.externalSubscriptionId},select:{id:true,tenantId:true,planCode:true,commercialPlanId:true}});
-   let subscriptionId=existing?.id;
-   if(!subscriptionId){
-    if(!event.externalReference)throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");
-    const checkout=await tx.billingCheckout.findFirst({where:{tenantId,provider:"ASAAS",externalReference:event.externalReference},select:{id:true,tenantId:true,planCode:true,cycle:true,externalReference:true}});
-    if(!checkout||checkout.tenantId!==tenantId)throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");
-    const commercialPlan=await requireCommercialPlanLink(tx,checkout.planCode);
-    const created=await tx.subscription.upsert({where:{tenantId_provider_externalSubscriptionId:{tenantId,provider:"ASAAS",externalSubscriptionId:event.externalSubscriptionId}},create:{tenantId,provider:"ASAAS",externalSubscriptionId:event.externalSubscriptionId,externalReference:checkout.externalReference,externalCustomerId:event.externalCustomerId??null,commercialPlanId:commercialPlan.id,planCode:checkout.planCode,billingType:checkout.cycle,status:event.status,providerStatus:event.providerStatus,lastSyncedAt:now},update:{commercialPlanId:commercialPlan.id,planCode:checkout.planCode,status:event.status,providerStatus:event.providerStatus,lastSyncedAt:now,...(event.externalCustomerId?{externalCustomerId:event.externalCustomerId}:{})},select:{id:true}});subscriptionId=created.id;
-    await tx.billingCheckout.update({where:{id:checkout.id},data:{status:event.status==="ACTIVE"?"ACTIVE":"CREATED"}});
-   }else {if(!existing)throw new ProviderPermanentError("BILLING_SUBSCRIPTION_UNRESOLVED");const commercialPlan=existing.commercialPlanId?null:await findCommercialPlanLink(tx,existing.planCode);await tx.subscription.update({where:{id:existing.id},data:{status:event.status,providerStatus:event.providerStatus,lastSyncedAt:now,...(commercialPlan?{commercialPlanId:commercialPlan.id}:{}),...(event.externalCustomerId?{externalCustomerId:event.externalCustomerId}:{})}})}
-   await this.audit(tx,tenantId,"billing.webhook.subscription_applied","Subscription",correlationId);return;
-  }
-  if(event.type==="BillingPaymentChanged"){
-   const subscription=event.externalSubscriptionId?await tx.subscription.findFirst({where:{tenantId,provider:"ASAAS",externalSubscriptionId:event.externalSubscriptionId},select:{id:true,currentPeriodStart:true,currentPeriodEnd:true}}):null;
-   if(event.externalSubscriptionId&&!subscription)throw new ProviderPermanentError("BILLING_SUBSCRIPTION_UNRESOLVED");
-   const conflicting=await tx.payment.findFirst({where:{provider:"ASAAS",externalPaymentId:event.externalPaymentId},select:{id:true,tenantId:true,provider:true}});if(conflicting&&conflicting.tenantId!==tenantId)throw new ProviderPermanentError("PAYMENT_TENANT_CONFLICT");
-   await tx.payment.upsert({where:{tenantId_provider_externalPaymentId:{tenantId,provider:"ASAAS",externalPaymentId:event.externalPaymentId}},create:{tenantId,subscriptionId:subscription?.id??null,provider:"ASAAS",externalPaymentId:event.externalPaymentId,status:event.status,providerStatus:event.providerStatus,amountCents:event.amountCents,dueAt:event.dueAt,paidAt:event.paidAt??null,lastSyncedAt:now,correlationId},update:{status:event.status,providerStatus:event.providerStatus,amountCents:event.amountCents,dueAt:event.dueAt,paidAt:event.paidAt??null,lastSyncedAt:now,correlationId}});
-   if(subscription&&(event.status==="CONFIRMED"||event.status==="RECEIVED"))await this.activatePaid(tx,tenantId,subscription.id,subscription.currentPeriodStart??now,subscription.currentPeriodEnd);
-   await this.audit(tx,tenantId,"billing.webhook.payment_applied","Payment",correlationId);return;
-  }
-  throw new ProviderPermanentError("WEBHOOK_EVENT_NOT_APPLICABLE");
- }
- private async activatePaid(tx:Prisma.TransactionClient,tenantId:string,subscriptionId:string,startsAt:Date,endsAt:Date|null){const protectedRow=await tx.accessEntitlement.findFirst({where:{tenantId,type:{in:["COURTESY","INTERNAL"]},status:"ACTIVE"},select:{id:true}});if(protectedRow)return;const current=await tx.accessEntitlement.findFirst({where:{tenantId,type:"PAID",status:"ACTIVE"},orderBy:{createdAt:"desc"}});if(current)await tx.accessEntitlement.update({where:{id:current.id},data:{startsAt,endsAt,reason:`SaaS subscription ${subscriptionId}`}});else await tx.accessEntitlement.create({data:{tenantId,type:"PAID",status:"ACTIVE",startsAt,endsAt,reason:`SaaS subscription ${subscriptionId}`}});await this.audit(tx,tenantId,"billing.entitlement.activated","AccessEntitlement",null)}
- private audit(tx:Prisma.TransactionClient,tenantId:string,action:string,resourceType:string,correlationId:string|null){return tx.auditLog.create({data:{tenantId,action,resourceType,outcome:"SUCCESS",correlationId}})}
 }
-export class WebhookEventReconciler {constructor(private claimer:WebhookEventClaimer,private processor:WebhookEventProcessor){}async run(limit=20){const ids=await this.claimer.claim(limit);let processed=0;for(const id of ids)if(await this.processor.process(id))processed++;return {claimed:ids.length,processed}}}
-export {encryptField};
+
+export class WebhookEventProcessor {
+  constructor(
+    private prisma: PrismaClient,
+    private registry: ProviderRegistry,
+    private clock: Clock = systemClock,
+  ) {}
+
+  async process(id: string) {
+    const row = await this.prisma.webhookEvent.findFirst({
+      where: { id, status: "PROCESSING" },
+      select: {
+        id: true,
+        tenantId: true,
+        provider: true,
+        payloadCiphertext: true,
+        attempts: true,
+        correlationId: true,
+        externalEventId: true,
+      },
+    });
+    if (!row) return false;
+
+    const fail = async (code: string, temporary = false) => {
+      const next = temporary ? retryAt(row.attempts, this.clock) : null;
+      await this.prisma.webhookEvent.update({
+        where: { id },
+        data: {
+          status: next ? "RECEIVED" : "FAILED",
+          nextAttemptAt: next,
+          processingStartedAt: null,
+          lastErrorCode: code,
+        },
+      });
+      return false;
+    };
+
+    try {
+      if (!row.payloadCiphertext) throw new ProviderPermanentError("PAYLOAD_UNAVAILABLE");
+      const provider = row.provider as never;
+      const adapter = this.registry.require(provider);
+      const rawBody = new TextEncoder().encode(decryptField(row.payloadCiphertext));
+      const events = await adapter.parseWebhook({
+        provider,
+        headers: {},
+        rawBody,
+        receivedAt: this.clock.now(),
+        externalEventId: row.externalEventId,
+        integrationExternalAccountId: "resolved-at-ingress",
+      });
+      if (events.length === 0) throw new ProviderPermanentError("WEBHOOK_NO_EFFECT");
+      await this.prisma.$transaction(async (tx) => {
+        for (const event of events) {
+          await this.applyBillingEvent(tx, row.tenantId, event, row.correlationId);
+        }
+        await tx.webhookEvent.update({
+          where: { id },
+          data: {
+            status: "PROCESSED",
+            processedAt: this.clock.now(),
+            processingStartedAt: null,
+            nextAttemptAt: null,
+            lastErrorCode: null,
+          },
+        });
+      });
+      return true;
+    } catch (error) {
+      if (error instanceof ProviderPermanentError) return fail(error.code);
+      const temporary = error instanceof ProviderTemporaryError || error instanceof ProviderRateLimitError;
+      return fail(
+        temporary ? (error as ProviderTemporaryError).code : "WEBHOOK_PROCESSING_FAILED",
+        temporary,
+      );
+    }
+  }
+
+  private async applyBillingEvent(
+    tx: Prisma.TransactionClient,
+    tenantId: string | null,
+    event: Awaited<ReturnType<ReturnType<ProviderRegistry["require"]>["parseWebhook"]>>[number],
+    correlationId: string | null,
+  ) {
+    if (!tenantId) throw new ProviderPermanentError("TENANT_UNRESOLVED");
+    const now = this.clock.now();
+
+    if (event.type === "BillingCheckoutChanged") {
+      const result = await tx.billingCheckout.updateMany({
+        where: {
+          tenantId,
+          provider: "ASAAS",
+          OR: [
+            { externalCheckoutId: event.externalCheckoutId },
+            ...(event.externalReference ? [{ externalReference: event.externalReference }] : []),
+          ],
+        },
+        data: {
+          externalCheckoutId: event.externalCheckoutId,
+          status: event.status,
+          ...(event.status === "PAID" ? { completedAt: now } : {}),
+          ...(event.status === "CANCELLED" ? { cancelledAt: now } : {}),
+        },
+      });
+      if (result.count !== 1) throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");
+      await this.audit(tx, tenantId, "billing.webhook.checkout_applied", "BillingCheckout", correlationId);
+      return;
+    }
+
+    if (event.type === "BillingSubscriptionChanged") {
+      const existing = await tx.subscription.findFirst({
+        where: {
+          tenantId,
+          provider: "ASAAS",
+          externalSubscriptionId: event.externalSubscriptionId,
+        },
+        select: { id: true, tenantId: true, planCode: true, commercialPlanId: true },
+      });
+      let subscriptionId = existing?.id;
+      if (!subscriptionId) {
+        if (!event.externalReference) throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");
+        const checkout = await tx.billingCheckout.findFirst({
+          where: { tenantId, provider: "ASAAS", externalReference: event.externalReference },
+          select: {
+            id: true,
+            tenantId: true,
+            planCode: true,
+            cycle: true,
+            externalReference: true,
+          },
+        });
+        if (!checkout || checkout.tenantId !== tenantId) {
+          throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");
+        }
+        const commercialPlan = await requireCommercialPlanLink(tx, checkout.planCode);
+        const created = await tx.subscription.upsert({
+          where: {
+            tenantId_provider_externalSubscriptionId: {
+              tenantId,
+              provider: "ASAAS",
+              externalSubscriptionId: event.externalSubscriptionId,
+            },
+          },
+          create: {
+            tenantId,
+            provider: "ASAAS",
+            externalSubscriptionId: event.externalSubscriptionId,
+            externalReference: checkout.externalReference,
+            externalCustomerId: event.externalCustomerId ?? null,
+            commercialPlanId: commercialPlan.id,
+            planCode: checkout.planCode,
+            billingType: event.billingType ?? null,
+            status: event.status,
+            providerStatus: event.providerStatus,
+            lastSyncedAt: now,
+          },
+          update: {
+            commercialPlanId: commercialPlan.id,
+            planCode: checkout.planCode,
+            status: event.status,
+            providerStatus: event.providerStatus,
+            lastSyncedAt: now,
+            ...(event.externalCustomerId ? { externalCustomerId: event.externalCustomerId } : {}),
+            ...(event.billingType ? { billingType: event.billingType } : {}),
+          },
+          select: { id: true },
+        });
+        subscriptionId = created.id;
+        await tx.billingCheckout.update({
+          where: { id: checkout.id },
+          data: { status: event.status === "ACTIVE" ? "ACTIVE" : "CREATED" },
+        });
+      } else {
+        if (!existing) throw new ProviderPermanentError("BILLING_SUBSCRIPTION_UNRESOLVED");
+        const commercialPlan = existing.commercialPlanId
+          ? null
+          : await findCommercialPlanLink(tx, existing.planCode);
+        await tx.subscription.update({
+          where: { id: existing.id },
+          data: {
+            status: event.status,
+            providerStatus: event.providerStatus,
+            lastSyncedAt: now,
+            ...(commercialPlan ? { commercialPlanId: commercialPlan.id } : {}),
+            ...(event.externalCustomerId ? { externalCustomerId: event.externalCustomerId } : {}),
+            ...(event.billingType ? { billingType: event.billingType } : {}),
+          },
+        });
+      }
+      await this.audit(tx, tenantId, "billing.webhook.subscription_applied", "Subscription", correlationId);
+      return;
+    }
+
+    if (event.type === "BillingPaymentChanged") {
+      const subscription = event.externalSubscriptionId
+        ? await tx.subscription.findFirst({
+            where: {
+              tenantId,
+              provider: "ASAAS",
+              externalSubscriptionId: event.externalSubscriptionId,
+            },
+            select: { id: true, currentPeriodStart: true, currentPeriodEnd: true },
+          })
+        : null;
+      if (event.externalSubscriptionId && !subscription) {
+        throw new ProviderPermanentError("BILLING_SUBSCRIPTION_UNRESOLVED");
+      }
+      const conflicting = await tx.payment.findFirst({
+        where: { provider: "ASAAS", externalPaymentId: event.externalPaymentId },
+        select: { id: true, tenantId: true, provider: true },
+      });
+      if (conflicting && conflicting.tenantId !== tenantId) {
+        throw new ProviderPermanentError("PAYMENT_TENANT_CONFLICT");
+      }
+      await tx.payment.upsert({
+        where: {
+          tenantId_provider_externalPaymentId: {
+            tenantId,
+            provider: "ASAAS",
+            externalPaymentId: event.externalPaymentId,
+          },
+        },
+        create: {
+          tenantId,
+          subscriptionId: subscription?.id ?? null,
+          provider: "ASAAS",
+          externalPaymentId: event.externalPaymentId,
+          status: event.status,
+          providerStatus: event.providerStatus,
+          amountCents: event.amountCents,
+          dueAt: event.dueAt,
+          paidAt: event.paidAt ?? null,
+          lastSyncedAt: now,
+          correlationId,
+        },
+        update: {
+          status: event.status,
+          providerStatus: event.providerStatus,
+          amountCents: event.amountCents,
+          dueAt: event.dueAt,
+          paidAt: event.paidAt ?? null,
+          lastSyncedAt: now,
+          correlationId,
+        },
+      });
+      if (subscription && (event.status === "CONFIRMED" || event.status === "RECEIVED")) {
+        await this.activatePaid(
+          tx,
+          tenantId,
+          subscription.id,
+          subscription.currentPeriodStart ?? now,
+          subscription.currentPeriodEnd,
+        );
+      }
+      await this.audit(tx, tenantId, "billing.webhook.payment_applied", "Payment", correlationId);
+      return;
+    }
+
+    throw new ProviderPermanentError("WEBHOOK_EVENT_NOT_APPLICABLE");
+  }
+
+  private async activatePaid(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    subscriptionId: string,
+    startsAt: Date,
+    endsAt: Date | null,
+  ) {
+    const protectedRow = await tx.accessEntitlement.findFirst({
+      where: { tenantId, type: { in: ["COURTESY", "INTERNAL"] }, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (protectedRow) return;
+    const current = await tx.accessEntitlement.findFirst({
+      where: { tenantId, type: "PAID", status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (current) {
+      await tx.accessEntitlement.update({
+        where: { id: current.id },
+        data: { startsAt, endsAt, reason: `SaaS subscription ${subscriptionId}` },
+      });
+    } else {
+      await tx.accessEntitlement.create({
+        data: {
+          tenantId,
+          type: "PAID",
+          status: "ACTIVE",
+          startsAt,
+          endsAt,
+          reason: `SaaS subscription ${subscriptionId}`,
+        },
+      });
+    }
+    await this.audit(tx, tenantId, "billing.entitlement.activated", "AccessEntitlement", null);
+  }
+
+  private audit(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    action: string,
+    resourceType: string,
+    correlationId: string | null,
+  ) {
+    return tx.auditLog.create({
+      data: { tenantId, action, resourceType, outcome: "SUCCESS", correlationId },
+    });
+  }
+}
+
+export class WebhookEventReconciler {
+  constructor(
+    private claimer: WebhookEventClaimer,
+    private processor: WebhookEventProcessor,
+  ) {}
+
+  async run(limit = 20) {
+    const ids = await this.claimer.claim(limit);
+    let processed = 0;
+    for (const id of ids) if (await this.processor.process(id)) processed++;
+    return { claimed: ids.length, processed };
+  }
+}
+
+export { encryptField };
