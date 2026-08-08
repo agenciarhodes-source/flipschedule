@@ -11,6 +11,8 @@ import { assertExternalEffectAllowed } from "@/lib/runtime/external-effects";
 const EFFECTIVE_SUBSCRIPTION_STATUSES = ["PENDING", "ACTIVE", "PAST_DUE", "SUSPENDED"] as const;
 const BLOCKING_CHECKOUT_STATUSES = ["CREATED", "ACTIVE", "PAID"] as const;
 
+export type BillingCheckoutExecutionGuard = (context: ApplicationContext) => void;
+
 export class BillingCheckoutService {
   constructor(
     private readonly prisma: PrismaClient,
@@ -18,11 +20,19 @@ export class BillingCheckoutService {
     private readonly adapter: BillingProviderAdapter,
     private readonly appOrigin: string,
     private readonly providerEnvironment: "sandbox" | "production" = "sandbox",
+    private readonly externalEffectsEnv: Record<string, string | undefined> = process.env,
+    private readonly externalEffectsScope?: string,
+    private readonly executionGuard?: BillingCheckoutExecutionGuard,
   ) {}
 
   async create(context: ApplicationContext, planCode: string) {
-    assertExternalEffectAllowed(this.providerEnvironment);
+    assertExternalEffectAllowed(
+      this.providerEnvironment,
+      this.externalEffectsEnv,
+      this.externalEffectsScope,
+    );
     requirePermission(context.membershipRole, "billing.checkout");
+    this.executionGuard?.(context);
     const plan = await this.catalog.requireActive(planCode);
     const correlationId = randomUUID();
     const externalReference = `fs_${randomUUID().replaceAll("-", "")}`;
@@ -90,8 +100,17 @@ export class BillingCheckoutService {
       if (!existing.externalCheckoutId) throw new Error("CHECKOUT_RECONCILIATION_REQUIRED");
 
       try {
-        const hosted = await this.adapter.retrieveCheckout(existing.externalCheckoutId, existing.correlationId);
-        await this.audit(context, "billing.checkout.resumed", existing.id, existing.correlationId, "SUCCESS");
+        const hosted = await this.adapter.retrieveCheckout(
+          existing.externalCheckoutId,
+          existing.correlationId,
+        );
+        await this.audit(
+          context,
+          "billing.checkout.resumed",
+          existing.id,
+          existing.correlationId,
+          "SUCCESS",
+        );
         return { billingCheckoutId: existing.id, hostedCheckoutUrl: hosted.url, resumed: true };
       } catch (error) {
         if (error instanceof BillingProviderError) throw new Error("CHECKOUT_RESUME_FAILED");
@@ -210,7 +229,14 @@ export class BillingEntitlementService {
           });
         }
         return tx.accessEntitlement.create({
-          data: { tenantId, type: "PAID", status: "ACTIVE", startsAt, endsAt, reason: `SaaS subscription ${subscriptionId}` },
+          data: {
+            tenantId,
+            type: "PAID",
+            status: "ACTIVE",
+            startsAt,
+            endsAt,
+            reason: `SaaS subscription ${subscriptionId}`,
+          },
         });
       },
       { isolationLevel: "Serializable" },
@@ -232,13 +258,20 @@ export class BillingSubscriptionService {
       throw new Error("REAUTHENTICATION_REQUIRED");
     }
     const row = await this.prisma.subscription.findFirst({
-      where: { tenantId: context.tenantId, status: { in: ["ACTIVE", "PAST_DUE", "SUSPENDED"] } },
+      where: {
+        tenantId: context.tenantId,
+        status: { in: ["ACTIVE", "PAST_DUE", "SUSPENDED"] },
+      },
       select: { id: true, externalSubscriptionId: true, cancelAtPeriodEnd: true },
     });
     if (!row) throw new Error("SUBSCRIPTION_NOT_FOUND");
     if (row.cancelAtPeriodEnd === enabled) return row;
     if (!row.externalSubscriptionId) throw new Error("RECONCILIATION_REQUIRED");
-    await this.adapter.updateSubscription(row.externalSubscriptionId, { cancelAtPeriodEnd: enabled }, randomUUID());
+    await this.adapter.updateSubscription(
+      row.externalSubscriptionId,
+      { cancelAtPeriodEnd: enabled },
+      randomUUID(),
+    );
     return this.prisma.subscription.update({
       where: { id: row.id },
       data: { cancelAtPeriodEnd: enabled, lastSyncedAt: new Date() },

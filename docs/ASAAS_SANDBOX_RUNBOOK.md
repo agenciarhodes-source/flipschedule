@@ -1,12 +1,12 @@
 # Runbook Asaas Sandbox
 
-1. Use somente conta e dados fictícios de Sandbox; não configure production neste estágio.
-2. Guarde API key e token de webhook separados no gerenciador do ambiente. Configure `credentialReference` como alias; nunca copie valores para banco, logs ou tickets.
-3. Cadastre externamente a rota `/api/webhooks/asaas` somente em ambiente autorizado. O ingresso exige `asaas-access-token`, conta externa vinculada e payload menor que o limite; persiste ciphertext idempotente antes de responder.
-4. Execute reconciliação pontual com `pnpm worker:billing`; o processo limita o lote e termina. Production é negada sem confirmação operacional, mas production Asaas continua bloqueada independentemente disso.
-5. Diagnostique apenas IDs opacos, correlation ID, status e código sanitizado. Para hash divergente, paralise reprocessamento e investigue replay/adulteração.
-6. Rollback operacional: desabilite checkout e worker, não apague eventos/pagamentos, restaure somente após backup e faça forward-fix. Nenhuma migration foi aplicada por este PR.
+1. Use somente conta e dados fictícios de Sandbox. Sandbox e Produção possuem contas, API keys, webhooks e dados independentes.
+2. Guarde API key e token de webhook separados no gerenciador do ambiente. Nunca copie valores para banco, logs ou tickets.
+3. Para checkout hospedado, configure `ASAAS_ENVIRONMENT=sandbox`, `EXTERNAL_EFFECTS_MODE=SANDBOX`, `ASAAS_API_KEY`, `ASAAS_CHECKOUT_EXPIRATION_MINUTES` e a origem HTTPS autorizada. Sandbox não exige os gates de produção.
+4. Cadastre externamente a rota `/api/webhooks/asaas` somente em ambiente autorizado. O ingresso exige `asaas-access-token`, persiste o evento cifrado/idempotente e processa efeitos de forma assíncrona.
+5. Execute reconciliação pontual com `pnpm worker:billing`; o processo limita o lote e termina. Diagnostique somente IDs opacos, correlation ID, status e código sanitizado.
+6. Rollback operacional: volte `EXTERNAL_EFFECTS_MODE=DISABLED`, interrompa novas criações de checkout e preserve eventos/pagamentos para reconciliação. Não apague histórico para “corrigir” estado.
 
-## Pendências para ativação futura
+## Produção
 
-Aprovar catálogo, billing types, trial, grace period, política de suspensão/cancelamento imediato, conta Sandbox, assinatura do contrato oficial, testes integrados e revisão de segurança. Production exige PR, threat model, secrets, observabilidade e aprovação separados.
+Produção não é habilitada por este runbook. O código possui suporte fail-closed para produção, mas só aceita efeitos reais quando todos os gates específicos do runbook `ASAAS_PRODUCTION_BILLING_RUNBOOK.md` estão satisfeitos. O kill switch continua `false` por padrão e o rollout inicial exige allowlist de tenants sem wildcard.
