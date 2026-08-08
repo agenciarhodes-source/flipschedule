@@ -6,6 +6,7 @@ vi.mock("server-only", () => ({}));
 
 import {
   ASAAS_PRODUCTION_CONFIRMATION,
+  ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE,
   assertAsaasProductionBillingReady,
   assertAsaasProductionTenantAllowed,
   createAsaasBillingAdapter,
@@ -35,6 +36,7 @@ const productionEnv = {
   ASAAS_CHECKOUT_EXPIRATION_MINUTES: "60",
   ASAAS_WEBHOOK_TOKEN: "w".repeat(32),
   EXTERNAL_EFFECTS_MODE: "PRODUCTION",
+  EXTERNAL_EFFECTS_PRODUCTION_SCOPES: ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE,
   NEXT_PUBLIC_APP_URL: "https://app.flipschedule.com.br",
   PRODUCTION_HOSTNAME: "app.flipschedule.com.br",
   ASAAS_PRODUCTION_BILLING_ENABLED: "true",
@@ -94,6 +96,7 @@ describe("controlled Asaas hosted checkout runtime", () => {
       runtimeEnvironment: "production",
       providerEnvironment: "production",
       externalEffectsMode: "PRODUCTION",
+      productionScopeEnabled: true,
       billingEnabled: true,
       productionHostname: "app.flipschedule.com.br",
       tenantAllowlistCount: 2,
@@ -112,6 +115,8 @@ describe("controlled Asaas hosted checkout runtime", () => {
       { ASAAS_WEBHOOK_TOKEN: "" },
       { ASAAS_API_KEY: "" },
       { EXTERNAL_EFFECTS_MODE: "DISABLED" },
+      { EXTERNAL_EFFECTS_PRODUCTION_SCOPES: "" },
+      { EXTERNAL_EFFECTS_PRODUCTION_SCOPES: "OTHER_PROVIDER" },
       { ASAAS_ENVIRONMENT: "sandbox" },
       { PRODUCTION_HOSTNAME: "other.example.com" },
       { NEXT_PUBLIC_APP_URL: "https://other.example.com" },
@@ -203,11 +208,12 @@ describe("controlled Asaas hosted checkout runtime", () => {
     expect(createProductionProviderRegistry({}).find("ASAAS")).toBeNull();
   });
 
-  it("serializes checkout creation and binds execution to the validated runtime", () => {
+  it("serializes checkout creation and binds execution to the validated scoped runtime", () => {
     const service = readFileSync("domains/infrastructure/billing/billing-services.ts", "utf8");
     expect(service).toContain("pg_advisory_xact_lock(350061");
     expect(service).toContain('BLOCKING_CHECKOUT_STATUSES = ["CREATED", "ACTIVE", "PAID"]');
-    expect(service).toContain("assertExternalEffectAllowed(this.providerEnvironment, this.externalEffectsEnv)");
+    expect(service).toContain("this.externalEffectsEnv");
+    expect(service).toContain("this.externalEffectsScope");
     expect(service).toContain("this.executionGuard?.(context)");
     expect(service).toContain("CHECKOUT_ALREADY_ACTIVE_OTHER_PLAN");
     expect(service).toContain("CHECKOUT_PAYMENT_PENDING_SYNC");
