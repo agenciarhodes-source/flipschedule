@@ -24,8 +24,14 @@ model CommercialOnboardingIntent {
   externalCheckoutId      String?                    @unique
   externalSubscriptionId  String?                    @unique
   externalCustomerId      String?
+  subscriptionStatus     SubscriptionStatus?
   billingType             String?
   providerStatus          String?
+  externalPaymentId       String?                    @unique
+  paymentStatus           PaymentStatus?
+  paymentAmountCents      Int?
+  paymentDueAt            DateTime?                  @db.Timestamptz(3)
+  paymentPaidAt           DateTime?                  @db.Timestamptz(3)
   amountCents             Int
   cycle                   CommercialPlanCycle
   status                  CommercialOnboardingStatus @default(CREATED)
