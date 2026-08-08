@@ -305,7 +305,21 @@ export class PlatformCustomerAdministrationService {
         if (!tenant) throw new Error("TENANT_NOT_FOUND");
         if (!plan || plan.status !== "ACTIVE") throw new Error("PLAN_NOT_ACTIVE");
 
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(350062, hashtext(${tenant.id}))`;
         await lockCommercialQuota(tx, tenant.id);
+
+        const providerManagedSubscription = await tx.subscription.findFirst({
+          where: {
+            tenantId: tenant.id,
+            provider: "ASAAS",
+            status: { in: ["PENDING", "ACTIVE", "PAST_DUE", "SUSPENDED"] },
+          },
+          select: { id: true },
+        });
+        if (providerManagedSubscription) {
+          throw new Error("PROVIDER_MANAGED_SUBSCRIPTION_CHANGE_REQUIRED");
+        }
+
         const capacity = await readCommercialPlanCapacity(tx, tenant.id);
         if (!commercialQuotaAllows(capacity.clinics.active, plan.maxClinics, 0)) {
           throw new Error("PLAN_CLINIC_LIMIT_BELOW_USAGE");
