@@ -31,7 +31,7 @@ export class WebhookEventProcessor {
  private async applyBillingEvent(tx:Prisma.TransactionClient,tenantId:string|null,event:Awaited<ReturnType<ReturnType<ProviderRegistry["require"]>["parseWebhook"]>>[number],correlationId:string|null){
   if(!tenantId)throw new ProviderPermanentError("TENANT_UNRESOLVED");const now=this.clock.now();
   if(event.type==="BillingCheckoutChanged"){
-   const result=await tx.billingCheckout.updateMany({where:{tenantId,provider:"ASAAS",OR:[{externalCheckoutId:event.externalCheckoutId},...(event.externalReference?[{externalReference:event.externalReference}]:[])]},data:{status:event.status,...(event.status==="PAID"?{completedAt:now}:{}),...(event.status==="CANCELLED"?{cancelledAt:now}:{})}});if(result.count!==1)throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");await this.audit(tx,tenantId,"billing.webhook.checkout_applied","BillingCheckout",correlationId);return;
+   const result=await tx.billingCheckout.updateMany({where:{tenantId,provider:"ASAAS",OR:[{externalCheckoutId:event.externalCheckoutId},...(event.externalReference?[{externalReference:event.externalReference}]:[])]},data:{externalCheckoutId:event.externalCheckoutId,status:event.status,...(event.status==="PAID"?{completedAt:now}:{}),...(event.status==="CANCELLED"?{cancelledAt:now}:{})}});if(result.count!==1)throw new ProviderPermanentError("BILLING_CHECKOUT_UNRESOLVED");await this.audit(tx,tenantId,"billing.webhook.checkout_applied","BillingCheckout",correlationId);return;
   }
   if(event.type==="BillingSubscriptionChanged"){
    const existing=await tx.subscription.findFirst({where:{tenantId,provider:"ASAAS",externalSubscriptionId:event.externalSubscriptionId},select:{id:true,tenantId:true,planCode:true,commercialPlanId:true}});
