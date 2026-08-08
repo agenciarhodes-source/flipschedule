@@ -7,10 +7,12 @@ vi.mock("server-only", () => ({}));
 import {
   ASAAS_PRODUCTION_CONFIRMATION,
   ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE,
+  ASAAS_RECONCILIATION_EXTERNAL_EFFECT_SCOPE,
   assertAsaasProductionBillingReady,
   assertAsaasProductionTenantAllowed,
   createAsaasBillingAdapter,
   createAsaasBillingPlanSource,
+  createAsaasBillingReconciliationAdapter,
   getAsaasBillingEnvironment,
   getAsaasCheckoutExpirationMinutes,
   getAsaasProductionBillingReadiness,
@@ -36,7 +38,7 @@ const productionEnv = {
   ASAAS_CHECKOUT_EXPIRATION_MINUTES: "60",
   ASAAS_WEBHOOK_TOKEN: "w".repeat(32),
   EXTERNAL_EFFECTS_MODE: "PRODUCTION",
-  EXTERNAL_EFFECTS_PRODUCTION_SCOPES: ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE,
+  EXTERNAL_EFFECTS_PRODUCTION_SCOPES: `${ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE},${ASAAS_RECONCILIATION_EXTERNAL_EFFECT_SCOPE}`,
   NEXT_PUBLIC_APP_URL: "https://app.flipschedule.com.br",
   PRODUCTION_HOSTNAME: "app.flipschedule.com.br",
   ASAAS_PRODUCTION_BILLING_ENABLED: "true",
@@ -96,7 +98,8 @@ describe("controlled Asaas hosted checkout runtime", () => {
       runtimeEnvironment: "production",
       providerEnvironment: "production",
       externalEffectsMode: "PRODUCTION",
-      productionScopeEnabled: true,
+      productionCheckoutScopeEnabled: true,
+      reconciliationScopeEnabled: true,
       billingEnabled: true,
       productionHostname: "app.flipschedule.com.br",
       tenantAllowlistCount: 2,
@@ -116,7 +119,8 @@ describe("controlled Asaas hosted checkout runtime", () => {
       { ASAAS_API_KEY: "" },
       { EXTERNAL_EFFECTS_MODE: "DISABLED" },
       { EXTERNAL_EFFECTS_PRODUCTION_SCOPES: "" },
-      { EXTERNAL_EFFECTS_PRODUCTION_SCOPES: "OTHER_PROVIDER" },
+      { EXTERNAL_EFFECTS_PRODUCTION_SCOPES: ASAAS_PRODUCTION_EXTERNAL_EFFECT_SCOPE },
+      { EXTERNAL_EFFECTS_PRODUCTION_SCOPES: ASAAS_RECONCILIATION_EXTERNAL_EFFECT_SCOPE },
       { ASAAS_ENVIRONMENT: "sandbox" },
       { PRODUCTION_HOSTNAME: "other.example.com" },
       { NEXT_PUBLIC_APP_URL: "https://other.example.com" },
@@ -133,6 +137,24 @@ describe("controlled Asaas hosted checkout runtime", () => {
     expect(() => assertAsaasProductionTenantAllowed("not-approved", productionEnv)).toThrow(
       "A configuração operacional não está disponível",
     );
+  });
+
+  it("keeps reconciliation available when new production billing is killed", () => {
+    const fetchImpl = vi.fn();
+    const reconciliationOnlyEnv = {
+      ...productionEnv,
+      ASAAS_PRODUCTION_BILLING_ENABLED: "false",
+      ASAAS_PRODUCTION_CONFIRMATION: "",
+      ASAAS_PRODUCTION_TENANT_SLUGS: "",
+      ASAAS_WEBHOOK_TOKEN: "",
+      ASAAS_CHECKOUT_EXPIRATION_MINUTES: "",
+      EXTERNAL_EFFECTS_PRODUCTION_SCOPES: ASAAS_RECONCILIATION_EXTERNAL_EFFECT_SCOPE,
+    };
+    expect(isAsaasBillingCheckoutAvailable(reconciliationOnlyEnv)).toBe(false);
+    expect(createAsaasBillingReconciliationAdapter(reconciliationOnlyEnv, fetchImpl).provider).toBe(
+      "ASAAS",
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("never exposes production secrets through readiness output", () => {
@@ -220,6 +242,15 @@ describe("controlled Asaas hosted checkout runtime", () => {
     expect(service).toContain("CHECKOUT_CREATION_IN_PROGRESS");
     expect(service).toContain("CHECKOUT_RECONCILIATION_REQUIRED");
     expect(service).toContain("this.adapter.retrieveCheckout");
+  });
+
+  it("uses the shared billing credential and runtime for reconciliation", () => {
+    const worker = readFileSync("scripts/reconcile-billing.ts", "utf8");
+    expect(worker).toContain("createAsaasBillingReconciliationAdapter()");
+    expect(worker).toContain("assertSafeWorkerEnvironment()");
+    expect(worker).not.toContain("EnvironmentCredentialStore");
+    expect(worker).not.toContain('environment:"sandbox"');
+    expect(worker).not.toContain('environment: "sandbox"');
   });
 
   it("persists the provider checkout id when a webhook wins the creation race", () => {
