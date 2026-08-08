@@ -17,17 +17,22 @@ Sandbox e Produção usam endpoints fixos definidos em código:
 - Sandbox: `https://api-sandbox.asaas.com/v3`;
 - Produção: `https://api.asaas.com/v3`.
 
-A aplicação não aceita URL base do Asaas por input/env. A API key é enviada somente no header `access_token`. O token `asaas-access-token` do webhook é um secret independente. Produção exige o token canônico `ASAAS_WEBHOOK_TOKEN`; o alias `ASAAS_WEBHOOK_SECRET` permanece apenas para compatibilidade de ambientes protegidos antigos.
+A aplicação não aceita URL base do Asaas por input/env. A API key é enviada somente no header `access_token`. O token `asaas-access-token` do webhook é um secret independente. Produção exige o token canônico `ASAAS_WEBHOOK_TOKEN` para readiness de checkout; o alias `ASAAS_WEBHOOK_SECRET` permanece apenas para compatibilidade de ambientes protegidos antigos.
 
 ## Efeitos externos e gates de Produção
 
-`EXTERNAL_EFFECTS_MODE` suporta `DISABLED`, `SANDBOX` e `PRODUCTION`, mas `PRODUCTION` é válido somente quando `APP_ENV=production`. Além disso, efeitos reais exigem escopo explícito em `EXTERNAL_EFFECTS_PRODUCTION_SCOPES`; billing Asaas usa exclusivamente `ASAAS_BILLING`.
+`EXTERNAL_EFFECTS_MODE` suporta `DISABLED`, `SANDBOX` e `PRODUCTION`, mas `PRODUCTION` é válido somente quando `APP_ENV=production`. Efeitos reais também exigem um escopo explícito em `EXTERNAL_EFFECTS_PRODUCTION_SCOPES`, evitando que uma única chave global habilite providers ou operações não revisadas.
 
-O billing real continua desligado por padrão. Para readiness de Produção são necessários simultaneamente:
+O billing Asaas separa dois escopos:
+
+- `ASAAS_BILLING`: criação e retomada de Checkout hospedado real;
+- `ASAAS_BILLING_RECONCILIATION`: consultas necessárias para reconciliar assinaturas e pagamentos já existentes.
+
+O billing real continua desligado por padrão. Para readiness de **novo checkout de Produção** são necessários simultaneamente:
 
 - `ASAAS_ENVIRONMENT=production`;
 - `EXTERNAL_EFFECTS_MODE=PRODUCTION`;
-- escopo `ASAAS_BILLING`;
+- os escopos `ASAAS_BILLING` e `ASAAS_BILLING_RECONCILIATION`;
 - `ASAAS_PRODUCTION_BILLING_ENABLED=true`;
 - confirmação exata `ENABLE_REAL_ASAAS_CHARGES`;
 - API key e token canônico de webhook protegidos;
@@ -35,7 +40,7 @@ O billing real continua desligado por padrão. Para readiness de Produção são
 - expiração válida;
 - allowlist explícita em `ASAAS_PRODUCTION_TENANT_SLUGS`.
 
-Wildcard de tenant é rejeitado no rollout inicial. O mesmo allowlist é aplicado na UI e novamente no serviço antes de qualquer efeito externo. O comando `pnpm ops:asaas-production-preflight` valida readiness sem rede e sem imprimir segredos. O procedimento operacional completo está em `docs/ASAAS_PRODUCTION_BILLING_RUNBOOK.md`.
+Wildcard de tenant é rejeitado no rollout inicial. A allowlist é aplicada na UI e novamente no serviço antes do efeito externo. O comando `pnpm ops:asaas-production-preflight` valida readiness sem rede e sem imprimir segredos. O procedimento operacional completo está em `docs/ASAAS_PRODUCTION_BILLING_RUNBOOK.md`.
 
 ## Idempotência, tenancy e entitlements
 
@@ -47,8 +52,14 @@ Checkout criado ou callback jamais ativa acesso. Apenas pagamento confirmado/rec
 
 Criação de checkout usa advisory lock por tenant e estados `CREATED`, `ACTIVE` e `PAID` bloqueiam uma segunda criação. Checkout ativo do mesmo plano pode ser retomado; outro plano, pagamento aguardando sync ou estado ambíguo falham fechados. Se webhook vencer a resposta HTTP da criação, o `externalCheckoutId` recebido pelo webhook é preservado.
 
+A reconciliação SaaS usa a credencial compartilhada do billing, seleciona Sandbox/Produção pela mesma configuração canônica e não depende de uma `Integration` Asaas duplicada por tenant. Em Produção, o worker mantém sua confirmação própria (`ALLOW_PRODUCTION_WORKER=true`) e o adapter exige o escopo `ASAAS_BILLING_RECONCILIATION`.
+
+A reconciliação é deliberadamente independente do kill switch de criação: pode continuar funcionando com `ASAAS_PRODUCTION_BILLING_ENABLED=false`, sem confirmação de nova cobrança, sem allowlist, sem webhook token e sem expiração de Checkout. Isso permite fechar corretamente estados já iniciados durante rollback ou incidente.
+
 Cancelamento ao fim do período exige OWNER, confirmação reforçada, RBAC server-side e auditoria sanitizada. A reconciliação consulta assinatura e cobranças individualmente, em lote pontual limitado. POST financeiro não recebe retry cego. Logs aceitam somente IDs opacos, status, provider, correlação, duração e código sanitizado.
 
 ## Rollback
 
-O kill switch primário para novas criações reais é `ASAAS_PRODUCTION_BILLING_ENABLED=false`. Para bloquear efeitos externos de Produção no runtime como um todo, use `EXTERNAL_EFFECTS_MODE=DISABLED`. Rollback não apaga histórico e não cancela automaticamente objetos já criados no Asaas; eventos, checkouts, assinaturas e pagamentos existentes devem ser preservados e reconciliados.
+O kill switch primário para novas criações reais é `ASAAS_PRODUCTION_BILLING_ENABLED=false`. Durante rollback, preserve `ASAAS_BILLING_RECONCILIATION` enquanto houver objetos financeiros que precisem de fechamento. Para bloquear também reconciliação e qualquer outro efeito de Produção suportado pelo runtime, use `EXTERNAL_EFFECTS_MODE=DISABLED`.
+
+Rollback não apaga histórico e não cancela automaticamente objetos já criados no Asaas; eventos, checkouts, assinaturas e pagamentos existentes devem ser preservados e reconciliados.
