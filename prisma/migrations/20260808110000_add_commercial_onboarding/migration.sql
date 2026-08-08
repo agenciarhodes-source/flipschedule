@@ -15,8 +15,14 @@ CREATE TABLE "CommercialOnboardingIntent" (
     "externalCheckoutId" TEXT,
     "externalSubscriptionId" TEXT,
     "externalCustomerId" TEXT,
+    "subscriptionStatus" "SubscriptionStatus",
     "billingType" TEXT,
     "providerStatus" TEXT,
+    "externalPaymentId" TEXT,
+    "paymentStatus" "PaymentStatus",
+    "paymentAmountCents" INTEGER,
+    "paymentDueAt" TIMESTAMPTZ(3),
+    "paymentPaidAt" TIMESTAMPTZ(3),
     "amountCents" INTEGER NOT NULL,
     "cycle" "CommercialPlanCycle" NOT NULL,
     "status" "CommercialOnboardingStatus" NOT NULL DEFAULT 'CREATED',
@@ -38,6 +44,7 @@ CREATE TABLE "CommercialOnboardingIntent" (
 CREATE UNIQUE INDEX "CommercialOnboardingIntent_externalReference_key" ON "CommercialOnboardingIntent"("externalReference");
 CREATE UNIQUE INDEX "CommercialOnboardingIntent_externalCheckoutId_key" ON "CommercialOnboardingIntent"("externalCheckoutId");
 CREATE UNIQUE INDEX "CommercialOnboardingIntent_externalSubscriptionId_key" ON "CommercialOnboardingIntent"("externalSubscriptionId");
+CREATE UNIQUE INDEX "CommercialOnboardingIntent_externalPaymentId_key" ON "CommercialOnboardingIntent"("externalPaymentId");
 CREATE UNIQUE INDEX "CommercialOnboardingIntent_correlationId_key" ON "CommercialOnboardingIntent"("correlationId");
 CREATE UNIQUE INDEX "CommercialOnboardingIntent_publicTokenHash_key" ON "CommercialOnboardingIntent"("publicTokenHash");
 CREATE UNIQUE INDEX "CommercialOnboardingIntent_tenantId_key" ON "CommercialOnboardingIntent"("tenantId");
