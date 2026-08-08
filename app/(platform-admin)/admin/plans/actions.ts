@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { PlatformCustomerAdministrationService } from "@/domains/infrastructure/platform/customer-service";
+import { PlatformCommercialCheckoutPolicyService } from "@/domains/infrastructure/platform/commercial-checkout-policy";
 import { getPlatformContext } from "@/lib/auth/platform-context";
 import { getPrismaClient } from "@/lib/db";
 
@@ -44,6 +45,37 @@ export async function setPlanStatusAction(formData: FormData) {
     });
   } catch {
     result = "invalid";
+  }
+  revalidatePath("/admin/plans");
+  revalidatePath("/admin/clients");
+  redirect(`/admin/plans?result=${encodeURIComponent(result)}`);
+}
+
+export async function setPlanCheckoutPolicyAction(formData: FormData) {
+  const context = await getPlatformContext();
+  const service = new PlatformCommercialCheckoutPolicyService(getPrismaClient());
+  const enabled = value(formData, "checkoutEnabled") === "true";
+  const allowedBillingTypes = formData
+    .getAll("billingTypes")
+    .filter((entry): entry is string => typeof entry === "string");
+  const grace = value(formData, "gracePeriodDays");
+  let result = "checkout-updated";
+  try {
+    await service.setPolicy(context, {
+      planId: value(formData, "planId"),
+      enabled,
+      allowedBillingTypes,
+      gracePeriodDays: grace === "" ? null : Number(grace),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    result = message.includes("CHECKOUT_CYCLE_NOT_SUPPORTED")
+      ? "checkout-cycle"
+      : message.includes("CHECKOUT_PRICE_REQUIRED")
+        ? "checkout-price"
+        : message.includes("CHECKOUT_BILLING_TYPE_REQUIRED")
+          ? "checkout-billing-type"
+          : "invalid";
   }
   revalidatePath("/admin/plans");
   revalidatePath("/admin/clients");
