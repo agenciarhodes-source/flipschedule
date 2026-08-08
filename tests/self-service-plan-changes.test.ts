@@ -189,4 +189,20 @@ describe("self-service subscription plan changes", () => {
     expect(page).toContain("Somente o responsável OWNER");
     expect(page).toContain("Não é criada uma segunda assinatura");
   });
+
+  it("blocks platform admin from overriding an effective Asaas subscription with MANUAL billing", () => {
+    const service = readFileSync("domains/infrastructure/platform/customer-service.ts", "utf8");
+    const action = readFileSync("app/(platform-admin)/admin/clients/actions.ts", "utf8");
+    const page = readFileSync("app/(platform-admin)/admin/clients/page.tsx", "utf8");
+    const planLock = service.indexOf("pg_advisory_xact_lock(350062");
+    const quotaLock = service.indexOf("lockCommercialQuota(tx, tenant.id)");
+
+    expect(planLock).toBeGreaterThanOrEqual(0);
+    expect(quotaLock).toBeGreaterThan(planLock);
+    expect(service).toContain('provider: "ASAAS"');
+    expect(service).toContain('status: { in: ["PENDING", "ACTIVE", "PAST_DUE", "SUSPENDED"] }');
+    expect(service).toContain("PROVIDER_MANAGED_SUBSCRIPTION_CHANGE_REQUIRED");
+    expect(action).toContain('return "provider-managed-plan"');
+    expect(page).toContain("assinatura Asaas gerenciada pelo provedor");
+  });
 });
