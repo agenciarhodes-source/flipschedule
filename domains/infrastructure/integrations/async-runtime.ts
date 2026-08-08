@@ -287,9 +287,9 @@ export class WebhookEventProcessor {
       const onboardingIntentId = billingRoute?.authoritative
         ? billingRoute.onboardingIntentId
         : null;
-      let activation: CommercialOnboardingActivation | null = null;
 
-      await this.prisma.$transaction(async (tx) => {
+      const activation = await this.prisma.$transaction(async (tx) => {
+        let pendingActivation: CommercialOnboardingActivation | null = null;
         for (const event of events) {
           const result = await this.applyBillingEvent(
             tx,
@@ -298,7 +298,7 @@ export class WebhookEventProcessor {
             row.correlationId,
             onboardingIntentId,
           );
-          if (result && !activation) activation = result;
+          if (result && !pendingActivation) pendingActivation = result;
         }
         await tx.webhookEvent.update({
           where: { id },
@@ -310,20 +310,20 @@ export class WebhookEventProcessor {
             lastErrorCode: null,
           },
         });
+        return pendingActivation;
       });
 
       if (activation) {
-        const pendingActivation = activation;
         try {
           const delivery = await issueAccountActivation({
-            userId: pendingActivation.userId,
-            recipientEmail: pendingActivation.recipientEmail,
-            workspaceName: pendingActivation.workspaceName,
+            userId: activation.userId,
+            recipientEmail: activation.recipientEmail,
+            workspaceName: activation.workspaceName,
           });
           await this.prisma.commercialOnboardingIntent.updateMany({
             where: {
-              id: pendingActivation.onboardingIntentId,
-              tenantId: pendingActivation.tenantId,
+              id: activation.onboardingIntentId,
+              tenantId: activation.tenantId,
               status: "PROVISIONED",
             },
             data: delivery.ok
@@ -334,8 +334,8 @@ export class WebhookEventProcessor {
           await this.prisma.commercialOnboardingIntent
             .updateMany({
               where: {
-                id: pendingActivation.onboardingIntentId,
-                tenantId: pendingActivation.tenantId,
+                id: activation.onboardingIntentId,
+                tenantId: activation.tenantId,
                 status: "PROVISIONED",
               },
               data: { lastErrorCode: "ACCOUNT_ACTIVATION_DELIVERY_UNAVAILABLE" },
