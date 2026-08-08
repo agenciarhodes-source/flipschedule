@@ -137,6 +137,20 @@ describe("paid commercial self-service onboarding", () => {
     expect(source).toContain('action: "commercial.onboarding.provisioned"');
   });
 
+  it("keeps paid intent durable when provisioning needs operational support", () => {
+    const source = readFileSync(
+      "domains/infrastructure/billing/commercial-onboarding-webhook.ts",
+      "utf8",
+    );
+    expect(source).toContain('lastErrorCode: "PROVISIONING_PLAN_UNRESOLVED"');
+    expect(source).toContain('lastErrorCode: "PROVISIONING_IDENTITY_CONFLICT"');
+    expect(source).not.toContain('throw new ProviderPermanentError("PROVISIONING_PLAN_UNRESOLVED")');
+    expect(source).not.toContain('throw new ProviderPermanentError("PROVISIONING_IDENTITY_CONFLICT")');
+    expect(source).toContain("if (!provisioned?.tenantId) {");
+    expect(source).toContain("if (!provisioned?.lastErrorCode)");
+    expect(source).toContain("return { tenantId: null, applyToTenant: false }");
+  });
+
   it("retains early subscription/payment events and hands off to tenant billing after provisioning", () => {
     const handler = readFileSync(
       "domains/infrastructure/billing/commercial-onboarding-webhook.ts",
