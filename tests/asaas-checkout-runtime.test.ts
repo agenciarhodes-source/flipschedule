@@ -5,11 +5,16 @@ import type { PrismaClient } from "@/generated/prisma/client";
 vi.mock("server-only", () => ({}));
 
 import {
+  ASAAS_PRODUCTION_CONFIRMATION,
+  assertAsaasProductionBillingReady,
+  assertAsaasProductionTenantAllowed,
   createAsaasBillingAdapter,
   createAsaasBillingPlanSource,
   getAsaasBillingEnvironment,
   getAsaasCheckoutExpirationMinutes,
+  getAsaasProductionBillingReadiness,
   isAsaasBillingCheckoutAvailable,
+  isAsaasBillingCheckoutAvailableForTenant,
   isAsaasHostedCheckoutPlanSupported,
 } from "@/domains/infrastructure/billing/asaas-runtime";
 import { createProductionProviderRegistry } from "@/domains/infrastructure/integrations/production-registry";
@@ -21,6 +26,20 @@ const sandboxEnv = {
   ASAAS_CHECKOUT_EXPIRATION_MINUTES: "60",
   EXTERNAL_EFFECTS_MODE: "SANDBOX",
   PUBLIC_APP_ORIGIN: "https://app.example.test",
+};
+
+const productionEnv = {
+  APP_ENV: "production",
+  ASAAS_ENVIRONMENT: "production",
+  ASAAS_API_KEY: "p".repeat(32),
+  ASAAS_CHECKOUT_EXPIRATION_MINUTES: "60",
+  ASAAS_WEBHOOK_TOKEN: "w".repeat(32),
+  EXTERNAL_EFFECTS_MODE: "PRODUCTION",
+  NEXT_PUBLIC_APP_URL: "https://app.flipschedule.com.br",
+  PRODUCTION_HOSTNAME: "app.flipschedule.com.br",
+  ASAAS_PRODUCTION_BILLING_ENABLED: "true",
+  ASAAS_PRODUCTION_CONFIRMATION,
+  ASAAS_PRODUCTION_TENANT_SLUGS: "pilot-clinic,second-clinic",
 };
 
 const commercialPlan = (allowedBillingTypes: string[]) => ({
@@ -37,7 +56,7 @@ const commercialPlan = (allowedBillingTypes: string[]) => ({
 });
 
 describe("controlled Asaas hosted checkout runtime", () => {
-  it("is available only when sandbox effects and protected credentials are explicit", () => {
+  it("keeps sandbox available only with explicit sandbox effects and protected credentials", () => {
     expect(isAsaasBillingCheckoutAvailable(sandboxEnv)).toBe(true);
     expect(
       isAsaasBillingCheckoutAvailable({ ...sandboxEnv, EXTERNAL_EFFECTS_MODE: "DISABLED" }),
@@ -61,18 +80,70 @@ describe("controlled Asaas hosted checkout runtime", () => {
     ).toThrow("A configuração operacional não está disponível");
   });
 
-  it("refuses to construct a production billing environment", () => {
+  it("allows production provider selection only inside the production runtime", () => {
     expect(getAsaasBillingEnvironment(sandboxEnv)).toBe("sandbox");
-    expect(() => getAsaasBillingEnvironment({ ...sandboxEnv, ASAAS_ENVIRONMENT: "production" })).toThrow(
+    expect(getAsaasBillingEnvironment(productionEnv)).toBe("production");
+    expect(() =>
+      getAsaasBillingEnvironment({ ...productionEnv, APP_ENV: "staging" }),
+    ).toThrow("A configuração operacional não está disponível");
+  });
+
+  it("requires every independent production billing gate", () => {
+    expect(getAsaasProductionBillingReadiness(productionEnv)).toMatchObject({
+      ready: true,
+      runtimeEnvironment: "production",
+      providerEnvironment: "production",
+      externalEffectsMode: "PRODUCTION",
+      billingEnabled: true,
+      productionHostname: "app.flipschedule.com.br",
+      tenantAllowlistCount: 2,
+      checkoutExpirationMinutes: 60,
+      apiKeyConfigured: true,
+      webhookTokenConfigured: true,
+      issues: [],
+    });
+    expect(() => assertAsaasProductionBillingReady(productionEnv)).not.toThrow();
+
+    const disabledCases = [
+      { ASAAS_PRODUCTION_BILLING_ENABLED: "false" },
+      { ASAAS_PRODUCTION_CONFIRMATION: "" },
+      { ASAAS_PRODUCTION_TENANT_SLUGS: "" },
+      { ASAAS_PRODUCTION_TENANT_SLUGS: "*" },
+      { ASAAS_WEBHOOK_TOKEN: "" },
+      { ASAAS_API_KEY: "" },
+      { EXTERNAL_EFFECTS_MODE: "DISABLED" },
+      { ASAAS_ENVIRONMENT: "sandbox" },
+      { PRODUCTION_HOSTNAME: "other.example.com" },
+      { NEXT_PUBLIC_APP_URL: "https://other.example.com" },
+    ];
+    for (const override of disabledCases) {
+      expect(isAsaasBillingCheckoutAvailable({ ...productionEnv, ...override })).toBe(false);
+    }
+  });
+
+  it("keeps production rollout tenant-scoped on both readiness and execution guards", () => {
+    expect(isAsaasBillingCheckoutAvailableForTenant("pilot-clinic", productionEnv)).toBe(true);
+    expect(isAsaasBillingCheckoutAvailableForTenant("not-approved", productionEnv)).toBe(false);
+    expect(() => assertAsaasProductionTenantAllowed("pilot-clinic", productionEnv)).not.toThrow();
+    expect(() => assertAsaasProductionTenantAllowed("not-approved", productionEnv)).toThrow(
       "A configuração operacional não está disponível",
     );
   });
 
-  it("constructs the adapter without performing a network effect", () => {
-    const fetchImpl = vi.fn();
-    const adapter = createAsaasBillingAdapter(sandboxEnv, fetchImpl);
-    expect(adapter.provider).toBe("ASAAS");
-    expect(fetchImpl).not.toHaveBeenCalled();
+  it("never exposes production secrets through readiness output", () => {
+    const serialized = JSON.stringify(getAsaasProductionBillingReadiness(productionEnv));
+    expect(serialized).not.toContain(productionEnv.ASAAS_API_KEY);
+    expect(serialized).not.toContain(productionEnv.ASAAS_WEBHOOK_TOKEN);
+    expect(serialized).not.toContain(ASAAS_PRODUCTION_CONFIRMATION);
+  });
+
+  it("constructs sandbox and production adapters without performing a network effect", () => {
+    const sandboxFetch = vi.fn();
+    const productionFetch = vi.fn();
+    expect(createAsaasBillingAdapter(sandboxEnv, sandboxFetch).provider).toBe("ASAAS");
+    expect(createAsaasBillingAdapter(productionEnv, productionFetch).provider).toBe("ASAAS");
+    expect(sandboxFetch).not.toHaveBeenCalled();
+    expect(productionFetch).not.toHaveBeenCalled();
   });
 
   it("exposes only plans whose payment types are supported by Asaas hosted checkout", async () => {
@@ -132,10 +203,12 @@ describe("controlled Asaas hosted checkout runtime", () => {
     expect(createProductionProviderRegistry({}).find("ASAAS")).toBeNull();
   });
 
-  it("serializes checkout creation and blocks duplicate or unsynchronized attempts", () => {
+  it("serializes checkout creation and binds execution to the validated runtime", () => {
     const service = readFileSync("domains/infrastructure/billing/billing-services.ts", "utf8");
     expect(service).toContain("pg_advisory_xact_lock(350061");
     expect(service).toContain('BLOCKING_CHECKOUT_STATUSES = ["CREATED", "ACTIVE", "PAID"]');
+    expect(service).toContain("assertExternalEffectAllowed(this.providerEnvironment, this.externalEffectsEnv)");
+    expect(service).toContain("this.executionGuard?.(context)");
     expect(service).toContain("CHECKOUT_ALREADY_ACTIVE_OTHER_PLAN");
     expect(service).toContain("CHECKOUT_PAYMENT_PENDING_SYNC");
     expect(service).toContain("CHECKOUT_CREATION_IN_PROGRESS");
@@ -150,7 +223,7 @@ describe("controlled Asaas hosted checkout runtime", () => {
     );
   });
 
-  it("keeps the external redirect behind server context and provider validation", () => {
+  it("keeps the external redirect behind tenant-aware server validation", () => {
     const action = readFileSync(
       "app/(platform)/[tenantSlug]/configuracoes/assinatura/actions.ts",
       "utf8",
@@ -164,7 +237,7 @@ describe("controlled Asaas hosted checkout runtime", () => {
     expect(action).toContain("redirect(hostedCheckoutUrl)");
     expect(page).toContain("createAsaasBillingPlanSource(prisma).listActive()");
     expect(page).toContain("createHostedCheckoutAction");
-    expect(page).toContain("isAsaasBillingCheckoutAvailable()");
+    expect(page).toContain("isAsaasBillingCheckoutAvailableForTenant(context.tenantSlug)");
     expect(page).toContain("Retomar checkout");
   });
 });
