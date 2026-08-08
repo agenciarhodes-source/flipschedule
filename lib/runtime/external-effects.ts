@@ -9,9 +9,21 @@ export class ExternalEffectDisabledError extends Error {
   }
 }
 
+export function getProductionExternalEffectScopes(
+  env: Record<string, string | undefined> = process.env,
+) {
+  return new Set(
+    (env.EXTERNAL_EFFECTS_PRODUCTION_SCOPES ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+}
+
 export function assertExternalEffectAllowed(
   providerEnvironment: "sandbox" | "production",
   env: Record<string, string | undefined> = process.env,
+  productionScope?: string,
 ) {
   const runtime = getRuntimeEnvironment(env);
   const mode = getExternalEffectsMode(env);
@@ -25,7 +37,12 @@ export function assertExternalEffectAllowed(
     return;
   }
 
-  if (mode !== "PRODUCTION" || runtime !== "production") {
+  if (
+    mode !== "PRODUCTION" ||
+    runtime !== "production" ||
+    !productionScope ||
+    !getProductionExternalEffectScopes(env).has(productionScope)
+  ) {
     throw new ExternalEffectDisabledError();
   }
 }
