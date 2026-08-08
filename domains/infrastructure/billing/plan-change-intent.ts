@@ -57,6 +57,7 @@ export function classifyProviderPlanState(
     provider.valueCents === intent.currentPriceCents && provider.cycle === intent.currentCycle;
   const matchesTarget =
     provider.valueCents === intent.targetPriceCents && provider.cycle === intent.targetCycle;
+  if (matchesCurrent && matchesTarget) return "AMBIGUOUS";
   if (matchesTarget) return "TARGET";
   if (matchesCurrent) return "CURRENT";
   return "AMBIGUOUS";
