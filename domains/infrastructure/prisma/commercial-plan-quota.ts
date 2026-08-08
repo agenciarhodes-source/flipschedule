@@ -6,6 +6,10 @@ import type { ApplicationContext } from "@/domains/application/context";
 import { actionFailure, type ActionResult } from "@/domains/application/actions";
 import { commercialQuotaAllows, commercialQuotaState } from "@/domains/application/commercial-quota";
 import { hasPermission } from "@/domains/application/rbac";
+import {
+  readPendingSubscriptionPlanChange,
+  restrictiveCommercialLimit,
+} from "@/domains/infrastructure/billing/plan-change-intent";
 import { getPrismaClient } from "@/lib/db";
 
 type DatabaseClient = PrismaClient | Prisma.TransactionClient;
@@ -61,6 +65,7 @@ export async function readCommercialPlanCapacity(
       },
       orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
       select: {
+        id: true,
         status: true,
         commercialPlan: {
           select: {
@@ -86,10 +91,21 @@ export async function readCommercialPlanCapacity(
     }),
   ]);
 
+  const pending = subscription
+    ? await readPendingSubscriptionPlanChange(db, tenantId, subscription.id)
+    : null;
   const plan = subscription?.commercialPlan ?? null;
   const reservedUsers = members + pendingInvitations;
-  const clinicQuota = commercialQuotaState(activeClinics, plan?.maxClinics ?? null);
-  const userQuota = commercialQuotaState(reservedUsers, plan?.maxUsers ?? null);
+  const clinicLimit = restrictiveCommercialLimit(
+    plan?.maxClinics ?? null,
+    pending?.metadata.targetMaxClinics ?? null,
+  );
+  const userLimit = restrictiveCommercialLimit(
+    plan?.maxUsers ?? null,
+    pending?.metadata.targetMaxUsers ?? null,
+  );
+  const clinicQuota = commercialQuotaState(activeClinics, clinicLimit);
+  const userQuota = commercialQuotaState(reservedUsers, userLimit);
   return {
     managed: Boolean(plan),
     subscriptionStatus: subscription?.status ?? null,
