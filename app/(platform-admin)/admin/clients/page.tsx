@@ -20,6 +20,8 @@ const feedback: Record<string, string> = {
   "plan-inactive": "Selecione um plano ativo.",
   "plan-capacity":
     "O plano selecionado não comporta o uso atual da clínica. Reduza unidades, acessos ou convites reservados antes do downgrade, ou escolha um plano com limites maiores.",
+  "provider-managed-plan":
+    "Esta clínica possui assinatura Asaas gerenciada pelo provedor. A troca de plano deve ser feita pelo fluxo de assinatura para manter cobrança e plano sincronizados.",
   "tenant-not-found": "A clínica não foi encontrada.",
   invalid: "Não foi possível concluir. Revise os dados e tente novamente.",
   unavailable: "O serviço está temporariamente indisponível.",
