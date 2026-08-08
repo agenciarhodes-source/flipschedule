@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { getExternalEffectsMode } from "@/lib/runtime/config";
-import { assertExternalEffectAllowed } from "@/lib/runtime/external-effects";
+import {
+  assertExternalEffectAllowed,
+  getProductionExternalEffectScopes,
+} from "@/lib/runtime/external-effects";
 
 describe("production external effects isolation", () => {
   it("keeps production mode valid only inside the production runtime", () => {
@@ -27,13 +30,20 @@ describe("production external effects isolation", () => {
     ).toThrow("A configuração operacional não está disponível");
   });
 
-  it("requires provider environment and runtime mode to agree", () => {
-    expect(() =>
-      assertExternalEffectAllowed("production", {
-        APP_ENV: "production",
-        EXTERNAL_EFFECTS_MODE: "PRODUCTION",
-      }),
-    ).not.toThrow();
+  it("requires provider environment, runtime mode and production scope to agree", () => {
+    const production = {
+      APP_ENV: "production",
+      EXTERNAL_EFFECTS_MODE: "PRODUCTION",
+      EXTERNAL_EFFECTS_PRODUCTION_SCOPES: "ASAAS_BILLING",
+    };
+    expect(getProductionExternalEffectScopes(production)).toEqual(new Set(["ASAAS_BILLING"]));
+    expect(() => assertExternalEffectAllowed("production", production, "ASAAS_BILLING")).not.toThrow();
+    expect(() => assertExternalEffectAllowed("production", production)).toThrow(
+      "Operação externa indisponível",
+    );
+    expect(() => assertExternalEffectAllowed("production", production, "OTHER_PROVIDER")).toThrow(
+      "Operação externa indisponível",
+    );
     expect(() =>
       assertExternalEffectAllowed("sandbox", {
         APP_ENV: "staging",
@@ -42,15 +52,12 @@ describe("production external effects isolation", () => {
     ).not.toThrow();
     expect(() =>
       assertExternalEffectAllowed("production", {
-        APP_ENV: "production",
+        ...production,
         EXTERNAL_EFFECTS_MODE: "DISABLED",
-      }),
+      }, "ASAAS_BILLING"),
     ).toThrow("Operação externa indisponível");
-    expect(() =>
-      assertExternalEffectAllowed("sandbox", {
-        APP_ENV: "production",
-        EXTERNAL_EFFECTS_MODE: "PRODUCTION",
-      }),
-    ).toThrow("Operação externa indisponível");
+    expect(() => assertExternalEffectAllowed("sandbox", production)).toThrow(
+      "Operação externa indisponível",
+    );
   });
 });
