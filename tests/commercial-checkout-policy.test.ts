@@ -82,14 +82,21 @@ describe("persisted commercial checkout policy", () => {
     expect(findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { code: "PRO" } }));
   });
 
-  it("keeps provider execution separate while making runtime billing use the persistent source", () => {
+  it("keeps commercial policy persistent while provider execution stays behind the controlled runtime", () => {
     const billingService = readFileSync("domains/infrastructure/billing/billing-services.ts", "utf8");
+    const runtime = readFileSync("domains/infrastructure/billing/asaas-runtime.ts", "utf8");
     const page = readFileSync("app/(platform)/[tenantSlug]/configuracoes/assinatura/page.tsx", "utf8");
+    const action = readFileSync("app/(platform)/[tenantSlug]/configuracoes/assinatura/actions.ts", "utf8");
     const admin = readFileSync("app/(platform-admin)/admin/plans/actions.ts", "utf8");
+
     expect(billingService).toContain("BillingPlanSource");
     expect(billingService).toContain("await this.catalog.requireActive(planCode)");
+    expect(runtime).toContain("new PrismaBillingPlanCatalog(prisma)");
+    expect(runtime).toContain('getAsaasBillingEnvironment(env)');
     expect(page).toContain("new PrismaBillingPlanCatalog(prisma).listActive()");
-    expect(page).toContain("Contratação online em preparação");
+    expect(page).toContain("createHostedCheckoutAction");
+    expect(page).toContain("isAsaasBillingCheckoutAvailable()");
+    expect(action).toContain("createAsaasBillingCheckoutService(getPrismaClient())");
     expect(admin).toContain("PlatformCommercialCheckoutPolicyService");
   });
 });
