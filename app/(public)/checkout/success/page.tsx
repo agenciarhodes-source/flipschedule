@@ -1,2 +1,12 @@
-import { PreparatoryPage } from "@/components/public-routes/preparatory-page";
-export default function CheckoutSuccessPage() { return <PreparatoryPage eyebrow="Retorno preparatório" title="Confirmação indisponível" description="Esta página não confirma pagamento, assinatura ou ativação. O checkout real ainda não foi implementado." nextStep="No fluxo futuro, o status será confirmado no servidor por evento verificado do provedor." />; }
+import { CommercialOnboardingStatus } from "@/components/public-routes/commercial-onboarding-status";
+
+export default async function CheckoutSuccessPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ token?: string }>;
+}) {
+  const params = await searchParams;
+  return <CommercialOnboardingStatus token={typeof params?.token === "string" ? params.token : ""} eyebrow="Retorno do checkout" />;
+}
+
+export const metadata = { other: { referrer: "no-referrer" } };
