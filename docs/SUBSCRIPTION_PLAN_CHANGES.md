@@ -60,6 +60,12 @@ Planos comerciais diferentes que tenham exatamente o mesmo preço e ciclo são d
 
 A finalização usa o mesmo advisory lock de troca e o lock de quotas comerciais, evitando corrida com alterações de unidades ou acessos.
 
+## Administração da plataforma
+
+A atribuição manual de plano pelo painel administrativo não pode sobrescrever uma assinatura Asaas efetiva (`PENDING`, `ACTIVE`, `PAST_DUE` ou `SUSPENDED`). O caminho administrativo adquire primeiro o mesmo advisory lock de troca e depois o lock de quotas comerciais. Se encontrar billing Asaas gerenciado pelo provider, falha com orientação para usar o fluxo de assinatura.
+
+Isso evita criar uma segunda fonte comercial `MANUAL` enquanto o Asaas continua cobrando e impede concorrência entre um override administrativo e uma troca self-service em voo. Depois que a assinatura Asaas deixa de ser efetiva, o fluxo manual volta a ficar disponível conforme as regras administrativas existentes.
+
 ## Webhook e billingType
 
 Eventos de assinatura Asaas agora carregam `billingType` quando o provider o envia. O materializador persiste esse valor autoritativo e não usa mais o ciclo (`MONTHLY`/`YEARLY`) como forma de pagamento.
