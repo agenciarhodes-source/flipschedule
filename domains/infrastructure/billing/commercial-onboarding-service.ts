@@ -77,7 +77,7 @@ export class CommercialOnboardingService {
     const publicToken = generateCommercialOnboardingPublicToken();
     const publicTokenHash = hashCommercialOnboardingPublicToken(publicToken);
 
-    const reservation = await this.prisma.$transaction(
+    const intent = await this.prisma.$transaction(
       async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(350063, hashtext(${data.ownerEmail}))`;
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(350064, hashtext(${data.tenantSlug}))`;
@@ -111,29 +111,15 @@ export class CommercialOnboardingService {
         }
         if (existingUser) throw new Error("ONBOARDING_EMAIL_UNAVAILABLE");
         if (existingTenant) throw new Error("ONBOARDING_SLUG_UNAVAILABLE");
-
-        if (existingIntent) {
-          const sameRequest =
-            existingIntent.ownerEmailNormalized === data.ownerEmail &&
-            existingIntent.tenantSlug === data.tenantSlug &&
-            existingIntent.planCode === plan.code;
-          if (
-            sameRequest &&
-            existingIntent.status === "CHECKOUT_ACTIVE" &&
-            existingIntent.externalCheckoutId
-          ) {
-            return { created: false as const, intent: existingIntent };
-          }
-          if (existingIntent.status === "PAID") {
-            throw new Error("ONBOARDING_PAYMENT_PENDING_PROVISIONING");
-          }
-          if (existingIntent.status === "RECONCILIATION_REQUIRED") {
-            throw new Error("ONBOARDING_RECONCILIATION_REQUIRED");
-          }
-          throw new Error("ONBOARDING_ALREADY_ACTIVE");
+        if (existingIntent?.status === "PAID") {
+          throw new Error("ONBOARDING_PAYMENT_PENDING_PROVISIONING");
         }
+        if (existingIntent?.status === "RECONCILIATION_REQUIRED") {
+          throw new Error("ONBOARDING_RECONCILIATION_REQUIRED");
+        }
+        if (existingIntent) throw new Error("ONBOARDING_ALREADY_ACTIVE");
 
-        const intent = await tx.commercialOnboardingIntent.create({
+        return tx.commercialOnboardingIntent.create({
           data: {
             commercialPlanId: planRow.id,
             planCode: plan.code,
@@ -150,27 +136,9 @@ export class CommercialOnboardingService {
             publicTokenHash,
           },
         });
-        return { created: true as const, intent };
       },
       { isolationLevel: "Serializable" },
     );
-
-    if (!reservation.created) {
-      try {
-        const hosted = await this.adapter.retrieveCheckout(
-          reservation.intent.externalCheckoutId!,
-          reservation.intent.correlationId,
-        );
-        return {
-          onboardingId: reservation.intent.id,
-          hostedCheckoutUrl: hosted.url,
-          resumed: true,
-        };
-      } catch (error) {
-        if (error instanceof BillingProviderError) throw new Error("ONBOARDING_RESUME_FAILED");
-        throw error;
-      }
-    }
 
     const base = new URL(this.appOrigin);
     if (base.protocol !== "https:" && base.hostname !== "localhost") {
@@ -180,7 +148,7 @@ export class CommercialOnboardingService {
 
     try {
       const hosted = await this.adapter.createRecurringCheckout({
-        externalReference: reservation.intent.externalReference,
+        externalReference: intent.externalReference,
         plan: {
           displayName: plan.displayName,
           priceCents: plan.priceCents,
@@ -194,11 +162,11 @@ export class CommercialOnboardingService {
           cancelUrl: new URL(`/checkout/cancelled?token=${callbackToken}`, base).toString(),
           expiredUrl: new URL(`/checkout/error?token=${callbackToken}`, base).toString(),
         },
-        correlationId: reservation.intent.correlationId,
+        correlationId: intent.correlationId,
       });
 
       const updated = await this.prisma.commercialOnboardingIntent.updateMany({
-        where: { id: reservation.intent.id, status: "CREATED" },
+        where: { id: intent.id, status: "CREATED" },
         data: {
           externalCheckoutId: hosted.id,
           status: "CHECKOUT_ACTIVE",
@@ -210,14 +178,13 @@ export class CommercialOnboardingService {
       if (updated.count !== 1) throw new Error("ONBOARDING_RECONCILIATION_REQUIRED");
 
       return {
-        onboardingId: reservation.intent.id,
+        onboardingId: intent.id,
         hostedCheckoutUrl: hosted.url,
-        resumed: false,
       };
     } catch (error) {
       const permanent = error instanceof BillingProviderError && !error.temporary;
       await this.prisma.commercialOnboardingIntent.updateMany({
-        where: { id: reservation.intent.id, status: "CREATED" },
+        where: { id: intent.id, status: "CREATED" },
         data: permanent
           ? { status: "FAILED", lastErrorCode: error.code }
           : { status: "RECONCILIATION_REQUIRED", lastErrorCode: "PROVIDER_RESULT_UNCERTAIN" },
