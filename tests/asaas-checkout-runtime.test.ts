@@ -8,6 +8,7 @@ import {
   createAsaasBillingAdapter,
   createAsaasBillingPlanSource,
   getAsaasBillingEnvironment,
+  getAsaasCheckoutExpirationMinutes,
   isAsaasBillingCheckoutAvailable,
   isAsaasHostedCheckoutPlanSupported,
 } from "@/domains/infrastructure/billing/asaas-runtime";
@@ -17,6 +18,7 @@ const sandboxEnv = {
   APP_ENV: "test",
   ASAAS_ENVIRONMENT: "sandbox",
   ASAAS_API_KEY: "a".repeat(32),
+  ASAAS_CHECKOUT_EXPIRATION_MINUTES: "60",
   EXTERNAL_EFFECTS_MODE: "SANDBOX",
   PUBLIC_APP_ORIGIN: "https://app.example.test",
 };
@@ -41,9 +43,22 @@ describe("controlled Asaas hosted checkout runtime", () => {
       isAsaasBillingCheckoutAvailable({ ...sandboxEnv, EXTERNAL_EFFECTS_MODE: "DISABLED" }),
     ).toBe(false);
     expect(isAsaasBillingCheckoutAvailable({ ...sandboxEnv, ASAAS_API_KEY: "" })).toBe(false);
+    expect(
+      isAsaasBillingCheckoutAvailable({ ...sandboxEnv, ASAAS_CHECKOUT_EXPIRATION_MINUTES: "" }),
+    ).toBe(false);
     expect(isAsaasBillingCheckoutAvailable({ ...sandboxEnv, ASAAS_ENVIRONMENT: "production" })).toBe(
       false,
     );
+  });
+
+  it("requires a bounded checkout expiration instead of inventing one", () => {
+    expect(getAsaasCheckoutExpirationMinutes(sandboxEnv)).toBe(60);
+    expect(() =>
+      getAsaasCheckoutExpirationMinutes({ ...sandboxEnv, ASAAS_CHECKOUT_EXPIRATION_MINUTES: "9" }),
+    ).toThrow("A configuração operacional não está disponível");
+    expect(() =>
+      getAsaasCheckoutExpirationMinutes({ ...sandboxEnv, ASAAS_CHECKOUT_EXPIRATION_MINUTES: "1441" }),
+    ).toThrow("A configuração operacional não está disponível");
   });
 
   it("refuses to construct a production billing environment", () => {
