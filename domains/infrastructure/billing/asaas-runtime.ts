@@ -314,7 +314,7 @@ export function createAsaasBillingPlanChangeService(
   const adapter = createAsaasBillingAdapter(env, fetchImpl);
   return new BillingSubscriptionPlanChangeService(
     prisma,
-    createAsaasBillingPlanSource(prisma),
+    new PrismaBillingPlanCatalog(prisma),
     adapter,
     environment,
     env,
