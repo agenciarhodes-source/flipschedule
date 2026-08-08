@@ -8,7 +8,16 @@ export interface RecurringCheckoutRequest {
   correlationId: string;
 }
 export interface HostedCheckout { id: string; url: string; status: string; expiresAt?: Date }
-export interface ProviderSubscription { id:string; customerId?:string; externalReference?:string; status:string; cycle?:string; nextDueDate?:string }
+export interface ProviderSubscription {
+  id:string;
+  customerId?:string;
+  externalReference?:string;
+  status:string;
+  cycle?:string;
+  nextDueDate?:string;
+  billingType?:string;
+  valueCents?:number;
+}
 export interface ProviderPayment { id:string; subscriptionId?:string; status:string; valueCents:number; dueDate:string; paymentDate?:string }
 export interface BillingProviderAdapter {
   readonly provider: "ASAAS";
