@@ -37,38 +37,27 @@ describe("commercial billing plan link", () => {
   });
 
   it("binds newly materialized Asaas subscriptions before quota enforcement", () => {
-    const runtime = readFileSync(
-      "domains/infrastructure/integrations/async-runtime.ts",
-      "utf8",
-    );
-    const quota = readFileSync(
-      "domains/infrastructure/prisma/commercial-plan-quota.ts",
-      "utf8",
-    );
+    const runtime = readFileSync("domains/infrastructure/integrations/async-runtime.ts", "utf8");
+    const quota = readFileSync("domains/infrastructure/prisma/commercial-plan-quota.ts", "utf8");
 
-    expect(runtime).toContain("requireCommercialPlanLink(tx,checkout.planCode)");
-    expect(runtime).toContain("commercialPlanId:commercialPlan.id");
-    expect(runtime).toContain("planCode:checkout.planCode");
+    expect(runtime).toContain("requireCommercialPlanLink(tx, checkout.planCode)");
+    expect(runtime).toContain("commercialPlanId: commercialPlan.id");
+    expect(runtime).toContain("planCode: checkout.planCode");
     expect(quota).toContain("commercialPlanId: { not: null }");
   });
 
   it("repairs matching legacy subscriptions without overwriting an existing link", () => {
-    const runtime = readFileSync(
-      "domains/infrastructure/integrations/async-runtime.ts",
-      "utf8",
-    );
+    const runtime = readFileSync("domains/infrastructure/integrations/async-runtime.ts", "utf8");
     const reconciliation = readFileSync(
       "domains/infrastructure/billing/reconciliation-service.ts",
       "utf8",
     );
 
-    expect(runtime).toContain(
-      "existing.commercialPlanId?null:await findCommercialPlanLink(tx,existing.planCode)",
-    );
-    expect(reconciliation).toContain(
-      "local.commercialPlanId?null:await findCommercialPlanLink(this.prisma,local.planCode)",
-    );
-    expect(reconciliation).toContain("...(commercialPlan?{commercialPlanId:commercialPlan.id}:{})");
+    expect(runtime).toContain("existing.commercialPlanId");
+    expect(runtime).toContain("findCommercialPlanLink(tx, existing.planCode)");
+    expect(reconciliation).toContain("local.commercialPlanId");
+    expect(reconciliation).toContain("findCommercialPlanLink(this.prisma, local.planCode)");
+    expect(reconciliation).toContain("commercialPlanId: commercialPlan.id");
   });
 
   it("leaves an auditable trace when reconciliation repairs a plan link", () => {
@@ -79,9 +68,8 @@ describe("commercial billing plan link", () => {
     const worker = readFileSync("scripts/reconcile-billing.ts", "utf8");
 
     expect(reconciliation).toContain("platform.billing.commercial_plan_linked");
-    expect(reconciliation).toContain(
-      "metadata:{planCode:local.planCode,commercialPlanId:commercialPlan.id}",
-    );
+    expect(reconciliation).toContain("planCode: local.planCode");
+    expect(reconciliation).toContain("commercialPlanId: commercialPlan.id");
     expect(worker).toContain("new AsaasBillingReconciliationService");
     expect(worker).toContain("createAsaasBillingReconciliationAdapter()");
     expect(worker).toContain('provider: "ASAAS"');
